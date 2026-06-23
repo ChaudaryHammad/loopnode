@@ -12,9 +12,11 @@ import {
   normalizeUrl,
 } from "./url-utils";
 import type {
+  BrokenLinkScanResult,
   BrokenLinkFinding,
   BrokenLinkProgress,
   ExtractedLink,
+  WwwFallbackResolution,
 } from "./types";
 import { ScanCancelledError } from "./scan-errors";
 
@@ -144,6 +146,17 @@ async function checkLink(
   }
 }
 
+function buildWwwFallbackUrl(href: string): string | null {
+  try {
+    const url = new URL(href);
+    if (url.hostname.startsWith("www.")) return null;
+    url.hostname = `www.${url.hostname}`;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 function severityForStatus(statusCode: number | null): BrokenLinkFinding["severity"] {
   if (statusCode === 404 || statusCode === 410) return "CRITICAL";
   if (statusCode === null) return "MAJOR";
@@ -192,7 +205,7 @@ export async function runBrokenLinkScan(
   resourceTypes: LinkResourceType[],
   onProgress: ProgressCallback,
   shouldCancel?: CancelCheck
-): Promise<BrokenLinkFinding[]> {
+): Promise<BrokenLinkScanResult> {
   const normalizedStart = startUrl.startsWith("http") ? startUrl : `https://${startUrl}`;
   const siteOrigin = getOrigin(normalizedStart);
   const allowedTypes = new Set(resourceTypes);
@@ -273,6 +286,7 @@ export async function runBrokenLinkScan(
 
   const uniqueHrefs = [...uniqueByHref.keys()];
   const findings: BrokenLinkFinding[] = [];
+  const wwwFallbacks: WwwFallbackResolution[] = [];
   let linksChecked = 0;
 
   await onProgress({
@@ -310,6 +324,19 @@ export async function runBrokenLinkScan(
 
         const result = await checkLink(targetHref);
         if (!result.ok) {
+          const fallbackHref = buildWwwFallbackUrl(targetHref);
+          const fallbackResult = fallbackHref ? await checkLink(fallbackHref) : null;
+
+          if (fallbackHref && fallbackResult?.ok) {
+            wwwFallbacks.push({
+              href: targetHref,
+              fallbackHref,
+              statusCode: result.statusCode,
+              errorMessage: result.errorMessage,
+            });
+            return;
+          }
+
           for (const occurrence of occurrences) {
             findings.push({
               href: occurrence.href,
@@ -331,7 +358,7 @@ export async function runBrokenLinkScan(
     );
   } catch (error) {
     if (error instanceof ScanCancelledError) {
-      throw new ScanCancelledError(findings);
+      throw new ScanCancelledError(findings, wwwFallbacks);
     }
     throw error;
   }
@@ -347,5 +374,5 @@ export async function runBrokenLinkScan(
     progressPercent: 100,
   });
 
-  return findings;
+  return { findings, wwwFallbacks };
 }

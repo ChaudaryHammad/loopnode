@@ -63,3 +63,15 @@ export interface BrokenLinkFinding {
   attribute: string;
   severity: IssueSeverity;
 }
+
+export interface WwwFallbackResolution {
+  href: string;
+  fallbackHref: string;
+  statusCode: number | null;
+  errorMessage: string | null;
+}
+
+export interface BrokenLinkScanResult {
+  findings: BrokenLinkFinding[];
+  wwwFallbacks: WwwFallbackResolution[];
+}

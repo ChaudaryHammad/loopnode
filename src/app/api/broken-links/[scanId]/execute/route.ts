@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { runBrokenLinkScan } from "@/lib/scanner/broken-link-runner";
 import { ScanCancelledError } from "@/lib/scanner/scan-errors";
 import { parseResourceTypes } from "@/lib/scanner/link-resource-types";
-import type { BrokenLinkFinding } from "@/lib/scanner/types";
+import type { BrokenLinkFinding, WwwFallbackResolution } from "@/lib/scanner/types";
 
 export const maxDuration = 300;
 
@@ -26,14 +26,25 @@ function mapFindings(findings: BrokenLinkFinding[]) {
 
 function scanResponse(
   findings: BrokenLinkFinding[],
+  wwwFallbacks: WwwFallbackResolution[] = [],
   extra?: Record<string, unknown>
 ) {
   return NextResponse.json({
     success: true,
     brokenCount: findings.length,
     findings: mapFindings(findings),
+    wwwFallbacks,
     ...extra,
   });
+}
+
+function finalStatusMessage(
+  brokenCount: number,
+  wwwFallbacks: WwwFallbackResolution[]
+) {
+  const fallbackCount = wwwFallbacks.length;
+  if (fallbackCount === 0) return `Found ${brokenCount} broken link(s)`;
+  return `Found ${brokenCount} broken link(s); ${fallbackCount} worked on www. instead`;
 }
 
 export async function POST(
@@ -81,7 +92,7 @@ export async function POST(
   try {
     const resourceTypes = parseResourceTypes(body.resourceTypes);
 
-    const findings = await runBrokenLinkScan(
+    const result = await runBrokenLinkScan(
       scan.website.url,
       scan.mode,
       resourceTypes,
@@ -106,10 +117,11 @@ export async function POST(
       },
       shouldCancel
     );
+    const { findings, wwwFallbacks } = result;
 
     const alreadyCancelled = await shouldCancel();
     if (alreadyCancelled) {
-      return scanResponse(findings, { cancelled: true });
+      return scanResponse(findings, wwwFallbacks, { cancelled: true });
     }
 
     await prisma.brokenLinkScan.update({
@@ -117,7 +129,7 @@ export async function POST(
       data: {
         status: "COMPLETED",
         phase: "completed",
-        statusMessage: `Found ${findings.length} broken link(s)`,
+        statusMessage: finalStatusMessage(findings.length, wwwFallbacks),
         brokenCount: findings.length,
         progressPercent: 100,
         completedAt: new Date(),
@@ -134,11 +146,12 @@ export async function POST(
           scanId,
           mode: scan.mode,
           brokenCount: findings.length,
+          wwwFallbackCount: wwwFallbacks.length,
         },
       },
     });
 
-    return scanResponse(findings);
+    return scanResponse(findings, wwwFallbacks);
   } catch (error) {
     if (error instanceof ScanCancelledError) {
       await prisma.brokenLinkScan.update({
@@ -153,7 +166,7 @@ export async function POST(
         },
       });
 
-      return scanResponse(error.findings, { cancelled: true });
+      return scanResponse(error.findings, error.wwwFallbacks, { cancelled: true });
     }
 
     console.error("Broken link scan error:", error);

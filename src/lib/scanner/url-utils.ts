@@ -3,6 +3,7 @@ export function normalizeUrl(raw: string, baseUrl: string): string | null {
     const resolved = new URL(raw, baseUrl);
     if (!["http:", "https:"].includes(resolved.protocol)) return null;
     resolved.hash = "";
+    resolved.pathname = resolved.pathname.replace(/\.html?$/i, "");
     let normalized = resolved.href;
     if (normalized.endsWith("/") && resolved.pathname !== "/") {
       normalized = normalized.slice(0, -1);
