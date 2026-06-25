@@ -64,6 +64,7 @@ export async function launchBrowser(): Promise<Browser> {
   const baseOptions: LaunchOptions = {
     headless: true,
     args: LAUNCH_ARGS,
+    timeout: 30000,
   };
 
   const executablePath = await resolveExecutablePath();

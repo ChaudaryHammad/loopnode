@@ -45,6 +45,5 @@ export default defineConfig({
   },
   build: {
     extensions: [puppeteer()],
-    external: ["lighthouse"],
   },
 });

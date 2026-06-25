@@ -1,7 +1,8 @@
-import { readFile } from "fs/promises";
-import path from "path";
+import axe from "axe-core";
 import type { Page } from "puppeteer";
 import type { ScanIssueInput } from "./types";
+
+const AXE_TIMEOUT_MS = 30000;
 
 const IMPACT_TO_SEVERITY: Record<string, ScanIssueInput["severity"]> = {
   critical: "CRITICAL",
@@ -10,23 +11,52 @@ const IMPACT_TO_SEVERITY: Record<string, ScanIssueInput["severity"]> = {
   minor: "INFO",
 };
 
-async function loadAxeSource(): Promise<string> {
-  const axePath = path.join(process.cwd(), "node_modules/axe-core/axe.min.js");
-  return readFile(axePath, "utf8");
-}
+type AxeWindow = Window & {
+  axe: {
+    run: (
+      context: Document,
+      options: {
+        runOnly: { type: "tag"; values: string[] };
+        resultTypes: string[];
+      }
+    ) => Promise<{
+      violations: Array<{
+        id: string;
+        impact?: string;
+        help: string;
+        description: string;
+        helpUrl: string;
+        nodes: Array<{
+          target: string[];
+          html: string;
+          failureSummary?: string;
+        }>;
+      }>;
+    }>;
+  };
+};
 
 export async function runAccessibilityAudit(page: Page): Promise<{
   score: number;
   issues: ScanIssueInput[];
 }> {
-  const axeSource = await loadAxeSource();
-  await page.evaluate(axeSource);
-  const results = await page.evaluate(async () => {
-    // @ts-expect-error axe injected at runtime
-    return await window.axe.run(document, {
-      runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "best-practice"] },
+  await page.addScriptTag({ content: axe.source });
+  const results = await page.evaluate(async (timeoutMs) => {
+    const timeout = new Promise<never>((_, reject) => {
+      window.setTimeout(
+        () => reject(new Error("axe-core timed out")),
+        timeoutMs
+      );
     });
-  });
+
+    return await Promise.race([
+      (window as unknown as AxeWindow).axe.run(document, {
+        runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "best-practice"] },
+        resultTypes: ["violations"],
+      }),
+      timeout,
+    ]);
+  }, AXE_TIMEOUT_MS);
 
   const issues: ScanIssueInput[] = results.violations.map((v: {
     id: string;
