@@ -49,10 +49,10 @@ function getPrismaClient() {
     return cached;
   }
 
-  if (cached) {
-    void cached.$disconnect();
-  }
-
+if (cached !== undefined) {
+  void (cached as PrismaClient).$disconnect();
+}
+	
   const client = createPrismaClient();
   if (process.env.NODE_ENV !== "production") {
     globalForPrisma.prisma = client;

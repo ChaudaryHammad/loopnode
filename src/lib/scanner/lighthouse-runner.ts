@@ -1,4 +1,3 @@
-import lighthouse from "lighthouse";
 import type { Browser } from "puppeteer";
 import type { ScanIssueInput } from "./types";
 
@@ -24,6 +23,7 @@ export async function runPerformanceAudit(
 }> {
   const endpoint = browser.wsEndpoint();
   const port = Number(new URL(endpoint).port);
+  const { default: lighthouse } = await import("lighthouse");
 
   const runnerResult = await lighthouse(url, {
     port,

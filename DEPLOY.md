@@ -132,6 +132,7 @@ The worker runs on Trigger’s servers and needs database access. In **Trigger.d
 | `DATABASE_URL` | Yes | Same Supabase pooler URL as Vercel |
 | `DIRECT_URL` | Yes | Same Supabase direct URL as Vercel |
 | `NEXT_PUBLIC_APP_URL` | Yes | `https://your-app.vercel.app` |
+| `PUPPETEER_EXECUTABLE_PATH` | Yes | `/usr/bin/google-chrome-stable` |
 
 Redeploy Trigger tasks after changing these:
 
@@ -237,6 +238,7 @@ Mirror **database and app URL** vars in **Trigger.dev → Environment variables*
 - `DATABASE_URL`
 - `DIRECT_URL`
 - `NEXT_PUBLIC_APP_URL`
+- `PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable`
 
 Then run `npx trigger.dev@latest deploy` so the worker picks them up.
 
@@ -283,7 +285,7 @@ After deploy, copy the production URL and **update** `AUTH_URL` and `NEXT_PUBLIC
 - [ ] `npx prisma db push` ran against production Supabase
 - [ ] **`npx trigger.dev@latest deploy` succeeded** (not optional — Vercel alone cannot run audits)
 - [ ] Trigger.dev dashboard → **Deployments** shows your task bundle
-- [ ] Trigger.dev → **Environment variables** has `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_APP_URL`
+- [ ] Trigger.dev → **Environment variables** has `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_APP_URL`, `PUPPETEER_EXECUTABLE_PATH`
 - [ ] Vercel has `USE_TRIGGER_DEV=true` and **production** `TRIGGER_SECRET_KEY` (`tr_prod_...`)
 - [ ] `AUTH_URL` / `NEXT_PUBLIC_APP_URL` match live URL
 - [ ] Cloudinary PDF delivery enabled
@@ -333,7 +335,8 @@ Work through this list in order:
    - **No runs appear** → Vercel is not queuing (check keys + `USE_TRIGGER_DEV`).
    - **Runs appear but fail** → open the run log; usually missing `DATABASE_URL` / `DIRECT_URL` on Trigger.dev.
 5. Trigger.dev → **Environment variables** (Production) must include `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_APP_URL`.
-6. After fixing Trigger env, run `npx trigger.dev@latest deploy` again.
+6. Trigger.dev → **Environment variables** must include `PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable` for cloud Chrome.
+7. After fixing Trigger env, run `npx trigger.dev@latest deploy` again.
 
 ### `Invalid environment variables` on Vercel build
 

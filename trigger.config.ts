@@ -1,10 +1,11 @@
 import { config } from "dotenv";
 import { defineConfig } from "@trigger.dev/sdk";
+import { puppeteer } from "@trigger.dev/build/extensions/puppeteer";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
 
-const project = process.env.TRIGGER_PROJECT_REF?.trim();
+const project = "proj_fhfifebhcrnfuorabfit";
 
 if (!project) {
   throw new Error(
@@ -21,6 +22,7 @@ const TASK_ENV_KEYS = [
   "USE_TRIGGER_DEV",
   "TRIGGER_SECRET_KEY",
   "TRIGGER_PROJECT_REF",
+  "PUPPETEER_EXECUTABLE_PATH",
 ] as const;
 
 function taskEnv(): Record<string, string> {
@@ -42,13 +44,7 @@ export default defineConfig({
     env: taskEnv(),
   },
   build: {
-    external: [
-      "puppeteer",
-      "puppeteer-core",
-      "lighthouse",
-      "chrome-launcher",
-      "axe-core",
-      "cheerio",
-    ],
+    extensions: [puppeteer()],
+    external: ["lighthouse"],
   },
 });
