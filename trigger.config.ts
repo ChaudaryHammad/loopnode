@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import { defineConfig } from "@trigger.dev/sdk";
+import { additionalFiles } from "@trigger.dev/build/extensions/core";
 import { puppeteer } from "@trigger.dev/build/extensions/puppeteer";
 
 config({ path: ".env.local" });
@@ -44,6 +45,9 @@ export default defineConfig({
     env: taskEnv(),
   },
   build: {
-    extensions: [puppeteer()],
+    extensions: [
+      puppeteer(),
+      additionalFiles({ files: ["node_modules/axe-core/axe.min.js"] }),
+    ],
   },
 });

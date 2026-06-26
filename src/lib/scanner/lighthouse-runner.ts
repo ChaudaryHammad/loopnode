@@ -7,6 +7,8 @@ type PerformanceSnapshot = {
   cls: number | null;
   inp: number | null;
   tbt: number | null;
+  loadTime: number | null;
+  domContentLoaded: number | null;
 };
 
 function roundMetric(value: number | null): number | null {
@@ -15,6 +17,16 @@ function roundMetric(value: number | null): number | null {
 
 function clampScore(score: number): number {
   return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function firstNumber(...values: Array<number | null | undefined>): number | null {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 function pushMetricIssue(
@@ -126,23 +138,43 @@ export async function runPerformanceAudit(
     const perf = (window as Window & {
       __loopnodePerformance?: PerformanceSnapshot;
     }).__loopnodePerformance;
+    const paints = performance.getEntriesByType("paint");
+    const fcpEntry = paints.find((entry) => entry.name === "first-contentful-paint");
+    const navigation = performance.getEntriesByType("navigation")[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    const lcpEntries = performance.getEntriesByType("largest-contentful-paint");
+    const lcpEntry = lcpEntries.at(-1);
 
     return {
-      fcp: perf?.fcp ?? null,
-      lcp: perf?.lcp ?? null,
-      cls: perf?.cls ?? null,
+      fcp: perf?.fcp ?? fcpEntry?.startTime ?? null,
+      lcp: perf?.lcp ?? lcpEntry?.startTime ?? null,
+      cls: perf?.cls ?? 0,
       inp: perf?.inp ?? null,
-      tbt: perf?.tbt ?? null,
+      tbt: perf?.tbt ?? 0,
+      loadTime: navigation?.loadEventEnd
+        ? navigation.loadEventEnd - navigation.startTime
+        : null,
+      domContentLoaded: navigation?.domContentLoadedEventEnd
+        ? navigation.domContentLoadedEventEnd - navigation.startTime
+        : null,
     };
   });
 
+  const cdpMetrics = await page.metrics().catch(() => null);
+
   const issues: ScanIssueInput[] = [];
 
-  const fcp = roundMetric(snapshot.fcp);
-  const lcp = roundMetric(snapshot.lcp);
+  const taskDuration = cdpMetrics?.TaskDuration
+    ? Math.max(0, cdpMetrics.TaskDuration * 1000)
+    : null;
+  const fallbackPaint = firstNumber(snapshot.domContentLoaded, snapshot.loadTime);
+
+  const fcp = roundMetric(firstNumber(snapshot.fcp, fallbackPaint));
+  const lcp = roundMetric(firstNumber(snapshot.lcp, snapshot.fcp, fallbackPaint));
   const cls = snapshot.cls === null ? null : parseFloat(snapshot.cls.toFixed(3));
-  const inp = roundMetric(snapshot.inp);
-  const tbt = roundMetric(snapshot.tbt);
+  const tbt = roundMetric(firstNumber(snapshot.tbt, taskDuration, 0));
+  const inp = roundMetric(firstNumber(snapshot.inp, tbt));
 
   let score = 100;
 

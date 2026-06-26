@@ -1,8 +1,14 @@
-import axe from "axe-core";
+import { existsSync } from "fs";
+import { readFile } from "fs/promises";
+import { createRequire } from "module";
+import path from "path";
 import type { Page } from "puppeteer";
 import type { ScanIssueInput } from "./types";
 
 const AXE_TIMEOUT_MS = 30000;
+const require = createRequire(import.meta.url);
+
+let axeSourceCache: string | undefined;
 
 const IMPACT_TO_SEVERITY: Record<string, ScanIssueInput["severity"]> = {
   critical: "CRITICAL",
@@ -36,11 +42,51 @@ type AxeWindow = Window & {
   };
 };
 
+async function loadAxeSource(): Promise<string> {
+  if (axeSourceCache) return axeSourceCache;
+
+  const copiedAssetPath = path.join(
+    process.cwd(),
+    "node_modules",
+    "axe-core",
+    "axe.min.js"
+  );
+  const axePath = existsSync(copiedAssetPath)
+    ? copiedAssetPath
+    : require.resolve("axe-core/axe.min.js");
+
+  axeSourceCache = await readFile(axePath, "utf8");
+  return axeSourceCache;
+}
+
+async function injectAxe(page: Page): Promise<void> {
+  const axeSource = await loadAxeSource();
+  await page.addScriptTag({ content: axeSource });
+
+  const hasAxe = await page.evaluate(() => {
+    return typeof (window as unknown as Partial<AxeWindow>).axe?.run === "function";
+  });
+
+  if (hasAxe) return;
+
+  await page.evaluate((axeSource) => {
+    window.eval(axeSource);
+  }, axeSource);
+
+  const hasFallbackAxe = await page.evaluate(() => {
+    return typeof (window as unknown as Partial<AxeWindow>).axe?.run === "function";
+  });
+
+  if (!hasFallbackAxe) {
+    throw new Error("axe-core failed to initialize in the browser page");
+  }
+}
+
 export async function runAccessibilityAudit(page: Page): Promise<{
   score: number;
   issues: ScanIssueInput[];
 }> {
-  await page.addScriptTag({ content: axe.source });
+  await injectAxe(page);
   const results = await page.evaluate(async (timeoutMs) => {
     const timeout = new Promise<never>((_, reject) => {
       window.setTimeout(

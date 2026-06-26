@@ -6,6 +6,7 @@ import { runSecurityAudit } from "./security-runner";
 import type { AuditResult } from "./types";
 
 const BROWSER_CLOSE_TIMEOUT_MS = 5000;
+const PAGE_SETUP_TIMEOUT_MS = 15000;
 
 async function withTimeout<T>(
   label: string,
@@ -81,17 +82,38 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
   console.log("[audit] Browser launched");
 
   try {
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 800 });
-    await preparePerformanceMonitoring(page);
+    const page = await withTimeout(
+      "Audit page creation",
+      PAGE_SETUP_TIMEOUT_MS,
+      browser.newPage()
+    );
+    await withTimeout(
+      "Audit viewport setup",
+      PAGE_SETUP_TIMEOUT_MS,
+      page.setViewport({ width: 1280, height: 800 })
+    );
+    await withTimeout(
+      "Performance monitor setup",
+      PAGE_SETUP_TIMEOUT_MS,
+      preparePerformanceMonitoring(page)
+    );
     console.log("[audit] Opening page");
-    await page.goto(normalizedUrl, {
-      waitUntil: "domcontentloaded",
-      timeout: 45000,
-    });
+    await withTimeout(
+      "Page navigation",
+      50000,
+      page.goto(normalizedUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 45000,
+      }),
+      () => closePageSoon(page)
+    );
     console.log("[audit] Page loaded");
 
-    const html = await page.content();
+    const html = await withTimeout(
+      "HTML snapshot",
+      PAGE_SETUP_TIMEOUT_MS,
+      page.content()
+    );
 
     console.log("[audit] Running performance audit");
     const performance = await withTimeout(
@@ -114,20 +136,41 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
     });
     console.log("[audit] Performance audit completed");
 
-    const accessibilityPage = await browser.newPage();
-    await accessibilityPage.setViewport({ width: 1280, height: 800 });
-    await accessibilityPage.setContent(html, {
-      waitUntil: "domcontentloaded",
-      timeout: 15000,
-    });
+    console.log("[audit] Preparing accessibility audit");
+    const accessibility = await (async () => {
+      let accessibilityPage: Awaited<ReturnType<typeof browser.newPage>> | undefined;
+      try {
+        accessibilityPage = await withTimeout(
+          "Accessibility page creation",
+          PAGE_SETUP_TIMEOUT_MS,
+          browser.newPage()
+        );
+        await withTimeout(
+          "Accessibility viewport setup",
+          PAGE_SETUP_TIMEOUT_MS,
+          accessibilityPage.setViewport({ width: 1280, height: 800 })
+        );
+        await withTimeout(
+          "Accessibility content setup",
+          PAGE_SETUP_TIMEOUT_MS,
+          accessibilityPage.setContent(html, {
+            waitUntil: "domcontentloaded",
+            timeout: PAGE_SETUP_TIMEOUT_MS,
+          }),
+          () => accessibilityPage && closePageSoon(accessibilityPage)
+        );
 
-    console.log("[audit] Running accessibility audit");
-    const accessibility = await withTimeout(
-      "Accessibility audit",
-      45000,
-      runAccessibilityAudit(accessibilityPage),
-      () => closePageSoon(accessibilityPage)
-    ).catch((error) => {
+        console.log("[audit] Running accessibility audit");
+        return await withTimeout(
+          "Accessibility audit",
+          45000,
+          runAccessibilityAudit(accessibilityPage),
+          () => accessibilityPage && closePageSoon(accessibilityPage)
+        );
+      } finally {
+        if (accessibilityPage) closePageSoon(accessibilityPage);
+      }
+    })().catch((error) => {
       console.error("[audit] Accessibility audit failed", error);
       return {
         score: 0,
@@ -135,8 +178,6 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
           scannerFailureIssue("ACCESSIBILITY", "Accessibility audit failed", error),
         ],
       };
-    }).finally(() => {
-      closePageSoon(accessibilityPage);
     });
     console.log("[audit] Accessibility audit completed");
 
