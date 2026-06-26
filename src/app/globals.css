@@ -3,6 +3,7 @@
 @plugin "tailwindcss-animate";
 
 @theme {
+  --font-mono: var(--font-roboto-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 

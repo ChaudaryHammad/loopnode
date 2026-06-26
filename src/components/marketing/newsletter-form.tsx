@@ -40,7 +40,7 @@ export function NewsletterForm() {
         <Input
           type="email"
           required
-          placeholder="email@example.com"
+          placeholder="sarahconnor@gmail.com"
           value={email}
           disabled={isPending}
           onChange={(e) => setEmail(e.target.value)}

@@ -37,6 +37,7 @@
     "puppeteer": "^24.15.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-google-recaptcha-v3": "^1.11.0",
     "react-hook-form": "^7.80.0",
     "shadcn": "^4.11.0",
     "tailwind-merge": "^3.6.0",
@@ -45,10 +46,10 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@trigger.dev/build": "4.4.6",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@trigger.dev/build": "4.4.6",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",

@@ -14,7 +14,25 @@ const contactSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
   subject: z.string().min(3, "Subject must be at least 3 characters."),
   message: z.string().min(10, "Message must be at least 10 characters."),
+  recaptchaToken: z.string().min(1, "reCAPTCHA token is missing."),
 });
+
+async function verifyRecaptcha(token: string): Promise<{ success: boolean; score?: number }> {
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+  if (!secretKey) {
+    console.error("RECAPTCHA_SECRET_KEY is not set");
+    return { success: false };
+  }
+
+  const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ secret: secretKey, response: token }).toString(),
+  });
+
+  const data = await response.json();
+  return { success: data.success === true, score: data.score };
+}
 
 export async function submitContactForm(values: unknown) {
   const parsed = contactSchema.safeParse(values);
@@ -22,7 +40,17 @@ export async function submitContactForm(values: unknown) {
     return { success: false, error: parsed.error.issues[0].message };
   }
 
-  const { name, email, subject, message } = parsed.data;
+  const { name, email, subject, message, recaptchaToken } = parsed.data;
+
+  // Verify reCAPTCHA token server-side
+  const captchaResult = await verifyRecaptcha(recaptchaToken);
+  if (!captchaResult.success) {
+    return { success: false, error: "reCAPTCHA verification failed. Please try again." };
+  }
+  // Reject likely bots (score < 0.5 on a 0.0–1.0 scale)
+  if (captchaResult.score !== undefined && captchaResult.score < 0.5) {
+    return { success: false, error: "Your request was flagged as suspicious. Please try again." };
+  }
 
   try {
     const supportEmail = getSupportEmail();
