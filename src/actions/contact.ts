@@ -8,6 +8,7 @@ import {
   renderContactConfirmationEmail,
   renderContactSupportEmail,
 } from "@/lib/email/templates";
+import { verifyRecaptcha } from "@/lib/recaptcha";
 
 const contactSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -17,22 +18,6 @@ const contactSchema = z.object({
   recaptchaToken: z.string().min(1, "reCAPTCHA token is missing."),
 });
 
-async function verifyRecaptcha(token: string): Promise<{ success: boolean; score?: number }> {
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-  if (!secretKey) {
-    console.error("RECAPTCHA_SECRET_KEY is not set");
-    return { success: false };
-  }
-
-  const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ secret: secretKey, response: token }).toString(),
-  });
-
-  const data = await response.json();
-  return { success: data.success === true, score: data.score };
-}
 
 export async function submitContactForm(values: unknown) {
   const parsed = contactSchema.safeParse(values);

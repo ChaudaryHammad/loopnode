@@ -12,13 +12,19 @@ import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  GoogleReCaptchaProvider,
+  useGoogleReCaptcha,
+} from "react-google-recaptcha-v3";
+import { z } from "zod";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const {
     register,
@@ -35,16 +41,18 @@ export default function RegisterPage() {
     },
   });
 
-  const onSubmit = (data: {
-    name: string;
-    email: string;
-    password: string;
-    confirmPassword: string;
-  }) => {
+  const onSubmit = (data: z.infer<typeof registerSchema>) => {
     setError(null);
     setSuccess(null);
     startTransition(async () => {
-      const response = await registerAction(data);
+      if (!executeRecaptcha) {
+        setError("reCAPTCHA is not ready. Please try again in a moment.");
+        return;
+      }
+
+      const recaptchaToken = await executeRecaptcha("register");
+      const response = await registerAction({ ...data, recaptchaToken });
+      
       if (response.success) {
         setSuccess(response.message || "Registration successful! Check your email.");
         reset();
@@ -199,5 +207,15 @@ export default function RegisterPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!;
+
+  return (
+    <GoogleReCaptchaProvider reCaptchaKey={siteKey}>
+      <RegisterForm />
+    </GoogleReCaptchaProvider>
   );
 }

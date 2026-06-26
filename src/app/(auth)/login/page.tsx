@@ -12,11 +12,17 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  GoogleReCaptchaProvider,
+  useGoogleReCaptcha,
+} from "react-google-recaptcha-v3";
+import { z } from "zod";
 
-export default function LoginPage() {
+function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const {
     register,
@@ -33,10 +39,17 @@ export default function LoginPage() {
     },
   });
 
-  const onSubmit = (data: { email: string; password: string; rememberMe?: boolean }) => {
+  const onSubmit = (data: z.infer<typeof loginSchema>) => {
     setError(null);
     startTransition(async () => {
-      const response = await loginAction(data);
+      if (!executeRecaptcha) {
+        setError("reCAPTCHA is not ready. Please try again in a moment.");
+        return;
+      }
+
+      const recaptchaToken = await executeRecaptcha("login");
+      const response = await loginAction({ ...data, recaptchaToken });
+      
       if (response && !response.success) {
         setError(response.error || "Invalid credentials.");
       }
@@ -155,5 +168,15 @@ export default function LoginPage() {
         </Button>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!;
+
+  return (
+    <GoogleReCaptchaProvider reCaptchaKey={siteKey}>
+      <LoginForm />
+    </GoogleReCaptchaProvider>
   );
 }

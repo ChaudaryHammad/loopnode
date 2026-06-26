@@ -19,6 +19,7 @@ import {
   renderPasswordResetEmail,
   renderPasswordResetSuccessEmail,
 } from "@/lib/email/templates";
+import { verifyRecaptcha } from "@/lib/recaptcha";
 
 export async function loginAction(values: any) {
   const parsed = loginSchema.safeParse(values);
@@ -26,7 +27,15 @@ export async function loginAction(values: any) {
     return { success: false, error: "Invalid form input." };
   }
 
-  const { email, password } = parsed.data;
+  const { email, password, recaptchaToken } = parsed.data;
+
+  const captchaResult = await verifyRecaptcha(recaptchaToken);
+  if (!captchaResult.success) {
+    return { success: false, error: "reCAPTCHA verification failed. Please try again." };
+  }
+  if (captchaResult.score !== undefined && captchaResult.score < 0.5) {
+    return { success: false, error: "Your request was flagged as suspicious." };
+  }
 
   try {
     await signIn("credentials", {
@@ -54,8 +63,16 @@ export async function registerAction(values: any) {
     return { success: false, error: "Invalid form input." };
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password, recaptchaToken } = parsed.data;
   const normalizedEmail = email.toLowerCase();
+
+  const captchaResult = await verifyRecaptcha(recaptchaToken);
+  if (!captchaResult.success) {
+    return { success: false, error: "reCAPTCHA verification failed. Please try again." };
+  }
+  if (captchaResult.score !== undefined && captchaResult.score < 0.5) {
+    return { success: false, error: "Your request was flagged as suspicious." };
+  }
 
   try {
     const existingUser = await prisma.user.findFirst({
