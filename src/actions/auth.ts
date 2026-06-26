@@ -29,7 +29,7 @@ export async function loginAction(values: any) {
 
   const { email, password, recaptchaToken } = parsed.data;
 
-  const captchaResult = await verifyRecaptcha(recaptchaToken);
+  const captchaResult = await verifyRecaptcha(recaptchaToken ?? "");
   if (!captchaResult.success) {
     return { success: false, error: "reCAPTCHA verification failed. Please try again." };
   }
@@ -66,7 +66,7 @@ export async function registerAction(values: any) {
   const { name, email, password, recaptchaToken } = parsed.data;
   const normalizedEmail = email.toLowerCase();
 
-  const captchaResult = await verifyRecaptcha(recaptchaToken);
+  const captchaResult = await verifyRecaptcha(recaptchaToken ?? "");
   if (!captchaResult.success) {
     return { success: false, error: "reCAPTCHA verification failed. Please try again." };
   }
