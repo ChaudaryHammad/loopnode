@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cancelTriggerRun } from "@/lib/trigger-cancel";
 import { generateBrokenLinksPdf } from "@/lib/reports/generate-broken-links-pdf";
 import type { BrokenLinkScanMode } from "@prisma/client";
 import type { LinkResourceType } from "@/lib/scanner/link-resource-types";
@@ -97,6 +98,47 @@ export async function getBrokenLinkScanStatusAction(scanId: string) {
   return { success: true, data: scan };
 }
 
+export async function getBrokenLinkScanResultsAction(scanId: string) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized." };
+  }
+
+  const scan = await prisma.brokenLinkScan.findFirst({
+    where: {
+      id: scanId,
+      website: { userId: session.user.id, deletedAt: null },
+    },
+    include: {
+      results: {
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+
+  if (!scan) {
+    return { success: false, error: "Scan not found." };
+  }
+
+  return {
+    success: true,
+    data: scan.results.map((result) => ({
+      id: result.id,
+      href: result.href,
+      sourcePageUrl: result.sourcePageUrl,
+      statusCode: result.statusCode,
+      errorMessage: result.errorMessage,
+      elementTag: result.elementTag,
+      elementId: result.elementId,
+      elementClass: result.elementClass,
+      elementText: result.elementText,
+      selector: result.selector,
+      attribute: result.attribute,
+      severity: result.severity,
+    })),
+  };
+}
+
 export async function getLatestBrokenLinkScanAction(websiteId: string) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -137,10 +179,13 @@ export async function cancelBrokenLinkScanAction(scanId: string) {
     data: {
       status: "FAILED",
       phase: "cancelled",
-      statusMessage: "Halting scan…",
+      statusMessage: "Scan halted by user",
       errorMessage: "Halted by user",
+      completedAt: new Date(),
     },
   });
+
+  await cancelTriggerRun(scan.triggerRunId);
 
   return { success: true };
 }

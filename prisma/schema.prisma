@@ -216,6 +216,7 @@ model Scan {
 
   // Metadata
   screenshot   String?   // Cloudinary URL
+  triggerRunId String?   // Trigger.dev run id when queued remotely
   startedAt    DateTime?
   completedAt  DateTime?
   errorMessage String?
@@ -272,6 +273,7 @@ model BrokenLinkScan {
   linksChecked    Int                  @default(0)
   brokenCount     Int                  @default(0)
   progressPercent Float                @default(0)
+  triggerRunId    String?
   startedAt       DateTime?
   completedAt     DateTime?
   errorMessage    String?              @db.Text

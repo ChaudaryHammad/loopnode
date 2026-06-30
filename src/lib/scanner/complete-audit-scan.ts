@@ -1,16 +1,22 @@
 import { prisma } from "@/lib/prisma";
-import { assertScanRunnable } from "./audit-scan-control";
+import { assertScanRunnable, isAuditScanCancelled } from "./audit-scan-control";
 import { autoResolveIssuesAfterAudit } from "@/lib/issue-service";
 import { computeIssueFingerprint } from "@/lib/issues";
 
 export async function completeAuditScan(
   scanId: string,
-  website: { id: string; name: string; url: string; userId: string }
+  website: { id: string; name: string; url: string; userId: string },
+  abortSignal?: AbortSignal
 ) {
   await assertScanRunnable(scanId);
 
+  const shouldCancel = async () => {
+    if (abortSignal?.aborted) return true;
+    return isAuditScanCancelled(scanId);
+  };
+
   const { runFullAudit } = await import("./audit-runner");
-  const result = await runFullAudit(website.url);
+  const result = await runFullAudit(website.url, shouldCancel);
 
   await assertScanRunnable(scanId);
 

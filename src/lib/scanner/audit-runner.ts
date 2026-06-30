@@ -9,9 +9,18 @@ import { runAccessibilityAudit } from "./accessibility-runner";
 import { runSeoAudit } from "./seo-runner";
 import { runSecurityAudit } from "./security-runner";
 import type { AuditResult } from "./types";
+import { AuditHaltedError } from "./audit-halted-error";
 
 const BROWSER_CLOSE_TIMEOUT_MS = 5000;
 const PAGE_SETUP_TIMEOUT_MS = 15000;
+
+type CancelCheck = () => Promise<boolean>;
+
+async function throwIfCancelled(shouldCancel?: CancelCheck): Promise<void> {
+  if (shouldCancel && (await shouldCancel())) {
+    throw new AuditHaltedError();
+  }
+}
 
 async function withTimeout<T>(
   label: string,
@@ -71,10 +80,15 @@ async function closeBrowserWithTimeout(
   }
 }
 
-export async function runFullAudit(url: string): Promise<AuditResult> {
+export async function runFullAudit(
+  url: string,
+  shouldCancel?: CancelCheck
+): Promise<AuditResult> {
   const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
 
   console.log(`[audit] Starting full audit for ${normalizedUrl}`);
+
+  await throwIfCancelled(shouldCancel);
 
   const securityPromise = withTimeout(
     "Security audit",
@@ -132,6 +146,8 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
     );
     const accessibilityHtml = sanitizeHtmlForAccessibilityAudit(html);
 
+    await throwIfCancelled(shouldCancel);
+
     console.log("[audit] Running performance audit");
     const performance = await withTimeout(
       "Performance audit",
@@ -152,6 +168,8 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
       };
     });
     console.log("[audit] Performance audit completed");
+
+    await throwIfCancelled(shouldCancel);
 
     console.log("[audit] Preparing accessibility audit");
     const accessibility = await (async () => {
@@ -208,6 +226,8 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
     });
     console.log("[audit] Accessibility audit completed");
 
+    await throwIfCancelled(shouldCancel);
+
     console.log("[audit] Running SEO audit");
     const seo = await withTimeout("SEO audit", 45000, runSeoAudit(normalizedUrl, html))
       .catch((error) => {
@@ -220,6 +240,8 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
         };
       });
     console.log("[audit] SEO audit completed");
+
+    await throwIfCancelled(shouldCancel);
 
     console.log("[audit] Waiting for security audit");
     const security = await securityPromise.catch((error) => {

@@ -322,6 +322,11 @@ export async function runBrokenLinkScan(
     browser = await createRenderedPageBrowser();
   } catch (error) {
     useBrowserRendering = false;
+    if (process.env.VERCEL) {
+      throw new Error(
+        "Headless Chrome is not available on Vercel. Enable USE_TRIGGER_DEV=true and deploy Trigger.dev tasks with: npx trigger.dev@latest deploy"
+      );
+    }
     console.warn(
       "[broken-links] Headless browser unavailable, falling back to static HTML fetch:",
       error instanceof Error ? error.message : error

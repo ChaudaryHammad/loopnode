@@ -24,6 +24,7 @@ import {
 import {
   startBrokenLinkScanAction,
   getBrokenLinkScanStatusAction,
+  getBrokenLinkScanResultsAction,
   cancelBrokenLinkScanAction,
   generateBrokenLinksPdfAction,
 } from "@/actions/broken-links";
@@ -394,6 +395,18 @@ export function BrokenLinksClient({
   const isRunning = activeScan?.status === "RUNNING" || activeScan?.status === "PENDING";
   const isScanning = isRunning || isStarting;
 
+  const loadScanResults = useCallback(async (scanId: string) => {
+    const res = await getBrokenLinkScanResultsAction(scanId);
+    if (res.success && res.data) {
+      setLiveResults(
+        res.data.map((finding) => ({
+          ...finding,
+          severity: finding.severity as Severity,
+        }))
+      );
+    }
+  }, []);
+
   const pollScan = useCallback(async (scanId: string) => {
     const res = await getBrokenLinkScanStatusAction(scanId);
     if (res.success && res.data) {
@@ -401,9 +414,9 @@ export function BrokenLinksClient({
         ...serializeScan(res.data),
         resourceTypes: prev?.resourceTypes ?? [...ALL_LINK_RESOURCE_TYPES],
       }));
-      return res.data.status;
+      return res.data;
     }
-    return "FAILED";
+    return null;
   }, []);
 
   useEffect(() => {
@@ -418,14 +431,25 @@ export function BrokenLinksClient({
     void pollScan(pollingId);
 
     const interval = setInterval(async () => {
-      const status = await pollScan(pollingId);
-      if (status !== "RUNNING" && status !== "PENDING") {
+      const scan = await pollScan(pollingId);
+      if (!scan) {
+        setPollingId(null);
+        return;
+      }
+
+      if (scan.status === "COMPLETED" || scan.phase === "cancelled") {
+        await loadScanResults(pollingId);
+        setPollingId(null);
+        return;
+      }
+
+      if (scan.status === "FAILED" && scan.phase !== "cancelled") {
         setPollingId(null);
       }
-    }, 1000);
+    }, 1500);
 
     return () => clearInterval(interval);
-  }, [pollingId, pollScan]);
+  }, [pollingId, pollScan, loadScanResults]);
 
   const toggleResourceType = (type: LinkResourceType) => {
     setSelectedTypes((current) =>
@@ -474,17 +498,26 @@ export function BrokenLinksClient({
           const data = await response.json();
           if (!response.ok) {
             setError(data.error ?? "Scan failed.");
-          } else if (Array.isArray(data.findings)) {
+            setPollingId(null);
+            return;
+          }
+
+          if (data.queued) {
+            return;
+          }
+
+          if (Array.isArray(data.findings)) {
             setLiveResults(findingsToResults(data.findings));
           }
+
           await pollScan(scanId);
+          if (!data.queued) {
+            setPollingId(null);
+          }
         })
         .catch((err) => {
           console.error(err);
           setError("Lost connection to the link checker. Refresh and try again.");
-        })
-        .finally(() => {
-          setPollingId(null);
         });
     } catch (err) {
       console.error(err);

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { AUDIT_HALTED_MESSAGE } from "@/lib/scanner/audit-scan-control";
+import { cancelTriggerRun } from "@/lib/trigger-cancel";
 
 const STALE_SCAN_MS = 10 * 60 * 1000;
 
@@ -122,6 +123,8 @@ export async function cancelScanAction(scanId: string) {
       completedAt: new Date(),
     },
   });
+
+  await cancelTriggerRun(scan.triggerRunId);
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/websites");

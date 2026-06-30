@@ -98,7 +98,13 @@ Trigger.dev cloud runs run-audit task      ← needs npx trigger.dev deploy + DB
 Scan completes in Supabase
 ```
 
-**Broken link scans are different** — they still run on Vercel API routes (`/api/broken-links/...`) and are **not** on Trigger yet. They may timeout on the free plan for large sites.
+**Broken link scans** also use Puppeteer for JavaScript-rendered pages. On Vercel they run via **Trigger.dev** when `USE_TRIGGER_DEV=true` (same as audits). Deploy tasks after changing `src/trigger/`:
+
+```bash
+npx trigger.dev@latest deploy
+```
+
+This deploys both `run-audit` and `run-broken-link-scan`.
 
 ### 4a. Create Trigger.dev project
 

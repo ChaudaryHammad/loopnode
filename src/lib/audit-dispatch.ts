@@ -18,6 +18,10 @@ export async function dispatchAuditScan(scanId: string): Promise<{
   if (getAuditRunnerMode() === "trigger") {
     const { tasks } = await import("@trigger.dev/sdk");
     const handle = await tasks.trigger<typeof runAuditTask>("run-audit", { scanId });
+    await prisma.scan.update({
+      where: { id: scanId },
+      data: { triggerRunId: handle.id },
+    });
     return { mode: "trigger", runId: handle.id };
   }
 
