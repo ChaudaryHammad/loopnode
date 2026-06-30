@@ -117,7 +117,7 @@ function ContactForm() {
                 Our support engineering team responds to all inquiries within 24 hours. Use the form
                 to reach us directly.
               </p>
-              <div className="text-sm font-semibold text-primary"><a href="loopenode@gmail.com">loopenode@gmail.com</a></div>
+              <div className="text-sm font-semibold text-primary"><a href="mailto:loopenode@gmail.com">loopenode@gmail.com</a></div>
             </div>
 
             <div className="flex-1 bg-card/40 backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-white/20 hover:bg-card/60 transition-colors group">

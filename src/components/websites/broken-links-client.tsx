@@ -302,7 +302,14 @@ function findingsToResults(
     severity: string;
   }>
 ): SerializedResult[] {
-  return findings.map((f, index) => ({
+  const uniqueByHref = new Map<string, (typeof findings)[number]>();
+  for (const finding of findings) {
+    if (!uniqueByHref.has(finding.href)) {
+      uniqueByHref.set(finding.href, finding);
+    }
+  }
+
+  return [...uniqueByHref.values()].map((f, index) => ({
     id: `${index}-${f.href.slice(0, 40)}`,
     href: f.href,
     sourcePageUrl: f.sourcePageUrl,

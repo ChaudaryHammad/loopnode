@@ -1,4 +1,9 @@
 import { launchBrowser } from "./launch-browser";
+import {
+  prepareAuditPage,
+  sanitizeHtmlForAccessibilityAudit,
+  stabilizePageMedia,
+} from "./audit-page-utils";
 import { preparePerformanceMonitoring, runPerformanceAudit } from "./lighthouse-runner";
 import { runAccessibilityAudit } from "./accessibility-runner";
 import { runSeoAudit } from "./seo-runner";
@@ -93,6 +98,11 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
       page.setViewport({ width: 1280, height: 800 })
     );
     await withTimeout(
+      "Audit page hardening",
+      PAGE_SETUP_TIMEOUT_MS,
+      prepareAuditPage(page)
+    );
+    await withTimeout(
       "Performance monitor setup",
       PAGE_SETUP_TIMEOUT_MS,
       preparePerformanceMonitoring(page)
@@ -109,11 +119,18 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
     );
     console.log("[audit] Page loaded");
 
+    await withTimeout(
+      "Media stabilization",
+      PAGE_SETUP_TIMEOUT_MS,
+      stabilizePageMedia(page)
+    );
+
     const html = await withTimeout(
       "HTML snapshot",
       PAGE_SETUP_TIMEOUT_MS,
       page.content()
     );
+    const accessibilityHtml = sanitizeHtmlForAccessibilityAudit(html);
 
     console.log("[audit] Running performance audit");
     const performance = await withTimeout(
@@ -151,13 +168,23 @@ export async function runFullAudit(url: string): Promise<AuditResult> {
           accessibilityPage.setViewport({ width: 1280, height: 800 })
         );
         await withTimeout(
+          "Accessibility page hardening",
+          PAGE_SETUP_TIMEOUT_MS,
+          prepareAuditPage(accessibilityPage)
+        );
+        await withTimeout(
           "Accessibility content setup",
           PAGE_SETUP_TIMEOUT_MS,
-          accessibilityPage.setContent(html, {
+          accessibilityPage.setContent(accessibilityHtml, {
             waitUntil: "domcontentloaded",
             timeout: PAGE_SETUP_TIMEOUT_MS,
           }),
           () => accessibilityPage && closePageSoon(accessibilityPage)
+        );
+        await withTimeout(
+          "Accessibility media stabilization",
+          PAGE_SETUP_TIMEOUT_MS,
+          stabilizePageMedia(accessibilityPage)
         );
 
         console.log("[audit] Running accessibility audit");

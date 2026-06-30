@@ -69,8 +69,8 @@ async function injectAxe(page: Page): Promise<void> {
 
   if (hasAxe) return;
 
-  await page.evaluate((axeSource) => {
-    window.eval(axeSource);
+  await page.evaluate((source) => {
+    window.eval(source);
   }, axeSource);
 
   const hasFallbackAxe = await page.evaluate(() => {

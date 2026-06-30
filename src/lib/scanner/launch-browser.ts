@@ -12,6 +12,7 @@ const LAUNCH_ARGS = [
   "--disable-sync",
   "--no-first-run",
   "--mute-audio",
+  "--autoplay-policy=user-gesture-required",
 ];
 
 function systemChromePaths(): string[] {

@@ -14,6 +14,14 @@ export function normalizeUrl(raw: string, baseUrl: string): string | null {
   }
 }
 
+/** Skip only anchors and javascript pseudo-links — not tel/mailto/http paths. */
+export function isUncheckableRawLink(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) return true;
+  const lower = trimmed.toLowerCase();
+  return lower.startsWith("#") || lower.startsWith("javascript:");
+}
+
 export function getOrigin(url: string): string {
   return new URL(url).origin;
 }

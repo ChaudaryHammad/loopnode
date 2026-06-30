@@ -1,14 +1,23 @@
 import * as cheerio from "cheerio";
+import type { Browser } from "puppeteer";
 import type { BrokenLinkScanMode } from "@prisma/client";
 import {
   type LinkResourceType,
   classifyLinkResource,
 } from "./link-resource-types";
 import {
+  LINK_ELEMENT_CONFIGS,
+  closeRenderedPageBrowser,
+  createRenderedPageBrowser,
+  fetchRenderedPageLinks,
+  type RawDomLink,
+} from "./rendered-page-fetcher";
+import {
   buildElementSelector,
   getOrigin,
   isCrawlablePageUrl,
   isSameOrigin,
+  isUncheckableRawLink,
   normalizeUrl,
 } from "./url-utils";
 import type {
@@ -21,28 +30,13 @@ import type {
 import { ScanCancelledError } from "./scan-errors";
 
 const FETCH_TIMEOUT_MS = 12000;
-const CRAWL_CONCURRENCY = 4;
+const BROWSER_CRAWL_CONCURRENCY = 2;
+const FETCH_CRAWL_CONCURRENCY = 4;
 const CHECK_CONCURRENCY = 8;
 const USER_AGENT = "LoopNode-LinkChecker/1.0";
 
 type ProgressCallback = (progress: BrokenLinkProgress) => Promise<void>;
 type CancelCheck = () => Promise<boolean>;
-
-interface LinkElementConfig {
-  selector: string;
-  attribute: "href" | "src";
-}
-
-const LINK_SELECTORS: LinkElementConfig[] = [
-  { selector: "a[href]", attribute: "href" },
-  { selector: "link[href]", attribute: "href" },
-  { selector: "img[src]", attribute: "src" },
-  { selector: "script[src]", attribute: "src" },
-  { selector: "iframe[src]", attribute: "src" },
-  { selector: "source[src]", attribute: "src" },
-  { selector: "video[src]", attribute: "src" },
-  { selector: "audio[src]", attribute: "src" },
-];
 
 async function fetchPageHtml(pageUrl: string): Promise<string | null> {
   try {
@@ -59,6 +53,49 @@ async function fetchPageHtml(pageUrl: string): Promise<string | null> {
   }
 }
 
+function mapRawLinksToExtracted(
+  rawLinks: RawDomLink[],
+  sourcePageUrl: string,
+  siteOrigin: string
+): { pageLinks: ExtractedLink[]; internalPageUrls: string[] } {
+  const pageLinks: ExtractedLink[] = [];
+  const internalPageUrls: string[] = [];
+
+  for (const raw of rawLinks) {
+    if (isUncheckableRawLink(raw.rawUrl)) continue;
+
+    const normalized = normalizeUrl(raw.rawUrl, sourcePageUrl);
+    if (!normalized) continue;
+
+    const attribute = raw.attribute === "srcset" ? "src" : (raw.attribute as "href" | "src");
+    const internal = isSameOrigin(normalized, siteOrigin);
+
+    pageLinks.push({
+      href: normalized,
+      sourcePageUrl,
+      tag: raw.tag,
+      id: raw.id ?? undefined,
+      className: raw.className ?? undefined,
+      text: raw.text ?? undefined,
+      selector: buildElementSelector(
+        raw.tag,
+        raw.id ?? undefined,
+        raw.className ?? undefined,
+        raw.index
+      ),
+      attribute,
+      isInternal: internal,
+      resourceType: classifyLinkResource(raw.tag, attribute, normalized, raw.rel ?? undefined),
+    });
+
+    if (internal && attribute === "href" && isCrawlablePageUrl(normalized, siteOrigin)) {
+      internalPageUrls.push(normalized);
+    }
+  }
+
+  return { pageLinks, internalPageUrls };
+}
+
 function extractLinksFromHtml(
   html: string,
   sourcePageUrl: string,
@@ -68,12 +105,10 @@ function extractLinksFromHtml(
   const pageLinks: ExtractedLink[] = [];
   const internalPageUrls: string[] = [];
 
-  for (const { selector, attribute } of LINK_SELECTORS) {
+  for (const { selector, attribute } of LINK_ELEMENT_CONFIGS) {
     $(selector).each((index, el) => {
       const raw = $(el).attr(attribute);
-      if (!raw || raw.startsWith("#") || raw.startsWith("mailto:") || raw.startsWith("tel:") || raw.startsWith("javascript:")) {
-        return;
-      }
+      if (!raw || isUncheckableRawLink(raw)) return;
 
       const normalized = normalizeUrl(raw, sourcePageUrl);
       if (!normalized) return;
@@ -82,6 +117,9 @@ function extractLinksFromHtml(
       const id = $(el).attr("id") ?? undefined;
       const className = $(el).attr("class") ?? undefined;
       const rel = $(el).attr("rel") ?? undefined;
+      const resolvedAttribute = attribute === "data-href" || attribute === "data-src"
+        ? attribute.endsWith("href") ? "href" : "src"
+        : (attribute as "href" | "src");
       const text =
         tag === "a"
           ? $(el).text().trim().slice(0, 120) || undefined
@@ -97,13 +135,38 @@ function extractLinksFromHtml(
         className,
         text,
         selector: buildElementSelector(tag, id, className, index),
-        attribute,
+        attribute: resolvedAttribute,
         isInternal: internal,
-        resourceType: classifyLinkResource(tag, attribute, normalized, rel),
+        resourceType: classifyLinkResource(tag, resolvedAttribute, normalized, rel),
       });
 
-      if (internal && attribute === "href" && isCrawlablePageUrl(normalized, siteOrigin)) {
+      if (internal && resolvedAttribute === "href" && isCrawlablePageUrl(normalized, siteOrigin)) {
         internalPageUrls.push(normalized);
+      }
+
+      if (tag === "img" || tag === "source") {
+        const srcset = $(el).attr("srcset");
+        if (srcset) {
+          srcset.split(",").forEach((part, srcsetIndex) => {
+            const candidate = part.trim().split(/\s+/)[0];
+            if (!candidate) return;
+            const srcNormalized = normalizeUrl(candidate, sourcePageUrl);
+            if (!srcNormalized) return;
+
+            pageLinks.push({
+              href: srcNormalized,
+              sourcePageUrl,
+              tag,
+              id,
+              className,
+              text,
+              selector: buildElementSelector(tag, id, className, srcsetIndex),
+              attribute: "src",
+              isInternal: isSameOrigin(srcNormalized, siteOrigin),
+              resourceType: classifyLinkResource(tag, "src", srcNormalized, rel),
+            });
+          });
+        }
       }
     });
   }
@@ -122,11 +185,20 @@ async function checkLink(
       redirect: "follow",
     });
 
-    if (res.status === 405 || res.status === 501) {
+    const shouldTryGet =
+      res.status === 405 ||
+      res.status === 501 ||
+      res.status === 403 ||
+      res.status === 401;
+
+    if (shouldTryGet) {
       res = await fetch(href, {
         method: "GET",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        headers: { "User-Agent": USER_AGENT },
+        headers: {
+          "User-Agent": USER_AGENT,
+          Range: "bytes=0-0",
+        },
         redirect: "follow",
       });
     }
@@ -155,6 +227,35 @@ function buildWwwFallbackUrl(href: string): string | null {
   } catch {
     return null;
   }
+}
+
+function findingFromOccurrence(
+  occurrence: ExtractedLink,
+  result: { statusCode: number | null; errorMessage: string | null }
+): BrokenLinkFinding {
+  return {
+    href: occurrence.href,
+    sourcePageUrl: occurrence.sourcePageUrl,
+    statusCode: result.statusCode,
+    errorMessage: result.errorMessage,
+    elementTag: occurrence.tag,
+    elementId: occurrence.id,
+    elementClass: occurrence.className,
+    elementText: occurrence.text,
+    selector: occurrence.selector,
+    attribute: occurrence.attribute,
+    severity: severityForStatus(result.statusCode),
+  };
+}
+
+function dedupeFindingsByHref(findings: BrokenLinkFinding[]): BrokenLinkFinding[] {
+  const byHref = new Map<string, BrokenLinkFinding>();
+  for (const finding of findings) {
+    if (!byHref.has(finding.href)) {
+      byHref.set(finding.href, finding);
+    }
+  }
+  return [...byHref.values()];
 }
 
 function severityForStatus(statusCode: number | null): BrokenLinkFinding["severity"] {
@@ -214,9 +315,28 @@ export async function runBrokenLinkScan(
   const queue: string[] = [normalizedStart];
   const allExtractedLinks: ExtractedLink[] = [];
 
+  let browser: Browser | null = null;
+  let useBrowserRendering = true;
+
+  try {
+    browser = await createRenderedPageBrowser();
+  } catch (error) {
+    useBrowserRendering = false;
+    console.warn(
+      "[broken-links] Headless browser unavailable, falling back to static HTML fetch:",
+      error instanceof Error ? error.message : error
+    );
+  }
+
+  const crawlConcurrency = useBrowserRendering
+    ? BROWSER_CRAWL_CONCURRENCY
+    : FETCH_CRAWL_CONCURRENCY;
+
   await onProgress({
     phase: "initializing",
-    statusMessage: `Starting ${mode.toLowerCase()} link scan for ${normalizedStart}`,
+    statusMessage: useBrowserRendering
+      ? `Starting ${mode.toLowerCase()} link scan with JavaScript rendering for ${normalizedStart}`
+      : `Starting ${mode.toLowerCase()} link scan (static HTML) for ${normalizedStart}`,
     pagesDiscovered: 1,
     pagesCrawled: 0,
     linksFound: 0,
@@ -225,51 +345,76 @@ export async function runBrokenLinkScan(
     progressPercent: 0,
   });
 
-  while (queue.length > 0) {
-    if (shouldCancel && (await shouldCancel())) {
-      throw new ScanCancelledError();
-    }
+  try {
+    while (queue.length > 0) {
+      if (shouldCancel && (await shouldCancel())) {
+        throw new ScanCancelledError();
+      }
 
-    const batch: string[] = [];
-    while (batch.length < CRAWL_CONCURRENCY && queue.length > 0) {
-      const next = queue.shift()!;
-      if (visited.has(next)) continue;
-      visited.add(next);
-      batch.push(next);
-    }
+      const batch: string[] = [];
+      while (batch.length < crawlConcurrency && queue.length > 0) {
+        const next = queue.shift()!;
+        if (visited.has(next)) continue;
+        visited.add(next);
+        batch.push(next);
+      }
 
-    if (batch.length === 0) continue;
+      if (batch.length === 0) continue;
 
-    await onProgress({
-      phase: "crawling",
-      statusMessage: `Crawling page ${visited.size}: ${batch[0]}`,
-      pagesDiscovered: visited.size + queue.length,
-      pagesCrawled: visited.size,
-      linksFound: allExtractedLinks.length,
-      linksChecked: 0,
-      brokenCount: 0,
-      progressPercent: Math.min(35, Math.round((visited.size / (visited.size + queue.length + 1)) * 35)),
-    });
+      await onProgress({
+        phase: "crawling",
+        statusMessage: `Crawling page ${visited.size}: ${batch[0]}`,
+        pagesDiscovered: visited.size + queue.length,
+        pagesCrawled: visited.size,
+        linksFound: allExtractedLinks.length,
+        linksChecked: 0,
+        brokenCount: 0,
+        progressPercent: Math.min(35, Math.round((visited.size / (visited.size + queue.length + 1)) * 35)),
+      });
 
-    await Promise.all(
-      batch.map(async (pageUrl) => {
-        const html = await fetchPageHtml(pageUrl);
-        if (!html) return;
+      await Promise.all(
+        batch.map(async (pageUrl) => {
+          let pageLinks: ExtractedLink[] = [];
+          let internalPageUrls: string[] = [];
+          let crawledWithBrowser = false;
 
-        const { pageLinks, internalPageUrls } = extractLinksFromHtml(
-          html,
-          pageUrl,
-          siteOrigin
-        );
-        allExtractedLinks.push(...pageLinks);
-
-        for (const internalUrl of internalPageUrls) {
-          if (!visited.has(internalUrl) && !queue.includes(internalUrl)) {
-            queue.push(internalUrl);
+          if (useBrowserRendering && browser) {
+            const rawLinks = await fetchRenderedPageLinks(browser, pageUrl);
+            if (rawLinks) {
+              crawledWithBrowser = true;
+              ({ pageLinks, internalPageUrls } = mapRawLinksToExtracted(
+                rawLinks,
+                pageUrl,
+                siteOrigin
+              ));
+            }
           }
-        }
-      })
-    );
+
+          if (!crawledWithBrowser) {
+            const html = await fetchPageHtml(pageUrl);
+            if (!html) return;
+
+            ({ pageLinks, internalPageUrls } = extractLinksFromHtml(
+              html,
+              pageUrl,
+              siteOrigin
+            ));
+          }
+
+          allExtractedLinks.push(...pageLinks);
+
+          for (const internalUrl of internalPageUrls) {
+            if (!visited.has(internalUrl) && !queue.includes(internalUrl)) {
+              queue.push(internalUrl);
+            }
+          }
+        })
+      );
+    }
+  } finally {
+    if (browser) {
+      await closeRenderedPageBrowser(browser);
+    }
   }
 
   const linksToCheck = allExtractedLinks.filter((link) => {
@@ -337,20 +482,9 @@ export async function runBrokenLinkScan(
             return;
           }
 
-          for (const occurrence of occurrences) {
-            findings.push({
-              href: occurrence.href,
-              sourcePageUrl: occurrence.sourcePageUrl,
-              statusCode: result.statusCode,
-              errorMessage: result.errorMessage,
-              elementTag: occurrence.tag,
-              elementId: occurrence.id,
-              elementClass: occurrence.className,
-              elementText: occurrence.text,
-              selector: occurrence.selector,
-              attribute: occurrence.attribute,
-              severity: severityForStatus(result.statusCode),
-            });
+          const representative = occurrences[0];
+          if (representative) {
+            findings.push(findingFromOccurrence(representative, result));
           }
         }
       },
@@ -358,21 +492,23 @@ export async function runBrokenLinkScan(
     );
   } catch (error) {
     if (error instanceof ScanCancelledError) {
-      throw new ScanCancelledError(findings, wwwFallbacks);
+      throw new ScanCancelledError(dedupeFindingsByHref(findings), wwwFallbacks);
     }
     throw error;
   }
 
+  const uniqueFindings = dedupeFindingsByHref(findings);
+
   await onProgress({
     phase: "completed",
-    statusMessage: `Scan complete — ${findings.length} broken ${mode.toLowerCase()} link(s) found`,
+    statusMessage: `Scan complete — ${uniqueFindings.length} broken ${mode.toLowerCase()} link(s) found`,
     pagesDiscovered: visited.size,
     pagesCrawled: visited.size,
     linksFound: uniqueHrefs.length,
     linksChecked,
-    brokenCount: findings.length,
+    brokenCount: uniqueFindings.length,
     progressPercent: 100,
   });
 
-  return { findings, wwwFallbacks };
+  return { findings: uniqueFindings, wwwFallbacks };
 }
