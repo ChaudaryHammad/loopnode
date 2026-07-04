@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useTransition, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   Globe,
@@ -14,7 +14,7 @@ import {
   ChevronDown,
   Zap,
 } from "lucide-react";
-import { deleteWebsiteAction } from "@/actions/websites";
+import { DeleteWebsiteDialog } from "@/components/websites/delete-website-dialog";
 import { AuditScanControls } from "@/components/websites/audit-scan-controls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -131,7 +131,7 @@ function SortButton({
 export function WebsiteTable({ websites }: WebsiteTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [, startTransition] = useTransition();
+  const [deleteTarget, setDeleteTarget] = useState<Website | null>(null);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -167,15 +167,8 @@ export function WebsiteTable({ websites }: WebsiteTableProps) {
     return 0;
   });
 
-  const handleDelete = (website: Website) => {
-    if (confirm(`Delete "${website.name}"? This action cannot be undone.`)) {
-      startTransition(async () => {
-        await deleteWebsiteAction(website.id);
-      });
-    }
-  };
-
   return (
+    <>
     <Card className="rounded-2xl border-border/30 overflow-hidden py-0 gap-0">
       <div className="grid grid-cols-[2fr_1fr_repeat(4,_minmax(0,_1fr))_1.5fr_auto] items-center gap-4 px-5 py-3 border-b border-border/20 bg-secondary/20">
         <SortButton label="Website" sortKey="name" current={sortKey} dir={sortDir} onClick={handleSort} />
@@ -241,7 +234,7 @@ export function WebsiteTable({ websites }: WebsiteTableProps) {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  onClick={() => handleDelete(site)}
+                  onClick={() => setDeleteTarget(site)}
                   className="hover:text-destructive hover:bg-destructive/10"
                   title="Delete website"
                 >
@@ -262,5 +255,17 @@ export function WebsiteTable({ websites }: WebsiteTableProps) {
         })}
       </div>
     </Card>
+
+    {deleteTarget ? (
+      <DeleteWebsiteDialog
+        websiteId={deleteTarget.id}
+        websiteName={deleteTarget.name}
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      />
+    ) : null}
+    </>
   );
 }

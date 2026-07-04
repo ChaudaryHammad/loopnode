@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useTransition } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { Globe, AlertCircle, ArrowRight, Trash2, Edit } from "lucide-react";
-import { deleteWebsiteAction } from "@/actions/websites";
+import { DeleteWebsiteDialog } from "@/components/websites/delete-website-dialog";
 import { AuditScanControls } from "@/components/websites/audit-scan-controls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,16 +61,8 @@ function ScoreBadge({ score }: { score: number | null }) {
 }
 
 export function WebsiteCard({ website }: WebsiteCardProps) {
-  const [isPending, startTransition] = useTransition();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const latestScan = website.scans[0];
-
-  const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete ${website.name}?`)) {
-      startTransition(async () => {
-        await deleteWebsiteAction(website.id);
-      });
-    }
-  };
 
   const scoreRows = latestScan
     ? [
@@ -110,8 +102,7 @@ export function WebsiteCard({ website }: WebsiteCardProps) {
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={handleDelete}
-            disabled={isPending}
+            onClick={() => setDeleteOpen(true)}
             className="hover:text-destructive hover:bg-destructive/10"
             title="Delete website"
           >
@@ -166,6 +157,13 @@ export function WebsiteCard({ website }: WebsiteCardProps) {
           </ButtonLink>
         </div>
       </CardFooter>
+
+      <DeleteWebsiteDialog
+        websiteId={website.id}
+        websiteName={website.name}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+      />
     </Card>
   );
 }

@@ -3,7 +3,12 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { AUDIT_HALTED_MESSAGE } from "@/lib/scanner/audit-scan-control";
+import {
+  AUDIT_HALTED_MESSAGE,
+  markScanCancelled,
+} from "@/lib/scanner/audit-scan-control";
+import { reaperStaleRunningScans } from "@/lib/scanner/fail-audit-scan";
+import { useTriggerDev } from "@/lib/env";
 
 const STALE_SCAN_MS = 10 * 60 * 1000;
 
@@ -17,7 +22,9 @@ async function clearStaleRunningScans(websiteId: string) {
     },
     data: {
       status: "FAILED",
+      phase: "failed",
       errorMessage: "Scan timed out or was interrupted. Please try again.",
+      statusMessage: "Audit timed out before completion.",
       completedAt: new Date(),
     },
   });
@@ -40,6 +47,7 @@ export async function startScanAction(websiteId: string) {
   }
 
   await clearStaleRunningScans(websiteId);
+  await reaperStaleRunningScans();
 
   const running = await prisma.scan.findFirst({
     where: { websiteId, status: "RUNNING" },
@@ -57,6 +65,9 @@ export async function startScanAction(websiteId: string) {
       websiteId,
       status: "RUNNING",
       startedAt: new Date(),
+      phase: "queued",
+      statusMessage: "Preparing audit — waiting for runner…",
+      progressPercent: 2,
     },
   });
 
@@ -79,12 +90,16 @@ export async function getScanStatusAction(scanId: string) {
     select: {
       id: true,
       status: true,
+      phase: true,
+      statusMessage: true,
+      progressPercent: true,
       overallScore: true,
       performanceScore: true,
       accessibilityScore: true,
       seoScore: true,
       securityScore: true,
       errorMessage: true,
+      startedAt: true,
       completedAt: true,
       createdAt: true,
     },
@@ -114,20 +129,22 @@ export async function cancelScanAction(scanId: string) {
     return { success: false, error: "No running audit found to stop." };
   }
 
-  await prisma.scan.update({
-    where: { id: scanId },
-    data: {
-      status: "FAILED",
-      errorMessage: AUDIT_HALTED_MESSAGE,
-      completedAt: new Date(),
-    },
-  });
+  if (scan.triggerRunId && useTriggerDev()) {
+    try {
+      const { runs } = await import("@trigger.dev/sdk");
+      await runs.cancel(scan.triggerRunId);
+    } catch (error) {
+      console.warn("Failed to cancel Trigger.dev run:", error);
+    }
+  }
+
+  await markScanCancelled(scanId);
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/websites");
   revalidatePath(`/dashboard/websites/${scan.website.id}`);
 
-  return { success: true };
+  return { success: true, message: AUDIT_HALTED_MESSAGE };
 }
 
 export async function getScanDetailsAction(scanId: string) {

@@ -6,48 +6,54 @@ import { useRouter } from "next/navigation";
 import {
   Download,
   Eye,
-  FileSpreadsheet,
   FileText,
   Loader2,
+  MoreHorizontal,
   Plus,
   Search,
+  Share2,
+  Copy,
+  Check,
   Trash2,
   X,
+  Link2,
 } from "lucide-react";
 import {
   deleteReportAction,
   generateReportAction,
   getWebsiteScansForReportsAction,
+  setReportShareAction,
 } from "@/actions/reports";
-import { REPORT_TYPE_LABELS, buildReportTitle } from "@/lib/reports/types";
-import { formatDateTime } from "@/lib/utils";
+import { REPORT_TYPE_LABELS, REPORT_TYPE_GROUPS, REPORT_TYPE_STYLES, buildReportTitle } from "@/lib/reports/types";
+import { getReportShareUrl } from "@/lib/reports/share";
+import { cn, formatDateTime } from "@/lib/utils";
 import type { ReportType } from "@prisma/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
 } from "@/components/ui/select";
 import {
@@ -71,6 +77,9 @@ type SerializedReport = {
   websiteId: string;
   websiteName: string;
   createdAt: string;
+  shareEnabled: boolean;
+  shareToken: string | null;
+  scanCompletedAt: string | null;
 };
 
 interface ReportsClientProps {
@@ -85,25 +94,21 @@ type ScanOption = {
   createdAt: Date | string;
 };
 
-const REPORT_TYPES: ReportType[] = ["FULL_AUDIT", "EXECUTIVE_SUMMARY", "ISSUES_CSV"];
+const SURFACE = "rounded-2xl border border-border/40 bg-card";
+const ALL_REPORT_TYPES = REPORT_TYPE_GROUPS.flatMap((g) => g.types);
 
 function formatFileSize(bytes: number | null) {
-  if (!bytes) return "—";
+  if (!bytes) return null;
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function typeIcon(type: ReportType) {
-  if (type === "ISSUES_CSV") return <FileSpreadsheet className="size-4" />;
-  return <FileText className="size-4" />;
-}
-
 function formatScanLabel(scan: ScanOption) {
   if (scan.completedAt) {
-    return `${formatDateTime(scan.completedAt)} — score ${scan.overallScore ?? "—"}/100`;
+    return `${formatDateTime(scan.completedAt)} · ${scan.overallScore ?? "—"}/100`;
   }
-  return `Scan from ${formatDateTime(scan.createdAt)}`;
+  return formatDateTime(scan.createdAt);
 }
 
 function formatWebsiteUrl(url: string) {
@@ -133,6 +138,99 @@ function triggerDownload(base64: string, filename: string, mimeType: string) {
   URL.revokeObjectURL(url);
 }
 
+function ReportTypeBadge({ type }: { type: ReportType }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+        REPORT_TYPE_STYLES[type]
+      )}
+    >
+      {REPORT_TYPE_LABELS[type]}
+    </span>
+  );
+}
+
+function ReportActions({
+  report,
+  isPending,
+  onShare,
+  onDelete,
+}: {
+  report: SerializedReport;
+  isPending: boolean;
+  onShare: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-1">
+      {report.format === "pdf" ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hidden h-8 px-2.5 text-xs sm:inline-flex"
+          nativeButton={false}
+          render={
+            <a href={report.previewUrl} target="_blank" rel="noopener noreferrer">
+              <Eye />
+              Preview
+            </a>
+          }
+        />
+      ) : null}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 px-2.5 text-xs"
+        nativeButton={false}
+        render={
+          <a href={report.downloadUrl} target="_blank" rel="noopener noreferrer">
+            <Download />
+            Download
+          </a>
+        }
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon-sm" className="size-8">
+              <MoreHorizontal />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end" className="w-44">
+          {report.format === "pdf" ? (
+            <>
+              <DropdownMenuItem onClick={onShare}>
+                <Share2 />
+                Share link
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                nativeButton={false}
+                render={
+                  <a href={report.previewUrl} target="_blank" rel="noopener noreferrer">
+                    <Eye />
+                    Open preview
+                  </a>
+                }
+              />
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={isPending}
+            onClick={onDelete}
+          >
+            <Trash2 />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 export function ReportsClient({ websites, reports: initialReports }: ReportsClientProps) {
   const router = useRouter();
   const [reports, setReports] = useState(initialReports);
@@ -148,6 +246,10 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
   const [customTitle, setCustomTitle] = useState("");
   const [titleTouched, setTitleTouched] = useState(false);
   const [saveToLibrary, setSaveToLibrary] = useState(true);
+  const [shareDialogReport, setShareDialogReport] = useState<SerializedReport | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareUpdating, setShareUpdating] = useState(false);
   const [scans, setScans] = useState<ScanOption[]>([]);
   const [loadingScans, setLoadingScans] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -182,7 +284,6 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
 
   useEffect(() => {
     if (!selectedWebsite || !selectedScan || titleTouched) return;
-
     setCustomTitle(
       buildReportTitle(
         selectedType,
@@ -200,30 +301,14 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
       if (!query) return true;
       return (
         report.title.toLowerCase().includes(query) ||
-        report.websiteName.toLowerCase().includes(query)
+        report.websiteName.toLowerCase().includes(query) ||
+        REPORT_TYPE_LABELS[report.type].toLowerCase().includes(query)
       );
     });
   }, [reports, search, websiteFilter, typeFilter]);
 
-  const stats = useMemo(
-    () => ({
-      total: reports.length,
-      pdf: reports.filter((r) => r.format === "pdf").length,
-      csv: reports.filter((r) => r.format === "csv").length,
-      sites: new Set(reports.map((r) => r.websiteId)).size,
-    }),
-    [reports]
-  );
-
-  const websiteTriggerLabel = selectedWebsite?.name ?? "Select website";
-  const scanTriggerLabel = loadingScans
-    ? "Loading scans…"
-    : scans.length === 0
-      ? "No completed scans"
-      : selectedScan
-        ? formatScanLabel(selectedScan)
-        : "Select scan";
-  const reportTypeTriggerLabel = REPORT_TYPE_LABELS[selectedType];
+  const hasActiveFilters =
+    search.trim().length > 0 || websiteFilter !== "ALL" || typeFilter !== "ALL";
 
   const openGenerateDialog = () => {
     setError(null);
@@ -269,9 +354,12 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
             websiteId: data.websiteId,
             websiteName: data.websiteName,
             createdAt: data.createdAt,
+            shareEnabled: data.shareEnabled ?? false,
+            shareToken: data.shareToken ?? null,
+            scanCompletedAt: data.scanCompletedAt ?? null,
           };
           setReports((prev) => [savedReport, ...prev]);
-          setMessage(res.message ?? "Report saved to your library.");
+          setMessage(res.message ?? "Report saved.");
           router.refresh();
         } else {
           triggerDownload(
@@ -287,8 +375,47 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
     });
   };
 
+  const openShareDialog = (report: SerializedReport) => {
+    setShareDialogReport(report);
+    setShareCopied(false);
+    setShareUrl(
+      report.shareEnabled && report.shareToken ? getReportShareUrl(report.shareToken) : null
+    );
+  };
+
+  const handleShareToggle = async (enabled: boolean) => {
+    if (!shareDialogReport) return;
+    setShareUpdating(true);
+    setError(null);
+    const res = await setReportShareAction(shareDialogReport.id, enabled);
+    setShareUpdating(false);
+    if (!res.success) {
+      setError(res.error ?? "Failed to update sharing.");
+      return;
+    }
+    const url = res.data?.shareUrl ?? null;
+    setShareUrl(url);
+    setReports((prev) =>
+      prev.map((r) =>
+        r.id === shareDialogReport.id
+          ? { ...r, shareEnabled: enabled, shareToken: res.data?.shareToken ?? r.shareToken }
+          : r
+      )
+    );
+    setShareDialogReport((prev) => (prev ? { ...prev, shareEnabled: enabled } : prev));
+    setMessage(res.message ?? (enabled ? "Share link enabled." : "Share link disabled."));
+    router.refresh();
+  };
+
+  const copyShareLink = async () => {
+    if (!shareUrl) return;
+    await navigator.clipboard.writeText(shareUrl);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  };
+
   const handleDelete = (reportId: string, title: string) => {
-    if (!confirm(`Delete "${title}"? This removes the file from Cloudinary.`)) return;
+    if (!confirm(`Delete "${title}"?`)) return;
 
     setMessage(null);
     setError(null);
@@ -304,389 +431,327 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
     });
   };
 
+  const clearFilters = () => {
+    setSearch("");
+    setWebsiteFilter("ALL");
+    setTypeFilter("ALL");
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Reports</h1>
-          <p className="text-sm text-muted-foreground">
-            Downloadable audit snapshots for your sites — PDF summaries and CSV exports.
-          </p>
-        </div>
-        <Button onClick={openGenerateDialog} disabled={websites.length === 0}>
-          <Plus />
-          Generate report
-        </Button>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-4">
+      {(error || message) && (
+        <Alert variant={error ? "destructive" : "default"} className="py-2.5">
+          <AlertDescription className="flex items-center justify-between gap-3 text-sm">
+            {error ?? message}
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => {
+                setError(null);
+                setMessage(null);
+              }}
+            >
+              <X />
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="rounded-2xl border-border/30">
-          <CardHeader className="pb-2">
-            <CardDescription>Total reports</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{stats.total}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="rounded-2xl border-border/30">
-          <CardHeader className="pb-2">
-            <CardDescription>PDF reports</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{stats.pdf}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="rounded-2xl border-border/30">
-          <CardHeader className="pb-2">
-            <CardDescription>CSV exports</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{stats.csv}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="rounded-2xl border-border/30">
-          <CardHeader className="pb-2">
-            <CardDescription>Sites covered</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{stats.sites}</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <Card className="rounded-2xl border-border/30">
-        <CardHeader className="gap-4 border-b border-border/30 pb-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-lg">Saved reports</CardTitle>
-                <Badge variant="secondary">{reports.length}</Badge>
-              </div>
-              <CardDescription>
-                Reports saved to your library are stored in the cloud and listed here.
-              </CardDescription>
-            </div>
+      <section className={cn(SURFACE, "overflow-hidden")}>
+        {/* Header */}
+        <div className="flex flex-col gap-4 border-b border-border/40 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {reports.length} saved · {websites.length} website{websites.length === 1 ? "" : "s"}
+            </p>
           </div>
+          <Button onClick={openGenerateDialog} disabled={websites.length === 0}>
+            <Plus />
+            New report
+          </Button>
+        </div>
 
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative w-full max-w-md">
-              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        {/* Toolbar */}
+        {reports.length > 0 && (
+          <div className="flex flex-col gap-3 border-b border-border/40 px-6 py-4 lg:flex-row lg:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search reports or sites…"
-                className="pl-9"
+                placeholder="Search by name, site, or issue…"
+                className="h-9 pl-9"
               />
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={websiteFilter === "ALL" ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setWebsiteFilter("ALL")}
-            >
-              All sites
-            </Button>
-            {websites.map((site) => (
-              <Button
-                key={site.id}
-                variant={websiteFilter === site.id ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setWebsiteFilter(websiteFilter === site.id ? "ALL" : site.id)}
-              >
-                {site.name}
-              </Button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={typeFilter === "ALL" ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setTypeFilter("ALL")}
-            >
-              All types
-            </Button>
-            {REPORT_TYPES.map((type) => (
-              <Button
-                key={type}
-                variant={typeFilter === type ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setTypeFilter(typeFilter === type ? "ALL" : type)}
-              >
-                {typeIcon(type)}
-                {REPORT_TYPE_LABELS[type]}
-              </Button>
-            ))}
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-0">
-          {error && (
-            <Alert variant="destructive" className="m-4 mb-0">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {message && (
-            <Alert className="m-4 mb-0">
-              <AlertDescription className="flex items-center justify-between gap-2">
-                {message}
-                <Button variant="ghost" size="icon-xs" onClick={() => setMessage(null)}>
-                  <X />
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {websites.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-              <FileText className="size-10 text-muted-foreground" />
-              <div className="space-y-1">
-                <CardTitle className="text-base">No websites yet</CardTitle>
-                <CardDescription>
-                  Connect a website and run an audit before generating reports.
-                </CardDescription>
-              </div>
-              <ButtonLink href="/dashboard/websites">Connect a website</ButtonLink>
-            </div>
-          ) : reports.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-              <FileText className="size-10 text-muted-foreground" />
-              <div className="space-y-1">
-                <CardTitle className="text-base">No saved reports yet</CardTitle>
-                <CardDescription>
-                  Generate a report and enable &quot;Save to library&quot; to keep it here for later.
-                </CardDescription>
-              </div>
-              <Button onClick={openGenerateDialog}>
-                <Plus />
-                Generate your first report
-              </Button>
-            </div>
-          ) : filteredReports.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-              <CardTitle className="text-base">No reports match your filters</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSearch("");
-                  setWebsiteFilter("ALL");
-                  setTypeFilter("ALL");
-                }}
-              >
-                Reset filters
-              </Button>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Report</TableHead>
-                  <TableHead className="hidden md:table-cell">Website</TableHead>
-                  <TableHead className="hidden lg:table-cell">Type</TableHead>
-                  <TableHead className="hidden sm:table-cell">Generated</TableHead>
-                  <TableHead className="hidden sm:table-cell">Size</TableHead>
-                  <TableHead className="text-right pr-4">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredReports.map((report) => (
-                  <TableRow key={report.id}>
-                    <TableCell>
-                      <div className="flex items-start gap-2">
-                        <div className="mt-0.5 text-primary">{typeIcon(report.type)}</div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{report.title}</p>
-                          <div className="mt-1 flex flex-wrap items-center gap-1">
-                            <Badge variant="outline" className="uppercase text-[10px]">
-                              {report.format}
-                            </Badge>
-                            <Badge variant="secondary" className="text-[10px]">
-                              Saved
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <Link
-                        href={`/dashboard/websites/${report.websiteId}`}
-                        className="text-sm font-medium hover:text-primary hover:underline"
-                      >
-                        {report.websiteName}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <span className="text-sm text-muted-foreground">
-                        {REPORT_TYPE_LABELS[report.type]}
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                      {formatDateTime(report.createdAt)}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-sm tabular-nums">
-                      {formatFileSize(report.fileSize)}
-                    </TableCell>
-                    <TableCell className="pr-4">
-                      <div className="flex items-center justify-end gap-1">
-                        {report.format === "pdf" && (
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            title="Preview PDF"
-                            nativeButton={false}
-                            render={
-                              <a
-                                href={report.previewUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              />
-                            }
-                          >
-                            <Eye />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          title="Download"
-                          nativeButton={false}
-                          render={
-                            <a
-                              href={report.downloadUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            />
-                          }
-                        >
-                          <Download />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          title="Delete"
-                          disabled={isPending}
-                          onClick={() => handleDelete(report.id, report.title)}
-                        >
-                          <Trash2 />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Generate report</DialogTitle>
-            <DialogDescription>
-              Name your report, pick a scan, and choose whether to save it to your library or
-              download only.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Website</Label>
+            <div className="flex flex-wrap items-center gap-2">
               <Select
-                value={selectedWebsiteId}
-                onValueChange={(value) => setSelectedWebsiteId(value ?? "")}
+                value={websiteFilter}
+                onValueChange={(value) => setWebsiteFilter(value ?? "ALL")}
               >
-                <SelectTrigger className="w-full">
-                  <span className="truncate text-left">{websiteTriggerLabel}</span>
+                <SelectTrigger className="h-9 w-[160px]">
+                  <span className="truncate text-sm">
+                    {websiteFilter === "ALL"
+                      ? "All sites"
+                      : (websites.find((w) => w.id === websiteFilter)?.name ?? "Site")}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ALL">All sites</SelectItem>
                   {websites.map((site) => (
                     <SelectItem key={site.id} value={site.id}>
-                      <span className="flex flex-col items-start gap-0.5">
-                        <span>{site.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatWebsiteUrl(site.url)}
-                        </span>
-                      </span>
+                      {site.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Scan</Label>
               <Select
-                value={selectedScanId}
-                onValueChange={(value) => setSelectedScanId(value ?? "")}
-                disabled={loadingScans || scans.length === 0}
+                value={typeFilter}
+                onValueChange={(value) => setTypeFilter((value as ReportType | "ALL") ?? "ALL")}
               >
-                <SelectTrigger className="w-full">
-                  <span className="truncate text-left">{scanTriggerLabel}</span>
+                <SelectTrigger className="h-9 w-[160px]">
+                  <span className="truncate text-sm">
+                    {typeFilter === "ALL" ? "All types" : REPORT_TYPE_LABELS[typeFilter]}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
-                  {scans.map((scan) => (
-                    <SelectItem key={scan.id} value={scan.id}>
-                      {formatScanLabel(scan)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="report-name">Report name</Label>
-              <Input
-                id="report-name"
-                value={customTitle}
-                onChange={(e) => {
-                  setTitleTouched(true);
-                  setCustomTitle(e.target.value);
-                }}
-                placeholder="e.g. Q2 audit — My Site"
-                maxLength={120}
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave blank to use the auto-generated name.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Report type</Label>
-              <Select
-                value={selectedType}
-                onValueChange={(value) => {
-                  if (value) setSelectedType(value as ReportType);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <span className="truncate text-left">{reportTypeTriggerLabel}</span>
-                </SelectTrigger>
-                <SelectContent>
-                  {REPORT_TYPES.map((type) => (
+                  <SelectItem value="ALL">All types</SelectItem>
+                  {ALL_REPORT_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
                       {REPORT_TYPE_LABELS[type]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              {hasActiveFilters ? (
+                <Button variant="ghost" size="sm" className="h-9" onClick={clearFilters}>
+                  Reset
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        {/* Content */}
+        {websites.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
+            <div className="flex size-12 items-center justify-center rounded-xl border border-border/40 bg-secondary/20">
+              <FileText className="size-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-medium">No websites connected</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Add a site and run an audit first.
+              </p>
+            </div>
+            <ButtonLink href="/dashboard/websites" size="sm">
+              Go to websites
+            </ButtonLink>
+          </div>
+        ) : reports.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
+            <div className="flex size-12 items-center justify-center rounded-xl border border-border/40 bg-secondary/20">
+              <FileText className="size-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-medium">No reports yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Generate a PDF from any completed scan.
+              </p>
+            </div>
+            <Button onClick={openGenerateDialog} size="sm">
+              <Plus />
+              New report
+            </Button>
+          </div>
+        ) : filteredReports.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <p className="text-sm text-muted-foreground">No reports match your filters.</p>
+            <Button variant="link" size="sm" className="mt-2 h-auto p-0" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="pl-6 w-[34%]">Report</TableHead>
+                <TableHead className="w-[16%]">Type</TableHead>
+                <TableHead className="hidden md:table-cell w-[18%]">Website</TableHead>
+                <TableHead className="hidden sm:table-cell w-[14%]">Created</TableHead>
+                <TableHead className="pr-6 text-right w-[18%]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredReports.map((report) => {
+                const size = formatFileSize(report.fileSize);
+                return (
+                  <TableRow key={report.id} className="group">
+                    <TableCell className="pl-6 align-middle">
+                      <div className="min-w-0 space-y-1">
+                        <p className="truncate text-sm font-medium">{report.title}</p>
+                        <p className="text-xs text-muted-foreground md:hidden">
+                          {report.websiteName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {report.format.toUpperCase()}
+                          {size ? ` · ${size}` : ""}
+                          {report.shareEnabled ? (
+                            <span className="inline-flex items-center gap-1">
+                              {" · "}
+                              <Link2 className="size-3" />
+                              Shared
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-middle">
+                      <ReportTypeBadge type={report.type} />
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell align-middle">
+                      <Link
+                        href={`/dashboard/websites/${report.websiteId}`}
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {report.websiteName}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell align-middle text-sm text-muted-foreground whitespace-nowrap">
+                      {formatDateTime(report.createdAt)}
+                    </TableCell>
+                    <TableCell className="pr-6 align-middle">
+                      <ReportActions
+                        report={report}
+                        isPending={isPending}
+                        onShare={() => openShareDialog(report)}
+                        onDelete={() => handleDelete(report.id, report.title)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </section>
+
+      {/* Generate */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="border-b border-border/40 px-6 py-5">
+            <DialogTitle>New report</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 px-6 py-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Website</Label>
+                <Select
+                  value={selectedWebsiteId}
+                  onValueChange={(value) => setSelectedWebsiteId(value ?? "")}
+                >
+                  <SelectTrigger className="w-full">
+                    <span className="truncate">{selectedWebsite?.name ?? "Select website"}</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {websites.map((site) => (
+                      <SelectItem key={site.id} value={site.id}>
+                        <span className="flex flex-col items-start gap-0.5">
+                          <span>{site.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatWebsiteUrl(site.url)}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Scan</Label>
+                <Select
+                  value={selectedScanId}
+                  onValueChange={(value) => setSelectedScanId(value ?? "")}
+                  disabled={loadingScans || scans.length === 0}
+                >
+                  <SelectTrigger className="w-full">
+                    <span className="truncate text-sm">
+                      {loadingScans
+                        ? "Loading scans…"
+                        : scans.length === 0
+                          ? "No completed scans"
+                          : selectedScan
+                            ? formatScanLabel(selectedScan)
+                            : "Select scan"}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {scans.map((scan) => (
+                      <SelectItem key={scan.id} value={scan.id}>
+                        {formatScanLabel(scan)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Type</Label>
+                <Select
+                  value={selectedType}
+                  onValueChange={(value) => value && setSelectedType(value as ReportType)}
+                >
+                  <SelectTrigger className="w-full">
+                    <span>{REPORT_TYPE_LABELS[selectedType]}</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REPORT_TYPE_GROUPS.map((group) => (
+                      <SelectGroup key={group.label}>
+                        <SelectLabel>{group.label}</SelectLabel>
+                        {group.types.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {REPORT_TYPE_LABELS[type]}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="report-name" className="text-xs text-muted-foreground">
+                  Name <span className="font-normal">(optional)</span>
+                </Label>
+                <Input
+                  id="report-name"
+                  value={customTitle}
+                  onChange={(e) => {
+                    setTitleTouched(true);
+                    setCustomTitle(e.target.value);
+                  }}
+                  placeholder="Auto-generated from scan"
+                  maxLength={120}
+                />
+              </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/40 px-3 py-3">
-              <div className="space-y-0.5">
-                <Label htmlFor="save-to-library" className="text-sm font-medium">
-                  Save to library
-                </Label>
+            <div className="flex items-center justify-between rounded-xl border border-border/40 bg-secondary/10 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Save to library</p>
                 <p className="text-xs text-muted-foreground">
-                  {saveToLibrary
-                    ? "Stored in the cloud and listed under Saved reports."
-                    : "Download immediately without saving to your library."}
+                  {saveToLibrary ? "Stored and shareable" : "Download only"}
                 </p>
               </div>
-              <Switch
-                id="save-to-library"
-                checked={saveToLibrary}
-                onCheckedChange={setSaveToLibrary}
-              />
+              <Switch checked={saveToLibrary} onCheckedChange={setSaveToLibrary} />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t border-border/40 px-6 py-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
@@ -694,8 +759,64 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
               onClick={handleGenerate}
               disabled={isGenerating || !selectedScanId || loadingScans}
             >
-              {isGenerating && <Loader2 className="animate-spin" />}
-              {saveToLibrary ? "Save report" : "Download"}
+              {isGenerating ? <Loader2 className="animate-spin" /> : null}
+              {saveToLibrary ? "Generate" : "Download"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share */}
+      <Dialog
+        open={!!shareDialogReport}
+        onOpenChange={(open) => !open && setShareDialogReport(null)}
+      >
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
+          <DialogHeader className="border-b border-border/40 px-6 py-5">
+            <DialogTitle>Share report</DialogTitle>
+          </DialogHeader>
+
+          {shareDialogReport ? (
+            <div className="space-y-5 px-6 py-5">
+              <p className="truncate text-sm text-muted-foreground">{shareDialogReport.title}</p>
+
+              <div className="flex items-center justify-between rounded-xl border border-border/40 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">Public link</p>
+                  <p className="text-xs text-muted-foreground">
+                    {shareDialogReport.shareEnabled ? "Anyone with the link" : "Disabled"}
+                  </p>
+                </div>
+                <Switch
+                  checked={shareDialogReport.shareEnabled}
+                  disabled={shareUpdating}
+                  onCheckedChange={(checked) => void handleShareToggle(checked)}
+                />
+              </div>
+
+              {shareUrl && shareDialogReport.shareEnabled ? (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Link</Label>
+                  <div className="flex gap-2">
+                    <Input readOnly value={shareUrl} className="h-9 text-xs" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      className="size-9 shrink-0"
+                      onClick={() => void copyShareLink()}
+                    >
+                      {shareCopied ? <Check className="text-emerald-500" /> : <Copy />}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <DialogFooter className="border-t border-border/40 px-6 py-4">
+            <Button variant="outline" onClick={() => setShareDialogReport(null)}>
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>

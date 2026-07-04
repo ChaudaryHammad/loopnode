@@ -26,8 +26,7 @@ export default async function AdminBillingPage() {
         trialEndsAt: sub.trialEndsAt?.toISOString() ?? null,
         currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
         cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
-        stripeCustomerId: sub.stripeCustomerId,
-        stripeSubscriptionId: sub.stripeSubscriptionId,
+        websiteLimitOverride: sub.websiteLimitOverride,
         adminNotes: sub.adminNotes,
         updatedAt: sub.updatedAt.toISOString(),
       }))}

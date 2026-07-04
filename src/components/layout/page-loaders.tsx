@@ -103,10 +103,10 @@ export function WebsiteOverviewLoader() {
 
 export function BrokenLinksPageLoader() {
   return (
-    <div className="space-y-6" aria-busy="true">
-      <Skeleton className="h-4 w-64" />
-      <Skeleton className="h-8 w-52" />
-      <Skeleton className="h-80 rounded-2xl" />
+    <div className="space-y-6 max-w-6xl mx-auto" aria-busy="true">
+      <Skeleton className="h-3 w-48" />
+      <Skeleton className="h-36 rounded-2xl" />
+      <Skeleton className="h-64 rounded-2xl" />
     </div>
   );
 }

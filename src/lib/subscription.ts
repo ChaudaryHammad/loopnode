@@ -13,7 +13,7 @@ export async function createTrialSubscription(userId: string) {
     data: {
       userId,
       status: "TRIALING",
-      plan: "PRO",
+      plan: "STARTER",
       trialEndsAt: getTrialEndDate(),
     },
   });
@@ -37,7 +37,7 @@ export function getWebsiteLimitForSubscription(
   status: SubscriptionStatus,
   plan: PlanTier | null
 ) {
+  if (plan) return PLAN_SITE_LIMITS[plan];
   if (status === "TRIALING") return TRIAL_SITE_LIMIT;
-  if (!plan) return TRIAL_SITE_LIMIT;
-  return PLAN_SITE_LIMITS[plan];
+  return TRIAL_SITE_LIMIT;
 }

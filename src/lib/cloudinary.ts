@@ -2,6 +2,7 @@ import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 import { env } from "@/lib/env";
 
 const PROFILE_FOLDER = "loopnode/profiles";
+const PAYMENT_PROOF_FOLDER = "loopnode/payment-proofs";
 export const REPORTS_FOLDER = "loopnode/reports";
 
 cloudinary.config({
@@ -34,6 +35,34 @@ export async function uploadProfileImage(
         public_id: userId,
         overwrite: true,
         invalidate: true,
+        resource_type: "image",
+        format: mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg",
+      },
+      (error, result) => {
+        if (error || !result) {
+          reject(error ?? new Error("Cloudinary upload failed"));
+          return;
+        }
+        resolve(result);
+      }
+    );
+
+    uploadStream.end(file);
+  });
+}
+
+export async function uploadPaymentProof(
+  userId: string,
+  file: Buffer,
+  mimeType: string
+): Promise<UploadApiResponse> {
+  const publicId = `${userId}-${Date.now()}`;
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: PAYMENT_PROOF_FOLDER,
+        public_id: publicId,
         resource_type: "image",
         format: mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg",
       },

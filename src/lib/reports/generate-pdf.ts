@@ -1,232 +1,38 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import type { Issue } from "@prisma/client";
+import { htmlToPdfBuffer } from "@/lib/reports/html-to-pdf";
 import {
-  buildReportTitle,
-  categoryLabel,
-  formatScore,
-  getTopIssues,
-  groupIssuesByCategory,
-  scoreDelta,
-  type ReportScanContext,
-} from "@/lib/reports/types";
+  renderAccessibilityReportHtml,
+  renderExecutiveSummaryHtml,
+  renderFullAuditHtml,
+  renderPerformanceReportHtml,
+  renderSecurityReportHtml,
+  renderSeoReportHtml,
+} from "@/lib/reports/render-branded-report-html";
+import { buildReportTitle, type ReportScanContext } from "@/lib/reports/types";
+import type { ReportType } from "@prisma/client";
 
-const MARGIN = 50;
-const PAGE_WIDTH = 595;
-const PAGE_HEIGHT = 842;
-const LINE_HEIGHT = 14;
+const PDF_RENDERERS: Partial<Record<ReportType, (ctx: ReportScanContext) => string>> = {
+  FULL_AUDIT: renderFullAuditHtml,
+  EXECUTIVE_SUMMARY: renderExecutiveSummaryHtml,
+  PERFORMANCE_REPORT: renderPerformanceReportHtml,
+  SEO_REPORT: renderSeoReportHtml,
+  SECURITY_REPORT: renderSecurityReportHtml,
+  ACCESSIBILITY_REPORT: renderAccessibilityReportHtml,
+};
 
-function wrapText(text: string, maxChars = 90) {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > maxChars) {
-      if (current) lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
+export async function generateReportPdf(type: ReportType, context: ReportScanContext) {
+  const render = PDF_RENDERERS[type];
+  if (!render) {
+    throw new Error("Unsupported PDF report type.");
   }
-
-  if (current) lines.push(current);
-  return lines;
-}
-
-class PdfWriter {
-  private doc: PDFDocument;
-  private page: ReturnType<PDFDocument["addPage"]>;
-  private y = PAGE_HEIGHT - MARGIN;
-  private embeddedRegular: Awaited<ReturnType<PDFDocument["embedFont"]>> | null = null;
-  private embeddedBold: Awaited<ReturnType<PDFDocument["embedFont"]>> | null = null;
-
-  private constructor(doc: PDFDocument, page: ReturnType<PDFDocument["addPage"]>) {
-    this.doc = doc;
-    this.page = page;
-  }
-
-  static async create() {
-    const doc = await PDFDocument.create();
-    const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    const writer = new PdfWriter(doc, page);
-    writer.embeddedRegular = await doc.embedFont(StandardFonts.Helvetica);
-    writer.embeddedBold = await doc.embedFont(StandardFonts.HelveticaBold);
-    return writer;
-  }
-
-  private ensureSpace(lines = 1) {
-    if (this.y - lines * LINE_HEIGHT < MARGIN) {
-      this.page = this.doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-      this.y = PAGE_HEIGHT - MARGIN;
-    }
-  }
-
-  drawTitle(text: string) {
-    this.ensureSpace(2);
-    this.page.drawText(text, {
-      x: MARGIN,
-      y: this.y,
-      size: 18,
-      font: this.embeddedBold!,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    this.y -= LINE_HEIGHT * 2;
-  }
-
-  drawHeading(text: string) {
-    this.ensureSpace(2);
-    this.page.drawText(text, {
-      x: MARGIN,
-      y: this.y,
-      size: 13,
-      font: this.embeddedBold!,
-      color: rgb(0.15, 0.15, 0.15),
-    });
-    this.y -= LINE_HEIGHT * 1.5;
-  }
-
-  drawLine(text: string, size = 10, indent = 0) {
-    const lines = wrapText(text);
-    for (const line of lines) {
-      this.ensureSpace(1);
-      this.page.drawText(line, {
-        x: MARGIN + indent,
-        y: this.y,
-        size,
-        font: this.embeddedRegular!,
-        color: rgb(0.2, 0.2, 0.2),
-      });
-      this.y -= LINE_HEIGHT;
-    }
-  }
-
-  drawSpacer(lines = 1) {
-    this.y -= LINE_HEIGHT * lines;
-  }
-
-  async toBuffer() {
-    const bytes = await this.doc.save();
-    return Buffer.from(bytes);
-  }
-}
-
-function drawIssueBlock(writer: PdfWriter, issue: Issue) {
-  writer.drawLine(`• [${issue.severity}] ${issue.title}`, 10);
-  writer.drawLine(issue.description, 9, 12);
-  if (issue.recommendation) {
-    writer.drawLine(`Fix: ${issue.recommendation}`, 9, 12);
-  }
-  writer.drawSpacer(0.5);
+  return htmlToPdfBuffer(render(context));
 }
 
 export async function generateFullAuditPdf(context: ReportScanContext) {
-  const { website, scan } = context;
-  const writer = await PdfWriter.create();
-
-  writer.drawTitle("LoopNode — Full Audit Report");
-  writer.drawLine(website.name, 12);
-  writer.drawLine(website.url, 10);
-  writer.drawLine(
-    `Scan date: ${scan.completedAt?.toLocaleString("en-US") ?? "Unknown"}`,
-    10
-  );
-  writer.drawSpacer();
-
-  writer.drawHeading("Scores");
-  writer.drawLine(`Overall: ${formatScore(scan.overallScore)} / 100`);
-  writer.drawLine(`Performance: ${formatScore(scan.performanceScore)}`);
-  writer.drawLine(`Accessibility: ${formatScore(scan.accessibilityScore)}`);
-  writer.drawLine(`SEO: ${formatScore(scan.seoScore)}`);
-  writer.drawLine(`Security: ${formatScore(scan.securityScore)}`);
-  writer.drawSpacer();
-
-  writer.drawHeading("Core Web Vitals");
-  writer.drawLine(`LCP: ${scan.lcp ?? "—"} ms`);
-  writer.drawLine(`INP: ${scan.inp ?? "—"} ms`);
-  writer.drawLine(`CLS: ${scan.cls ?? "—"}`);
-  writer.drawLine(`FCP: ${scan.fcp ?? "—"} ms`);
-  writer.drawLine(`TBT: ${scan.tbt ?? "—"} ms`);
-  writer.drawSpacer();
-
-  const grouped = groupIssuesByCategory(scan.issues);
-  writer.drawHeading(`Issues (${scan.issues.length})`);
-
-  for (const [category, issues] of Object.entries(grouped)) {
-    writer.drawLine(`${categoryLabel(category as Issue["category"])} (${issues.length})`, 11);
-    for (const issue of issues.slice(0, 15)) {
-      drawIssueBlock(writer, issue);
-    }
-    if (issues.length > 15) {
-      writer.drawLine(`…and ${issues.length - 15} more in this category`, 9, 12);
-    }
-    writer.drawSpacer();
-  }
-
-  writer.drawSpacer();
-  writer.drawLine("Generated by LoopNode — loopnode.app", 8);
-
-  return writer.toBuffer();
+  return generateReportPdf("FULL_AUDIT", context);
 }
 
 export async function generateExecutiveSummaryPdf(context: ReportScanContext) {
-  const { website, scan, previousScan } = context;
-  const writer = await PdfWriter.create();
-  const prev = previousScan;
-  const topIssues = getTopIssues(scan.issues, 5);
-  const criticalCount = scan.issues.filter((i) => i.severity === "CRITICAL").length;
-
-  writer.drawTitle("LoopNode — Executive Summary");
-  writer.drawLine(website.name, 12);
-  writer.drawLine(website.url, 10);
-  writer.drawLine(
-    `Scan date: ${scan.completedAt?.toLocaleString("en-US") ?? "Unknown"}`,
-    10
-  );
-  writer.drawSpacer();
-
-  writer.drawHeading("At a glance");
-  const overallDelta = scoreDelta(scan.overallScore, prev?.overallScore ?? null);
-  writer.drawLine(
-    `Overall score: ${formatScore(scan.overallScore)}${
-      overallDelta !== null ? ` (${overallDelta >= 0 ? "+" : ""}${overallDelta} vs previous)` : ""
-    }`
-  );
-  writer.drawLine(`Critical issues: ${criticalCount}`);
-  writer.drawLine(`Total issues: ${scan.issues.length}`);
-  writer.drawSpacer();
-
-  writer.drawHeading("Category scores");
-  const categories = [
-    ["Performance", scan.performanceScore, prev?.performanceScore],
-    ["Accessibility", scan.accessibilityScore, prev?.accessibilityScore],
-    ["SEO", scan.seoScore, prev?.seoScore],
-    ["Security", scan.securityScore, prev?.securityScore],
-  ] as const;
-
-  for (const [label, current, previous] of categories) {
-    const delta = scoreDelta(current ?? null, previous ?? null);
-    writer.drawLine(
-      `${label}: ${formatScore(current ?? null)}${
-        delta !== null ? ` (${delta >= 0 ? "+" : ""}${delta})` : ""
-      }`
-    );
-  }
-  writer.drawSpacer();
-
-  writer.drawHeading("Top fixes");
-  if (topIssues.length === 0) {
-    writer.drawLine("No open issues on this scan.");
-  } else {
-    for (const issue of topIssues) {
-      drawIssueBlock(writer, issue);
-    }
-  }
-
-  writer.drawSpacer();
-  writer.drawLine("Generated by LoopNode — loopnode.app", 8);
-
-  return writer.toBuffer();
+  return generateReportPdf("EXECUTIVE_SUMMARY", context);
 }
 
 export { buildReportTitle };

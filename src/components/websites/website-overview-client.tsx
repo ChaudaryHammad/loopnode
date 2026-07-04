@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Globe,
   Zap,
-  RefreshCw,
   ArrowLeft,
   CheckCircle,
   XCircle,
@@ -13,14 +12,18 @@ import {
   Shield,
   Eye,
   Search,
-  LinkIcon,
   BarChart2,
   AlertTriangle,
   ChevronRight,
   Calendar,
+  CalendarClock,
   ExternalLink,
-  ArrowUpRight,
   Unlink,
+  Settings,
+  History,
+  TrendingUp,
+  RefreshCw,
+  Square,
 } from "lucide-react";
 import { ScoreGauge } from "./score-gauge";
 import { ScoreChart } from "./score-chart";
@@ -28,13 +31,7 @@ import { formatDate, formatDateTime, formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import {
   VITAL_DEFINITIONS,
   formatVitalValue,
@@ -42,11 +39,18 @@ import {
   vitalRatingClasses,
   vitalRatingLabel,
 } from "@/lib/web-vitals";
-import { AuditScanControls } from "@/components/websites/audit-scan-controls";
+import { formatNextScanAt } from "@/lib/scan-schedule";
+import { useAuditScan } from "@/hooks/use-audit-scan";
+import { AuditProgressPanel } from "@/components/websites/audit-progress-panel";
+import { cn } from "@/lib/utils";
 
 interface SerializedScan {
   id: string;
   status: string;
+  phase?: string | null;
+  statusMessage?: string | null;
+  progressPercent?: number;
+  startedAt?: Date | string | null;
   overallScore: number | null;
   performanceScore: number | null;
   accessibilityScore: number | null;
@@ -68,6 +72,8 @@ interface SerializedWebsite {
   name: string;
   url: string;
   scanFrequency: string;
+  scanTimezone?: string;
+  nextScanAt?: Date | string | null;
   createdAt: Date | string;
 }
 
@@ -91,6 +97,39 @@ interface WebsiteOverviewClientProps {
   latestBrokenLinkScan: SerializedBrokenLinkScan | null;
 }
 
+const SURFACE = "rounded-2xl border border-border/40 bg-card";
+
+const AUDIT_PAGES = [
+  {
+    key: "performance",
+    label: "Performance",
+    icon: Zap,
+    href: (id: string) => `/dashboard/websites/${id}/performance`,
+    scoreKey: "performanceScore" as keyof SerializedScan,
+  },
+  {
+    key: "accessibility",
+    label: "Accessibility",
+    icon: Eye,
+    href: (id: string) => `/dashboard/websites/${id}/accessibility`,
+    scoreKey: "accessibilityScore" as keyof SerializedScan,
+  },
+  {
+    key: "seo",
+    label: "SEO",
+    icon: Search,
+    href: (id: string) => `/dashboard/websites/${id}/seo`,
+    scoreKey: "seoScore" as keyof SerializedScan,
+  },
+  {
+    key: "security",
+    label: "Security",
+    icon: Shield,
+    href: (id: string) => `/dashboard/websites/${id}/security`,
+    scoreKey: "securityScore" as keyof SerializedScan,
+  },
+];
+
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
     COMPLETED: {
@@ -100,7 +139,7 @@ function StatusBadge({ status }: { status: string }) {
     },
     RUNNING: {
       label: "Running",
-      className: "bg-blue-500/10 border-blue-500/25 text-blue-400",
+      className: "bg-primary/10 border-primary/25 text-primary",
       icon: <Zap className="w-3 h-3 animate-pulse" />,
     },
     FAILED: {
@@ -114,203 +153,86 @@ function StatusBadge({ status }: { status: string }) {
       icon: <Clock className="w-3 h-3" />,
     },
   };
-  const cfg = map[status] ?? map["PENDING"];
+  const cfg = map[status] ?? map.PENDING;
   return (
-    <Badge variant="outline" className={`text-[11px] ${cfg.className}`}>
+    <Badge variant="outline" className={cn("text-[11px]", cfg.className)}>
       {cfg.icon} {cfg.label}
     </Badge>
   );
 }
 
-const AUDIT_PAGES = [
-  {
-    key: "performance",
-    label: "Performance",
-    description: "Speed, Core Web Vitals, and Lighthouse audits",
-    icon: <Zap className="w-4 h-4" />,
-    color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    href: (id: string) => `/dashboard/websites/${id}/performance`,
-    scoreKey: "performanceScore" as keyof SerializedScan,
-  },
-  {
-    key: "accessibility",
-    label: "Accessibility",
-    description: "WCAG issues and axe-core findings",
-    icon: <Eye className="w-4 h-4" />,
-    color: "text-violet-400 bg-violet-500/10 border-violet-500/20",
-    href: (id: string) => `/dashboard/websites/${id}/accessibility`,
-    scoreKey: "accessibilityScore" as keyof SerializedScan,
-  },
-  {
-    key: "seo",
-    label: "SEO",
-    description: "Meta tags, headings, robots, and sitemap",
-    icon: <Search className="w-4 h-4" />,
-    color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    href: (id: string) => `/dashboard/websites/${id}/seo`,
-    scoreKey: "seoScore" as keyof SerializedScan,
-  },
-  {
-    key: "security",
-    label: "Security",
-    description: "HTTP headers and transport security",
-    icon: <Shield className="w-4 h-4" />,
-    color: "text-rose-400 bg-rose-500/10 border-rose-500/20",
-    href: (id: string) => `/dashboard/websites/${id}/security`,
-    scoreKey: "securityScore" as keyof SerializedScan,
-  },
-];
+function SectionHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        {description ? (
+          <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+        ) : null}
+      </div>
+      {action}
+    </div>
+  );
+}
 
-function VitalCard({
+function StatTile({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: "default" | "good" | "bad";
+}) {
+  return (
+    <div className="rounded-xl border border-border/30 bg-secondary/10 px-4 py-3">
+      <p
+        className={cn(
+          "text-xl font-bold tabular-nums leading-none",
+          tone === "good" && "text-emerald-400",
+          tone === "bad" && "text-rose-400",
+          tone === "default" && "text-foreground"
+        )}
+      >
+        {value}
+      </p>
+      <p className="text-[11px] text-muted-foreground mt-1.5">{label}</p>
+    </div>
+  );
+}
+
+function VitalPill({
   vitalKey,
   abbr,
-  name,
   value,
 }: {
   vitalKey: string;
   abbr: string;
-  name: string;
   value: number | null;
 }) {
   const rating = getVitalRating(vitalKey, value);
   const styles = vitalRatingClasses(rating);
 
   return (
-    <div
-      className={`flex flex-col items-center text-center rounded-xl border bg-secondary/10 p-4 gap-2 ${styles.border}`}
-    >
-      <p className="text-sm font-semibold text-foreground">{abbr}</p>
-      <p className={`text-2xl font-bold tabular-nums leading-none ${styles.text}`}>
+    <div className={cn("rounded-xl border px-3 py-2.5 bg-secondary/10", styles.border)}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-foreground">{abbr}</span>
+        <Badge variant="outline" className={cn("text-[10px] h-5", styles.badge)}>
+          {vitalRatingLabel(rating)}
+        </Badge>
+      </div>
+      <p className={cn("text-lg font-bold tabular-nums mt-1", styles.text)}>
         {formatVitalValue(vitalKey, value)}
       </p>
-      <p className="text-[11px] text-muted-foreground leading-snug">{name}</p>
-      <Badge variant="outline" className={`text-[10px] ${styles.badge}`}>
-        {vitalRatingLabel(rating)}
-      </Badge>
     </div>
-  );
-}
-
-function BrokenLinksSection({
-  websiteId,
-  scan,
-}: {
-  websiteId: string;
-  scan: SerializedBrokenLinkScan | null;
-}) {
-  const isRunning = scan?.status === "RUNNING";
-  const lastRun = scan?.completedAt ?? scan?.createdAt ?? null;
-  const checkerHref = `/dashboard/websites/${websiteId}/broken-links`;
-
-  return (
-    <section className="relative overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/5 via-card to-card">
-      <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
-      <div className="relative p-6 md:p-8 space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
-          <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center w-12 h-12 rounded-2xl border border-blue-500/25 bg-blue-500/10 text-blue-400 shrink-0">
-              <Unlink className="w-5 h-5" />
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-bold text-foreground">Broken Link Checker</h2>
-                {scan && <StatusBadge status={scan.status} />}
-              </div>
-              <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
-                Crawl internal pages or check outbound links separately. Find 404s, dead
-                anchors, and broken assets with source page context.
-              </p>
-            </div>
-          </div>
-
-          <Link
-            href={checkerHref}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-500/90 transition-all shrink-0"
-          >
-            Open checker
-            <ArrowUpRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        {isRunning ? (
-          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-foreground font-medium">
-                {scan.statusMessage ?? "Scan in progress…"}
-              </span>
-              <span className="text-muted-foreground tabular-nums">
-                {Math.round(scan.progressPercent)}%
-              </span>
-            </div>
-            <div className="h-2 rounded-full bg-secondary/60 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                style={{ width: `${Math.min(100, scan.progressPercent)}%` }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {formatNumber(scan.linksChecked)} links checked · {formatNumber(scan.pagesCrawled)}{" "}
-              pages crawled
-            </p>
-          </div>
-        ) : scan ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-border/30 bg-card/60 p-4 text-center">
-              <p
-                className={`text-2xl font-bold tabular-nums ${
-                  scan.brokenCount > 0 ? "text-rose-400" : "text-emerald-400"
-                }`}
-              >
-                {formatNumber(scan.brokenCount)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Broken links</p>
-            </div>
-            <div className="rounded-xl border border-border/30 bg-card/60 p-4 text-center">
-              <p className="text-2xl font-bold tabular-nums text-foreground">
-                {formatNumber(scan.linksChecked)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Links checked</p>
-            </div>
-            <div className="rounded-xl border border-border/30 bg-card/60 p-4 text-center">
-              <p className="text-2xl font-bold tabular-nums text-foreground capitalize">
-                {scan.mode.toLowerCase()}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Last scan mode</p>
-            </div>
-            <div className="rounded-xl border border-border/30 bg-card/60 p-4 text-center">
-              <p className="text-sm font-semibold text-foreground">
-                {lastRun ? formatDate(lastRun) : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Last run</p>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border/40 bg-secondary/10 p-6 text-center">
-            <LinkIcon className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-60" />
-            <p className="text-sm text-muted-foreground">
-              No link scans yet. Open the checker to run an internal or external crawl.
-            </p>
-          </div>
-        )}
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Link
-            href={checkerHref}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/40 bg-card hover:bg-secondary/20 text-sm font-medium transition-colors"
-          >
-            <Globe className="w-4 h-4 text-blue-400" />
-            Check internal links
-          </Link>
-          <Link
-            href={checkerHref}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/40 bg-card hover:bg-secondary/20 text-sm font-medium transition-colors"
-          >
-            <ExternalLink className="w-4 h-4 text-blue-400" />
-            Check external links
-          </Link>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -319,254 +241,408 @@ export function WebsiteOverviewClient({
   scans,
   latestBrokenLinkScan,
 }: WebsiteOverviewClientProps) {
-  const latestScan = scans[0] ?? null;
+  const serverRunningScan = scans.find((scan) => scan.status === "RUNNING") ?? null;
+  const latestCompleted = scans.find((scan) => scan.status === "COMPLETED") ?? null;
+  const displayScan = latestCompleted;
 
-  const coreVitals = VITAL_DEFINITIONS.filter((v) => v.isCoreWebVital);
-  const labMetrics = VITAL_DEFINITIONS.filter((v) => !v.isCoreWebVital);
+  const initialProgress = serverRunningScan
+    ? {
+        phase: serverRunningScan.phase ?? "queued",
+        statusMessage: serverRunningScan.statusMessage ?? "Audit in progress…",
+        progressPercent: serverRunningScan.progressPercent ?? 2,
+        startedAt: serverRunningScan.startedAt ?? serverRunningScan.createdAt,
+      }
+    : null;
+
+  const { startScan, cancelScan, isRunning, isCancelling, error, progress } = useAuditScan({
+    websiteId: website.id,
+    initialRunningScanId: serverRunningScan?.id ?? null,
+    initialProgress,
+  });
+
+  const host = website.url.replace(/^https?:\/\//, "").split("/")[0];
+  const checkerHref = `/dashboard/websites/${website.id}/broken-links`;
+  const settingsHref = `/dashboard/websites/${website.id}/settings`;
+  const linkScanRunning = latestBrokenLinkScan?.status === "RUNNING";
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="rounded-2xl border border-border/30 bg-gradient-to-br from-card via-card to-secondary/10 p-6 md:p-8 space-y-5">
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between gap-4">
         <Link
           href="/dashboard/websites"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ArrowLeft className="w-3 h-3" />
-          Connected Websites
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Websites
         </Link>
-
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-                {website.name}
-              </h1>
-              {latestScan && <StatusBadge status={latestScan.status} />}
-            </div>
-            <a
-              href={website.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <Globe className="w-3.5 h-3.5 shrink-0" />
-              {website.url.replace(/^https?:\/\//, "")}
-              <ExternalLink className="w-3 h-3 opacity-60" />
-            </a>
-            {latestScan && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {latestScan.criticalCount > 0 && (
-                  <Badge variant="outline" className="bg-rose-500/10 text-rose-400 border-rose-500/20">
-                    <AlertTriangle className="w-3 h-3" />
-                    {latestScan.criticalCount} critical
-                  </Badge>
-                )}
-                <Badge variant="secondary">{latestScan.issueCount} total issues</Badge>
-                <Badge variant="secondary" className="capitalize">
-                  {website.scanFrequency.toLowerCase()} scans
-                </Badge>
-              </div>
-            )}
-          </div>
-
-          <AuditScanControls
-            websiteId={website.id}
-            runningScanId={
-              latestScan?.status === "RUNNING" ? latestScan.id : null
-            }
-            label="Run audit"
-            runningLabel="Scanning…"
-            runVariant="default"
-            size="lg"
-            className="shrink-0"
-          />
-        </div>
+        <ButtonLink href={settingsHref} variant="outline" size="sm">
+          <Settings className="w-4 h-4" />
+          Settings
+        </ButtonLink>
       </div>
 
-      {/* Health scores */}
-      <Card className="rounded-2xl border-border/30">
-        <CardHeader>
-          <CardTitle className="text-lg">Health scores</CardTitle>
-          <CardDescription>
-            Performance, accessibility, SEO, and security from your latest audit
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {latestScan?.completedAt && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-6">
-              <Calendar className="w-3 h-3" />
-              Last scan: {formatDate(latestScan.completedAt)}
-            </div>
-          )}
-          {latestScan ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 md:gap-8">
-            <div className="col-span-2 sm:col-span-1 flex justify-center">
-              <ScoreGauge score={latestScan.overallScore} label="Overall" size="lg" />
-            </div>
-            <ScoreGauge score={latestScan.performanceScore} label="Performance" size="md" />
-            <ScoreGauge score={latestScan.accessibilityScore} label="Accessibility" size="md" />
-            <ScoreGauge score={latestScan.seoScore} label="SEO" size="md" />
-            <ScoreGauge score={latestScan.securityScore} label="Security" size="md" />
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-14 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-secondary/40 flex items-center justify-center mb-4">
-              <BarChart2 className="w-7 h-7 text-muted-foreground" />
-            </div>
-            <p className="text-sm font-medium text-foreground mb-1">No audits yet</p>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Run your first audit to see health scores and Core Web Vitals for this site.
-            </p>
-          </div>
-        )}
-        </CardContent>
-      </Card>
-
-      {/* Core Web Vitals */}
-      {latestScan && (
-        <section className="bg-card border border-border/30 rounded-2xl p-6 md:p-8 space-y-6">
-          <div>
-            <h2 className="text-lg font-bold text-foreground">Core Web Vitals</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Google&apos;s key user experience metrics from your latest Lighthouse run
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {coreVitals.map(({ key, abbr, name }) => (
-              <VitalCard
-                key={key}
-                vitalKey={key}
-                abbr={abbr}
-                name={name}
-                value={latestScan[key as keyof SerializedScan] as number | null}
-              />
-            ))}
-          </div>
-
-          <div className="pt-2 border-t border-border/20 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Lab metrics</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Additional Lighthouse timing metrics (not official Core Web Vitals)
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {labMetrics.map(({ key, abbr, name }) => (
-                <VitalCard
-                  key={key}
-                  vitalKey={key}
-                  abbr={abbr}
-                  name={name}
-                  value={latestScan[key as keyof SerializedScan] as number | null}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Audit categories */}
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-bold text-foreground">Audit reports</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Drill into detailed findings for each category
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {AUDIT_PAGES.map((page) => {
-            const score =
-              page.scoreKey && latestScan
-                ? (latestScan[page.scoreKey] as number | null)
-                : null;
-            return (
-              <Link
-                key={page.key}
-                href={page.href(website.id)}
-                className="group bg-card border border-border/30 rounded-2xl p-5 hover:border-border/60 hover:shadow-md transition-all duration-200 flex items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div
-                    className={`flex items-center justify-center w-11 h-11 rounded-xl border shrink-0 ${page.color}`}
-                  >
-                    {page.icon}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground">{page.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {page.description}
-                    </p>
-                    {score !== null && (
-                      <p className="text-xs font-medium text-foreground/80 mt-1.5">
-                        Score: <span className="tabular-nums">{score}</span>/100
-                      </p>
-                    )}
-                  </div>
+      {/* Hero */}
+      <section className={cn(SURFACE, "overflow-hidden")}>
+        <div className="p-6 md:p-8 space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:justify-between">
+            <div className="flex gap-4 min-w-0 flex-1">
+              <div className="flex items-center justify-center w-14 h-14 rounded-2xl border border-border/40 bg-secondary/20 text-primary shrink-0">
+                <Globe className="w-6 h-6" />
+              </div>
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                    {website.name}
+                  </h1>
+                  <StatusBadge
+                    status={isRunning ? "RUNNING" : displayScan?.status ?? "PENDING"}
+                  />
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
-              </Link>
-            );
-          })}
+                <a
+                  href={website.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {host}
+                  <ExternalLink className="w-3 h-3 opacity-60" />
+                </a>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {isRunning ? (
+                <>
+                  <Button variant="default" size="lg" disabled className="gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Auditing…
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="lg"
+                    onClick={() => void cancelScan()}
+                    disabled={isCancelling}
+                    className="gap-2"
+                  >
+                    {isCancelling ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Square className="w-4 h-4 fill-current" />
+                    )}
+                    Stop
+                  </Button>
+                </>
+              ) : (
+                <Button size="lg" onClick={() => void startScan()} className="gap-2">
+                  <Zap className="w-4 h-4" />
+                  Run full audit
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-border/30">
+            {displayScan?.completedAt ? (
+              <Badge variant="secondary" className="gap-1.5 font-normal">
+                <Calendar className="w-3 h-3" />
+                Last audit {formatDate(displayScan.completedAt)}
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="font-normal">
+                No completed audits yet
+              </Badge>
+            )}
+            {displayScan && displayScan.criticalCount > 0 ? (
+              <Badge variant="outline" className="bg-rose-500/10 text-rose-400 border-rose-500/20">
+                <AlertTriangle className="w-3 h-3" />
+                {displayScan.criticalCount} critical
+              </Badge>
+            ) : null}
+            {displayScan ? (
+              <Badge variant="outline" className="font-normal">
+                {displayScan.issueCount} issues
+              </Badge>
+            ) : null}
+            <Badge variant="outline" className="capitalize font-normal">
+              {website.scanFrequency.toLowerCase()} schedule
+            </Badge>
+            {website.nextScanAt ? (
+              <Badge variant="outline" className="font-normal gap-1">
+                <CalendarClock className="w-3 h-3" />
+                Next{" "}
+                {formatNextScanAt(new Date(website.nextScanAt), website.scanTimezone ?? "UTC")}
+              </Badge>
+            ) : null}
+          </div>
         </div>
+
+        {isRunning ? (
+          <div className="border-t border-border/30 bg-secondary/5 px-6 md:px-8 py-6">
+            <AuditProgressPanel progress={progress} embedded />
+          </div>
+        ) : null}
       </section>
 
-      {/* Broken links — separate from audit metrics */}
-      <BrokenLinksSection websiteId={website.id} scan={latestBrokenLinkScan} />
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="xl:col-span-8 space-y-6">
+          {!isRunning && displayScan ? (
+            <section className={cn(SURFACE, "p-6 md:p-8 space-y-8")}>
+              <SectionHeader
+                title="Health overview"
+                description="Scores and Core Web Vitals from your latest completed audit"
+              />
 
-      {/* Score trends */}
-      {scans.length > 1 && (
-        <section className="bg-card border border-border/30 rounded-2xl p-6 md:p-8">
-          <h2 className="text-lg font-bold text-foreground mb-1">Score trends</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            How your audit scores have changed over recent runs
-          </p>
-          <ScoreChart scans={scans} />
-        </section>
-      )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+                <div className="col-span-2 sm:col-span-1 flex justify-center">
+                  <ScoreGauge score={displayScan.overallScore} label="Overall" size="lg" />
+                </div>
+                <ScoreGauge score={displayScan.performanceScore} label="Performance" size="md" />
+                <ScoreGauge score={displayScan.accessibilityScore} label="Accessibility" size="md" />
+                <ScoreGauge score={displayScan.seoScore} label="SEO" size="md" />
+                <ScoreGauge score={displayScan.securityScore} label="Security" size="md" />
+              </div>
 
-      {/* Scan history */}
-      {scans.length > 0 && (
-        <section className="bg-card border border-border/30 rounded-2xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-border/20">
-            <h2 className="text-lg font-bold text-foreground">Scan history</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Recent audit runs for this website
-            </p>
-          </div>
-          <div className="divide-y divide-border/20">
-            {scans.map((scan) => (
-              <div
-                key={scan.id}
-                className="flex flex-wrap items-center gap-3 sm:gap-4 px-6 py-4 hover:bg-secondary/10 transition-colors text-sm"
-              >
-                <StatusBadge status={scan.status} />
-                <span className="text-muted-foreground text-xs">
-                  {formatDateTime(scan.createdAt)}
-                </span>
-                <div className="flex items-center gap-3 ml-auto">
-                  {scan.overallScore !== null && (
-                    <span className="font-bold text-foreground tabular-nums">
-                      {scan.overallScore}
-                      <span className="text-muted-foreground font-normal text-xs">/100</span>
-                    </span>
-                  )}
-                  {scan.criticalCount > 0 && (
-                    <span className="flex items-center gap-1 text-[11px] font-medium text-rose-400">
-                      <AlertTriangle className="w-3 h-3" />
-                      {scan.criticalCount} critical
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {scan.issueCount} issues
-                  </span>
+              <div className="pt-6 border-t border-border/30 space-y-4">
+                <SectionHeader
+                  title="Core Web Vitals"
+                  description="Lighthouse lab metrics under mobile throttling"
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                  {VITAL_DEFINITIONS.filter((v) => v.isCoreWebVital).map(({ key, abbr }) => (
+                    <VitalPill
+                      key={key}
+                      vitalKey={key}
+                      abbr={abbr}
+                      value={displayScan[key as keyof SerializedScan] as number | null}
+                    />
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {VITAL_DEFINITIONS.filter((v) => !v.isCoreWebVital).map(({ key, abbr }) => (
+                    <VitalPill
+                      key={key}
+                      vitalKey={key}
+                      abbr={abbr}
+                      value={displayScan[key as keyof SerializedScan] as number | null}
+                    />
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            </section>
+          ) : !isRunning ? (
+            <section className={cn(SURFACE, "p-10 text-center")}>
+              <div className="w-14 h-14 rounded-2xl bg-secondary/30 flex items-center justify-center mx-auto mb-4">
+                <BarChart2 className="w-7 h-7 text-muted-foreground" />
+              </div>
+              <h2 className="text-lg font-semibold text-foreground">No audit data yet</h2>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                Run your first audit to see health scores, Core Web Vitals, and category reports.
+              </p>
+            </section>
+          ) : displayScan ? (
+            <section className={cn(SURFACE, "p-6 md:p-8")}>
+              <SectionHeader
+                title="Previous results"
+                description="Your last completed audit — a new run is in progress above"
+              />
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-5 opacity-80">
+                <ScoreGauge score={displayScan.overallScore} label="Overall" size="sm" />
+                <ScoreGauge score={displayScan.performanceScore} label="Performance" size="sm" />
+                <ScoreGauge score={displayScan.accessibilityScore} label="Accessibility" size="sm" />
+                <ScoreGauge score={displayScan.seoScore} label="SEO" size="sm" />
+                <ScoreGauge score={displayScan.securityScore} label="Security" size="sm" />
+              </div>
+            </section>
+          ) : null}
+
+          <section className={cn(SURFACE, "p-6 md:p-8")}>
+            <SectionHeader
+              title="Category reports"
+              description="Drill into detailed findings for each audit area"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
+              {AUDIT_PAGES.map((page) => {
+                const Icon = page.icon;
+                const score =
+                  page.scoreKey && displayScan
+                    ? (displayScan[page.scoreKey] as number | null)
+                    : null;
+                return (
+                  <Link
+                    key={page.key}
+                    href={page.href(website.id)}
+                    className="group flex items-center justify-between gap-3 rounded-xl border border-border/30 bg-secondary/5 px-4 py-3.5 hover:bg-secondary/15 hover:border-border/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-card border border-border/30 text-muted-foreground group-hover:text-foreground transition-colors">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">{page.label}</p>
+                        {score !== null ? (
+                          <p className="text-xs text-muted-foreground tabular-nums">
+                            Score {score}/100
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">View findings</p>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground shrink-0" />
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+
+          {scans.filter((s) => s.status === "COMPLETED").length > 1 ? (
+            <section className={cn(SURFACE, "p-6 md:p-8")}>
+              <SectionHeader
+                title="Score trends"
+                description="How your audit scores changed over recent runs"
+                action={<TrendingUp className="w-4 h-4 text-muted-foreground" />}
+              />
+              <div className="mt-6">
+                <ScoreChart scans={scans} />
+              </div>
+            </section>
+          ) : null}
+        </div>
+
+        <aside className="xl:col-span-4 space-y-6">
+          <section className={cn(SURFACE, "p-5 md:p-6 space-y-5")}>
+            <SectionHeader
+              title="Broken links"
+              description="Crawl internal or external links"
+              action={
+                <ButtonLink href={checkerHref} variant="ghost" size="sm" className="h-8 px-2">
+                  Open
+                  <ChevronRight className="w-4 h-4" />
+                </ButtonLink>
+              }
+            />
+
+            {linkScanRunning && latestBrokenLinkScan ? (
+              <div className="space-y-3 rounded-xl border border-border/30 bg-secondary/10 p-4">
+                <div className="flex items-center justify-between text-sm gap-3">
+                  <span className="font-medium line-clamp-2">
+                    {latestBrokenLinkScan.statusMessage ?? "Scan in progress…"}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums shrink-0">
+                    {Math.round(latestBrokenLinkScan.progressPercent)}%
+                  </span>
+                </div>
+                <Progress value={latestBrokenLinkScan.progressPercent} className="h-2" />
+              </div>
+            ) : latestBrokenLinkScan ? (
+              <div className="grid grid-cols-2 gap-3">
+                <StatTile
+                  label="Broken"
+                  value={formatNumber(latestBrokenLinkScan.brokenCount)}
+                  tone={latestBrokenLinkScan.brokenCount > 0 ? "bad" : "good"}
+                />
+                <StatTile
+                  label="Checked"
+                  value={formatNumber(latestBrokenLinkScan.linksChecked)}
+                />
+                <StatTile
+                  label="Mode"
+                  value={
+                    <span className="capitalize text-base">
+                      {latestBrokenLinkScan.mode.toLowerCase()}
+                    </span>
+                  }
+                />
+                <StatTile
+                  label="Last run"
+                  value={
+                    <span className="text-sm font-semibold">
+                      {latestBrokenLinkScan.completedAt
+                        ? formatDate(latestBrokenLinkScan.completedAt)
+                        : "—"}
+                    </span>
+                  }
+                />
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/40 bg-secondary/5 p-5 text-center">
+                <Unlink className="w-6 h-6 text-muted-foreground mx-auto mb-2 opacity-70" />
+                <p className="text-xs text-muted-foreground">No link scans yet</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-2">
+              <Link
+                href={checkerHref}
+                className="flex items-center justify-center gap-2 rounded-xl border border-border/30 bg-secondary/5 px-3 py-2.5 text-sm font-medium hover:bg-secondary/15 transition-colors"
+              >
+                <Globe className="w-4 h-4 text-muted-foreground" />
+                Internal crawl
+              </Link>
+              <Link
+                href={checkerHref}
+                className="flex items-center justify-center gap-2 rounded-xl border border-border/30 bg-secondary/5 px-3 py-2.5 text-sm font-medium hover:bg-secondary/15 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                External check
+              </Link>
+            </div>
+          </section>
+
+          <section className={cn(SURFACE, "p-5 md:p-6 space-y-4")}>
+            <SectionHeader title="Schedule" description="Automated audit cadence" />
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Frequency</span>
+                <span className="font-medium capitalize">{website.scanFrequency.toLowerCase()}</span>
+              </div>
+              {website.nextScanAt ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Next run</span>
+                  <span className="font-medium text-right text-xs sm:text-sm">
+                    {formatNextScanAt(new Date(website.nextScanAt), website.scanTimezone ?? "UTC")}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            <ButtonLink href={settingsHref} variant="outline" size="sm" className="w-full">
+              <CalendarClock className="w-4 h-4" />
+              Edit schedule
+            </ButtonLink>
+          </section>
+
+          {scans.length > 0 ? (
+            <section className={cn(SURFACE, "overflow-hidden")}>
+              <div className="px-5 py-4 border-b border-border/30 flex items-center gap-2">
+                <History className="w-4 h-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold text-foreground">Recent audits</h2>
+              </div>
+              <div className="divide-y divide-border/20">
+                {scans.slice(0, 6).map((scan) => (
+                  <div
+                    key={scan.id}
+                    className="flex items-center gap-3 px-5 py-3.5 text-sm hover:bg-secondary/10 transition-colors"
+                  >
+                    <StatusBadge status={scan.status} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-muted-foreground truncate">
+                        {formatDateTime(scan.createdAt)}
+                      </p>
+                    </div>
+                    {scan.overallScore !== null ? (
+                      <span className="font-bold tabular-nums text-foreground shrink-0">
+                        {scan.overallScore}
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </aside>
+      </div>
     </div>
   );
 }

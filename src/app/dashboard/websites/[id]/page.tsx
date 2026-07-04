@@ -51,12 +51,18 @@ export default async function WebsiteOverviewPage({ params }: Props) {
     name: website.name,
     url: website.url,
     scanFrequency: website.scanFrequency,
+    scanTimezone: website.scanTimezone,
+    nextScanAt: website.nextScanAt,
     createdAt: website.createdAt,
   };
 
   const serializedScans = website.scans.map((s) => ({
     id: s.id,
     status: s.status,
+    phase: s.phase,
+    statusMessage: s.statusMessage,
+    progressPercent: s.progressPercent,
+    startedAt: s.startedAt,
     overallScore: s.overallScore,
     performanceScore: s.performanceScore,
     accessibilityScore: s.accessibilityScore,

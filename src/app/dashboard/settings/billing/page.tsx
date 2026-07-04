@@ -1,34 +1,48 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { getAccountSettingsAction } from "@/actions/settings";
+import { getBillingOverviewAction } from "@/actions/upgrade-requests";
 import { BillingSettingsClient } from "@/components/settings/billing-settings-client";
 
 export const metadata = {
   title: "Billing Settings",
 };
 
-/** Development plan limits until Stripe subscriptions ship */
-const DEV_PLAN = {
-  name: "Development",
-  description: "Full access while billing is being set up",
-  websiteLimit: 15,
-};
-
 export default async function SettingsBillingPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const result = await getAccountSettingsAction();
+  const result = await getBillingOverviewAction();
   if (!result.success || !result.data) {
     redirect("/login");
   }
 
+  const { entitlements, requests, pendingRequest } = result.data;
+
   return (
     <BillingSettingsClient
-      websiteCount={result.data.websiteCount}
-      websiteLimit={DEV_PLAN.websiteLimit}
-      planName={DEV_PLAN.name}
-      planDescription={DEV_PLAN.description}
+      entitlements={{
+        planLabel: entitlements.planLabel,
+        status: entitlements.status,
+        websiteLimit: entitlements.websiteLimit,
+        websiteCount: entitlements.websiteCount,
+        websitesRemaining: entitlements.websitesRemaining,
+        canAddWebsite: entitlements.canAddWebsite,
+        isTrial: entitlements.isTrial,
+        isReadOnly: entitlements.isReadOnly,
+        trialEndsAt: entitlements.trialEndsAt?.toISOString() ?? null,
+        accountMessage: entitlements.accountMessage,
+      }}
+      requests={requests.map((r) => ({
+        id: r.id,
+        requestedPlan: r.requestedPlan,
+        paymentMethod: r.paymentMethodLabel ?? r.paymentMethod,
+        paymentReference: r.paymentReference,
+        status: r.status,
+        adminNote: r.adminNote,
+        createdAt: r.createdAt.toISOString(),
+        reviewedAt: r.reviewedAt?.toISOString() ?? null,
+      }))}
+      hasPendingRequest={!!pendingRequest}
     />
   );
 }

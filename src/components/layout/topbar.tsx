@@ -8,6 +8,7 @@ import { Menu, User, Settings, LogOut, ChevronDown, Shield } from "lucide-react"
 import { logoutAction } from "@/actions/auth";
 import { getUserDisplayName } from "@/lib/user-display";
 import { UserAvatar } from "@/components/user-avatar";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,6 +91,7 @@ export function Topbar({ user, onMenuClick }: TopbarProps) {
 
       <div className="flex items-center gap-2">
         <ThemeToggle />
+        <NotificationBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger

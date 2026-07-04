@@ -2,17 +2,18 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Wallet } from "lucide-react";
 import {
   initMissingSubscriptionsAction,
   initUserSubscriptionAction,
   updateSubscriptionAction,
 } from "@/actions/admin";
-import { PLAN_LABELS, PLAN_PRICES_USD } from "@/lib/plans";
+import { PLAN_LABELS, PLAN_PRICES_USD, PLAN_SITE_LIMITS } from "@/lib/plans";
 import { formatDateTime } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button-link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -32,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -53,8 +55,7 @@ type SubscriptionRow = {
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
+  websiteLimitOverride: number | null;
   adminNotes: string | null;
   updatedAt: string;
 };
@@ -91,6 +92,8 @@ export function AdminBillingClient({
     currentPeriodEnd: "",
     cancelAtPeriodEnd: false,
     adminNotes: "",
+    websiteLimitOverride: "",
+    notifyUser: true,
   });
 
   const openEdit = (row: SubscriptionRow) => {
@@ -102,6 +105,9 @@ export function AdminBillingClient({
       currentPeriodEnd: row.currentPeriodEnd ? row.currentPeriodEnd.slice(0, 10) : "",
       cancelAtPeriodEnd: row.cancelAtPeriodEnd,
       adminNotes: row.adminNotes ?? "",
+      websiteLimitOverride:
+        row.websiteLimitOverride != null ? String(row.websiteLimitOverride) : "",
+      notifyUser: true,
     });
   };
 
@@ -118,6 +124,10 @@ export function AdminBillingClient({
         currentPeriodEnd: form.currentPeriodEnd || null,
         cancelAtPeriodEnd: form.cancelAtPeriodEnd,
         adminNotes: form.adminNotes || null,
+        websiteLimitOverride: form.websiteLimitOverride
+          ? Number(form.websiteLimitOverride)
+          : null,
+        notifyUser: form.notifyUser,
       });
       if (res.success) {
         setMessage(res.message ?? "Saved.");
@@ -131,19 +141,21 @@ export function AdminBillingClient({
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-border/20 pb-6 space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-sm text-muted-foreground">
-          Subscription records and manual plan overrides. Stripe checkout is pending.
-        </p>
+      <div className="border-b border-border/20 pb-6 space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
+            <p className="text-sm text-muted-foreground">
+              Subscription records, plan overrides, and website limits. Grant upgrades here without
+              requiring a customer payment submission.
+            </p>
+          </div>
+          <ButtonLink href="/admin/payment-methods" variant="outline" className="gap-2 shrink-0">
+            <Wallet className="w-4 h-4" />
+            Payment methods
+          </ButtonLink>
+        </div>
       </div>
-
-      <Alert>
-        <AlertDescription>
-          <strong>Stripe not connected.</strong> Failed payments, checkout, and customer portal
-          will appear here after Phase A billing ships. Use manual overrides for support cases.
-        </AlertDescription>
-      </Alert>
 
       {message && (
         <Alert>
@@ -231,7 +243,6 @@ export function AdminBillingClient({
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden lg:table-cell">Trial / period end</TableHead>
-                <TableHead className="hidden md:table-cell">Stripe</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -272,9 +283,6 @@ export function AdminBillingClient({
                   <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
                     {row.trialEndsAt && <p>Trial: {formatDateTime(row.trialEndsAt)}</p>}
                     {row.currentPeriodEnd && <p>Period: {formatDateTime(row.currentPeriodEnd)}</p>}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                    {row.stripeCustomerId ? "Customer linked" : "Not linked"}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -341,7 +349,8 @@ export function AdminBillingClient({
           <DialogHeader>
             <DialogTitle>Manual subscription override</DialogTitle>
             <DialogDescription>
-              {editing?.userEmail} — changes apply immediately (Stripe sync pending).
+              {editing?.userEmail} — changes apply immediately. The user sees your note on their
+              billing page and gets a notification when enabled below.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -403,11 +412,45 @@ export function AdminBillingClient({
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Admin notes</Label>
+              <Label>Website limit override</Label>
+              <Input
+                type="number"
+                min={1}
+                placeholder={
+                  form.plan
+                    ? `Default: ${PLAN_SITE_LIMITS[form.plan as keyof typeof PLAN_SITE_LIMITS]}`
+                    : "Uses plan default"
+                }
+                value={form.websiteLimitOverride}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, websiteLimitOverride: e.target.value }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty to use the plan default (
+                {form.plan
+                  ? PLAN_SITE_LIMITS[form.plan as keyof typeof PLAN_SITE_LIMITS]
+                  : "trial = 15"}
+                ). Starter = 3, Pro = 15, Agency = 50.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Message to customer</Label>
               <Textarea
                 value={form.adminNotes}
                 onChange={(e) => setForm((f) => ({ ...f, adminNotes: e.target.value }))}
+                placeholder="Shown on their billing page — e.g. Your trial is ending, please upgrade."
                 rows={3}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-border/30 p-3">
+              <div>
+                <p className="text-sm font-medium">Notify customer</p>
+                <p className="text-xs text-muted-foreground">In-app bell + email</p>
+              </div>
+              <Switch
+                checked={form.notifyUser}
+                onCheckedChange={(notifyUser) => setForm((f) => ({ ...f, notifyUser }))}
               />
             </div>
           </div>

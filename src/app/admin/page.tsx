@@ -46,8 +46,15 @@ export default async function AdminOverviewPage() {
 
       <Alert>
         <AlertDescription>
-          <strong>Stripe billing is not connected yet.</strong> Subscription records below support
-          manual overrides for support. MRR is estimated from active paid plans only.
+          Configure customer payment options under{" "}
+          <a href="/admin/payment-methods" className="text-primary hover:underline">
+            Payment methods
+          </a>
+          . Review submitted payments on{" "}
+          <a href="/admin/upgrade-requests" className="text-primary hover:underline">
+            Upgrades
+          </a>
+          . MRR is estimated from active paid plans.
         </AlertDescription>
       </Alert>
 

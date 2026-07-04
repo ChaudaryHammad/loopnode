@@ -12,6 +12,11 @@ export const runAuditTask = task({
     const { prisma } = await import("@/lib/prisma");
     const { completeAuditScan } = await import("@/lib/scanner/complete-audit-scan");
     const { failAuditScan } = await import("@/lib/scanner/fail-audit-scan");
+    const { AuditCancelledError } = await import("@/lib/scanner/audit-cancelled-error");
+    const { markScanCancelled } = await import("@/lib/scanner/audit-scan-control");
+
+    const { reaperStaleRunningScans } = await import("@/lib/scanner/fail-audit-scan");
+    await reaperStaleRunningScans();
 
     const scan = await prisma.scan.findFirst({
       where: { id: payload.scanId, status: "RUNNING" },
@@ -40,6 +45,12 @@ export const runAuditTask = task({
         overallScore: completed.overallScore,
       };
     } catch (error) {
+      if (error instanceof AuditCancelledError) {
+        await markScanCancelled(payload.scanId);
+        logger.info("Audit scan cancelled", { scanId: payload.scanId });
+        return { scanId: payload.scanId, cancelled: true };
+      }
+
       const message = error instanceof Error ? error.message : "Scan failed";
       logger.error("Audit scan failed", {
         scanId: payload.scanId,

@@ -6,15 +6,13 @@ import {
   uploadReportFile,
 } from "@/lib/cloudinary";
 import { generateIssuesCsv } from "@/lib/reports/generate-csv";
-import {
-  generateExecutiveSummaryPdf,
-  generateFullAuditPdf,
-} from "@/lib/reports/generate-pdf";
+import { generateReportPdf } from "@/lib/reports/generate-pdf";
 import {
   buildReportTitle,
   type ReportScanContext,
   type ScanWithIssues,
 } from "@/lib/reports/types";
+import { createShareToken } from "@/lib/reports/share";
 import type { ReportType } from "@prisma/client";
 
 const scanWithIssuesInclude = {
@@ -123,11 +121,12 @@ export async function generateReportForUser(
 
   switch (input.type) {
     case "FULL_AUDIT":
-      buffer = await generateFullAuditPdf(context);
-      format = "pdf";
-      break;
     case "EXECUTIVE_SUMMARY":
-      buffer = await generateExecutiveSummaryPdf(context);
+    case "PERFORMANCE_REPORT":
+    case "SEO_REPORT":
+    case "SECURITY_REPORT":
+    case "ACCESSIBILITY_REPORT":
+      buffer = await generateReportPdf(input.type, context);
       format = "pdf";
       break;
     case "ISSUES_CSV":
@@ -175,6 +174,9 @@ export async function generateReportForUser(
       fileUrl,
       cloudinaryPublicId: publicId,
       fileSize: buffer.byteLength,
+      shareToken: createShareToken(),
+      shareEnabled: false,
+      scanCompletedAt: context.scan.completedAt,
     },
     include: {
       website: { select: { id: true, name: true, url: true } },
@@ -234,4 +236,45 @@ export async function deleteReportForUser(userId: string, reportId: string) {
   });
 
   return report;
+}
+
+export async function setReportShareForUser(
+  userId: string,
+  reportId: string,
+  enabled: boolean
+) {
+  const report = await prisma.report.findFirst({
+    where: {
+      id: reportId,
+      website: { userId, deletedAt: null },
+    },
+  });
+
+  if (!report) return null;
+
+  const shareToken = report.shareToken ?? createShareToken();
+
+  return prisma.report.update({
+    where: { id: report.id },
+    data: {
+      shareEnabled: enabled,
+      shareToken,
+    },
+    include: {
+      website: { select: { id: true, name: true, url: true } },
+    },
+  });
+}
+
+export async function getReportByShareToken(shareToken: string) {
+  return prisma.report.findFirst({
+    where: {
+      shareToken,
+      shareEnabled: true,
+      format: "pdf",
+    },
+    include: {
+      website: { select: { name: true, url: true } },
+    },
+  });
 }

@@ -11,7 +11,9 @@ import {
   Mail,
   MessageSquare,
   Shield,
+  Sparkles,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
@@ -25,6 +27,8 @@ const mobileItems = [
   { name: "Users", href: "/admin/users", icon: Users },
   { name: "Websites", href: "/admin/websites", icon: Globe },
   { name: "Billing", href: "/admin/billing", icon: CreditCard },
+  { name: "Payments", href: "/admin/payment-methods", icon: Wallet },
+  { name: "Upgrades", href: "/admin/upgrade-requests", icon: Sparkles },
   { name: "Newsletter", href: "/admin/newsletter", icon: Mail },
   { name: "Support", href: "/admin/contacts", icon: MessageSquare },
 ];

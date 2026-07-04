@@ -18,7 +18,7 @@ export const PLAN_LABELS: Record<PlanTier, string> = {
   AGENCY: "Agency",
 };
 
-export const TRIAL_SITE_LIMIT = 15;
+export const TRIAL_SITE_LIMIT = PLAN_SITE_LIMITS.STARTER;
 
 export function formatPlanTier(plan: PlanTier | null | undefined) {
   if (!plan) return "No plan";

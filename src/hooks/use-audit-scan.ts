@@ -7,22 +7,44 @@ import {
   getScanStatusAction,
   startScanAction,
 } from "@/actions/scans";
+import type { AuditProgressState } from "@/components/websites/audit-progress-panel";
 
 interface UseAuditScanOptions {
   websiteId: string;
   initialRunningScanId?: string | null;
+  initialProgress?: AuditProgressState | null;
 }
 
-export function useAuditScan({ websiteId, initialRunningScanId }: UseAuditScanOptions) {
+const EMPTY_PROGRESS: AuditProgressState = {
+  phase: "queued",
+  statusMessage: "Preparing audit…",
+  progressPercent: 2,
+  startedAt: null,
+};
+
+export function useAuditScan({
+  websiteId,
+  initialRunningScanId,
+  initialProgress,
+}: UseAuditScanOptions) {
   const router = useRouter();
   const [pollingId, setPollingId] = useState<string | null>(initialRunningScanId ?? null);
   const [isStarting, setIsStarting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<AuditProgressState>(
+    initialProgress ?? EMPTY_PROGRESS
+  );
 
   const pollScan = useCallback(async (scanId: string) => {
     const res = await getScanStatusAction(scanId);
     if (res.success && res.data) {
+      setProgress({
+        phase: res.data.phase,
+        statusMessage: res.data.statusMessage,
+        progressPercent: res.data.progressPercent ?? 0,
+        startedAt: res.data.startedAt,
+      });
       return res.data.status;
     }
     return "FAILED";
@@ -44,7 +66,7 @@ export function useAuditScan({ websiteId, initialRunningScanId }: UseAuditScanOp
       if (status === "COMPLETED" || status === "FAILED") {
         finishPolling();
       }
-    }, 2000);
+    }, 1500);
 
     return () => clearInterval(interval);
   }, [pollingId, pollScan, finishPolling]);
@@ -52,6 +74,7 @@ export function useAuditScan({ websiteId, initialRunningScanId }: UseAuditScanOp
   const startScan = useCallback(async () => {
     setError(null);
     setIsStarting(true);
+    setProgress(EMPTY_PROGRESS);
 
     try {
       const res = await startScanAction(websiteId);
@@ -122,5 +145,13 @@ export function useAuditScan({ websiteId, initialRunningScanId }: UseAuditScanOp
 
   const isRunning = isStarting || pollingId !== null;
 
-  return { startScan, cancelScan, isRunning, isCancelling, error, pollingId };
+  return {
+    startScan,
+    cancelScan,
+    isRunning,
+    isCancelling,
+    error,
+    pollingId,
+    progress,
+  };
 }

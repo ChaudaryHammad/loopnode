@@ -1,6 +1,40 @@
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
 import type { ScanIssueInput } from "./types";
-import { getOrigin, normalizeUrl } from "./url-utils";
+import { buildElementSelector, getOrigin, normalizeUrl } from "./url-utils";
+
+function imageIssueLocation($: cheerio.CheerioAPI, el: Element) {
+  const $el = $(el);
+  const id = $el.attr("id")?.trim();
+  const className = $el.attr("class")?.trim();
+  const src = $el.attr("src")?.trim();
+  const siblingIndex = $el.prevAll("img").length;
+  const html = $.html(el).slice(0, 200);
+
+  let selector = buildElementSelector("img", id, className, siblingIndex);
+  if (selector === "img" && src) {
+    selector = `img[src="${src.replace(/"/g, '\\"')}"]`;
+  }
+
+  const parent = $el.parent();
+  const parentTag = parent.length ? parent.prop("tagName")?.toLowerCase() : undefined;
+  const parentId = parent.attr("id")?.trim();
+  const parentClass = parent.attr("class")?.trim();
+
+  return {
+    selector,
+    metadata: {
+      html,
+      elementTag: "img",
+      elementId: id,
+      elementClass: className,
+      parentTag,
+      parentId,
+      parentClass,
+      src,
+    },
+  };
+}
 
 export async function runSeoAudit(
   pageUrl: string,
@@ -84,13 +118,15 @@ export async function runSeoAudit(
     const alt = $(el).attr("alt");
     const src = $(el).attr("src");
     if (alt === undefined || alt.trim() === "") {
+      const { selector, metadata } = imageIssueLocation($, el);
       issues.push({
         category: "SEO",
         severity: "MINOR",
         title: "Image missing alt attribute",
         description: `Image ${src ?? ""} has no alt text, hurting SEO and accessibility.`,
-        selector: src ? `img[src="${src}"]` : "img",
+        selector,
         recommendation: "Add descriptive alt text to all images.",
+        metadata,
       });
     }
   });

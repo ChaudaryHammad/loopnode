@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useTransition, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Globe, Trash2, Settings, Loader2 } from "lucide-react";
+import { ArrowLeft, Globe, Trash2, Settings } from "lucide-react";
 import { WebsiteForm } from "./website-form";
-import { deleteWebsiteAction } from "@/actions/websites";
+import { DeleteWebsiteDialog } from "./delete-website-dialog";
 import { useRouter } from "next/navigation";
 import { ScanFrequency } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
@@ -19,35 +19,27 @@ import {
 } from "@/components/ui/card";
 
 interface WebsiteSettingsClientProps {
+  canScheduleScans?: boolean;
   website: {
     id: string;
     name: string;
     url: string;
     scanFrequency: ScanFrequency;
+    scanTimezone?: string;
+    scanTimeOfDay?: string;
+    scanDayOfWeek?: number | null;
+    scanDayOfMonth?: number | null;
+    nextScanAt?: Date | string | null;
     createdAt: Date | string;
   };
 }
 
-export function WebsiteSettingsClient({ website }: WebsiteSettingsClientProps) {
-  const [isPending, startTransition] = useTransition();
-  const [deleted, setDeleted] = useState(false);
+export function WebsiteSettingsClient({
+  canScheduleScans = false,
+  website,
+}: WebsiteSettingsClientProps) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const router = useRouter();
-
-  const handleDelete = () => {
-    if (
-      confirm(
-        `Are you sure you want to delete "${website.name}"? All scans and data will be permanently removed.`
-      )
-    ) {
-      startTransition(async () => {
-        const res = await deleteWebsiteAction(website.id);
-        if (res.success) {
-          setDeleted(true);
-          router.push("/dashboard/websites");
-        }
-      });
-    }
-  };
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -93,10 +85,16 @@ export function WebsiteSettingsClient({ website }: WebsiteSettingsClientProps) {
 
       <WebsiteForm
         websiteId={website.id}
+        canScheduleScans={canScheduleScans}
         defaultValues={{
           name: website.name,
           url: website.url,
           scanFrequency: website.scanFrequency,
+          scanTimezone: website.scanTimezone ?? "UTC",
+          scanTimeOfDay: website.scanTimeOfDay ?? "09:00",
+          scanDayOfWeek: website.scanDayOfWeek ?? 1,
+          scanDayOfMonth: website.scanDayOfMonth ?? 1,
+          nextScanAt: website.nextScanAt ?? null,
         }}
         onSuccess={() => router.push(`/dashboard/websites/${website.id}`)}
       />
@@ -105,21 +103,25 @@ export function WebsiteSettingsClient({ website }: WebsiteSettingsClientProps) {
         <CardHeader>
           <CardTitle className="text-sm text-rose-400">Danger zone</CardTitle>
           <CardDescription>
-            Permanently delete this website and all of its scan history, issues, and reports. This
-            action cannot be undone.
+            Remove this website and all of its scan history, issues, and reports. You can
+            reconnect the same domain once; after that, contact support to add it again.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={isPending || deleted}
-          >
-            {isPending ? <Loader2 className="animate-spin" /> : <Trash2 />}
-            {isPending ? "Deleting…" : "Delete website"}
+          <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+            <Trash2 />
+            Delete website
           </Button>
         </CardContent>
       </Card>
+
+      <DeleteWebsiteDialog
+        websiteId={website.id}
+        websiteName={website.name}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onDeleted={() => router.push("/dashboard/websites")}
+      />
 
       <p className="text-[11px] text-muted-foreground">
         Connected on {formatDate(website.createdAt)}

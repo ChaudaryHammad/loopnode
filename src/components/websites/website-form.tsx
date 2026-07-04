@@ -6,12 +6,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { websiteSchema } from "@/lib/validations/website";
 import { addWebsiteAction, editWebsiteAction } from "@/actions/websites";
 import { ScanFrequency } from "@prisma/client";
-import { Loader2, Plus, Edit } from "lucide-react";
+import { Loader2, Plus, Edit, CalendarClock } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -24,18 +25,56 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatNextScanAt } from "@/lib/scan-schedule";
+
+const TIMEZONE_OPTIONS = [
+  "UTC",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "Europe/London",
+  "Europe/Paris",
+  "Asia/Dubai",
+  "Asia/Karachi",
+  "Asia/Kolkata",
+  "Asia/Singapore",
+  "Asia/Tokyo",
+  "Australia/Sydney",
+];
+
+const WEEKDAYS = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+];
 
 interface WebsiteFormProps {
   websiteId?: string;
+  canScheduleScans?: boolean;
   defaultValues?: {
     name: string;
     url: string;
     scanFrequency: ScanFrequency;
+    scanTimezone?: string;
+    scanTimeOfDay?: string;
+    scanDayOfWeek?: number | null;
+    scanDayOfMonth?: number | null;
+    nextScanAt?: Date | string | null;
   };
   onSuccess?: () => void;
 }
 
-export function WebsiteForm({ websiteId, defaultValues, onSuccess }: WebsiteFormProps) {
+export function WebsiteForm({
+  websiteId,
+  canScheduleScans = false,
+  defaultValues,
+  onSuccess,
+}: WebsiteFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -46,6 +85,7 @@ export function WebsiteForm({ websiteId, defaultValues, onSuccess }: WebsiteForm
     register,
     handleSubmit,
     control,
+    watch,
     formState: { errors },
     reset,
   } = useForm({
@@ -54,13 +94,27 @@ export function WebsiteForm({ websiteId, defaultValues, onSuccess }: WebsiteForm
       name: "",
       url: "",
       scanFrequency: ScanFrequency.MANUAL,
+      scanTimezone: "UTC",
+      scanTimeOfDay: "09:00",
+      scanDayOfWeek: 1,
+      scanDayOfMonth: 1,
     },
   });
+
+  const scanFrequency = watch("scanFrequency");
+  const scanTimezone = watch("scanTimezone");
+  const nextScanPreview = defaultValues?.nextScanAt
+    ? formatNextScanAt(new Date(defaultValues.nextScanAt), scanTimezone ?? "UTC")
+    : null;
 
   const onSubmit = (data: {
     name: string;
     url: string;
     scanFrequency: ScanFrequency;
+    scanTimezone: string;
+    scanTimeOfDay: string;
+    scanDayOfWeek?: number | null;
+    scanDayOfMonth?: number | null;
   }) => {
     setError(null);
     setSuccess(null);
@@ -133,32 +187,150 @@ export function WebsiteForm({ websiteId, defaultValues, onSuccess }: WebsiteForm
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label>Scan frequency</Label>
-            <Controller
-              name="scanFrequency"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={isPending}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ScanFrequency.MANUAL}>Manual scans only</SelectItem>
-                    <SelectItem value={ScanFrequency.DAILY}>Daily scheduled audits</SelectItem>
-                    <SelectItem value={ScanFrequency.WEEKLY}>Weekly scheduled audits</SelectItem>
-                    <SelectItem value={ScanFrequency.MONTHLY}>Monthly scheduled audits</SelectItem>
-                  </SelectContent>
-                </Select>
+          <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 space-y-4">
+            <div className="flex items-start gap-3">
+              <CalendarClock className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Audit schedule</p>
+                <p className="text-xs text-muted-foreground">
+                  Automated scans require Pro or Agency. Manual audits are always available.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Scan frequency</Label>
+              <Controller
+                name="scanFrequency"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isPending}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ScanFrequency.MANUAL}>Manual scans only</SelectItem>
+                      <SelectItem value={ScanFrequency.DAILY} disabled={!canScheduleScans}>
+                        Daily scheduled audits
+                      </SelectItem>
+                      <SelectItem value={ScanFrequency.WEEKLY} disabled={!canScheduleScans}>
+                        Weekly scheduled audits
+                      </SelectItem>
+                      <SelectItem value={ScanFrequency.MONTHLY} disabled={!canScheduleScans}>
+                        Monthly scheduled audits
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {!canScheduleScans ? (
+                <p className="text-xs text-muted-foreground">
+                  Upgrade to Pro or Agency to enable automated scheduling.
+                </p>
+              ) : null}
+              {errors.scanFrequency && (
+                <p className="text-xs text-destructive">{errors.scanFrequency.message}</p>
               )}
-            />
-            {errors.scanFrequency && (
-              <p className="text-xs text-destructive">{errors.scanFrequency.message}</p>
-            )}
+            </div>
+
+            {scanFrequency !== ScanFrequency.MANUAL && canScheduleScans ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="scanTimeOfDay">Time of day</Label>
+                  <Input
+                    id="scanTimeOfDay"
+                    type="time"
+                    disabled={isPending}
+                    {...register("scanTimeOfDay")}
+                  />
+                  {errors.scanTimeOfDay ? (
+                    <p className="text-xs text-destructive">{errors.scanTimeOfDay.message}</p>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Timezone</Label>
+                  <Controller
+                    name="scanTimezone"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Timezone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIMEZONE_OPTIONS.map((tz) => (
+                            <SelectItem key={tz} value={tz}>
+                              {tz.replace(/_/g, " ")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+
+                {scanFrequency === ScanFrequency.WEEKLY ? (
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Day of week</Label>
+                    <Controller
+                      name="scanDayOfWeek"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={String(field.value ?? 1)}
+                          onValueChange={(value) => field.onChange(Number(value))}
+                          disabled={isPending}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select day" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {WEEKDAYS.map((day) => (
+                              <SelectItem key={day.value} value={String(day.value)}>
+                                {day.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.scanDayOfWeek ? (
+                      <p className="text-xs text-destructive">{errors.scanDayOfWeek.message}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {scanFrequency === ScanFrequency.MONTHLY ? (
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="scanDayOfMonth">Day of month</Label>
+                    <Input
+                      id="scanDayOfMonth"
+                      type="number"
+                      min={1}
+                      max={28}
+                      disabled={isPending}
+                      {...register("scanDayOfMonth", { valueAsNumber: true })}
+                    />
+                    {errors.scanDayOfMonth ? (
+                      <p className="text-xs text-destructive">{errors.scanDayOfMonth.message}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Uses day 1–28 for consistency across months.</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {nextScanPreview ? (
+              <p className="text-xs text-muted-foreground">
+                Next scheduled audit: <span className="text-foreground font-medium">{nextScanPreview}</span>
+              </p>
+            ) : null}
           </div>
 
           <Button type="submit" disabled={isPending} className="w-full" size="lg">

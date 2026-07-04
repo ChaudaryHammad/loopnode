@@ -65,6 +65,10 @@ enum ReportType {
   FULL_AUDIT
   EXECUTIVE_SUMMARY
   ISSUES_CSV
+  PERFORMANCE_REPORT
+  SEO_REPORT
+  SECURITY_REPORT
+  ACCESSIBILITY_REPORT
 }
 
 enum SubscriptionStatus {
@@ -87,6 +91,28 @@ enum ContactMessageStatus {
   ARCHIVED
 }
 
+enum UpgradeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ManualPaymentMethod {
+  PAYONEER
+  BANK_TRANSFER
+  EASYPAISA
+  JAZZCASH
+  OTHER
+}
+
+enum NotificationType {
+  UPGRADE_SUBMITTED
+  UPGRADE_APPROVED
+  UPGRADE_REJECTED
+  LIMITS_INCREASED
+  GENERAL
+}
+
 // ─── USER & AUTH ──────────────────────────────────
 model User {
   id              String    @id @default(cuid())
@@ -105,6 +131,9 @@ model User {
   sessions        Session[]
   activityLogs    ActivityLog[]
   subscription    Subscription?
+  upgradeRequests UpgradeRequest[]
+  notifications   Notification[]
+  domainSlots     WebsiteDomainSlot[]
 
   @@index([email])
   @@index([deletedAt])
@@ -180,6 +209,12 @@ model Website {
   name          String
   url           String
   scanFrequency ScanFrequency @default(MANUAL)
+  scanTimezone     String    @default("UTC")
+  scanTimeOfDay    String    @default("09:00")
+  scanDayOfWeek    Int?
+  scanDayOfMonth   Int?
+  nextScanAt       DateTime?
+  lastScheduledAt  DateTime?
   userId        String
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -189,9 +224,11 @@ model Website {
   scans            Scan[]
   reports          Report[]
   brokenLinkScans  BrokenLinkScan[]
+  domainSlots      WebsiteDomainSlot[]
 
   @@index([userId])
   @@index([deletedAt])
+  @@index([nextScanAt])
   @@map("websites")
 }
 
@@ -213,6 +250,12 @@ model Scan {
   cls     Float?  // Cumulative Layout Shift
   inp     Float?  // Interaction to Next Paint (ms)
   tbt     Float?  // Total Blocking Time (ms)
+
+  // Live audit progress
+  phase           String?
+  statusMessage   String? @db.Text
+  progressPercent Float   @default(0)
+  triggerRunId    String?
 
   // Metadata
   screenshot   String?   // Cloudinary URL
@@ -320,6 +363,11 @@ model Report {
   fileUrl            String
   cloudinaryPublicId String?
   fileSize           Int?
+  preparedFor        String?
+  brandName          String?
+  shareToken         String?    @unique
+  shareEnabled       Boolean    @default(false)
+  scanCompletedAt    DateTime?
   createdAt          DateTime   @default(now())
 
   website Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
@@ -327,6 +375,7 @@ model Report {
   @@index([websiteId])
   @@index([type])
   @@index([createdAt])
+  @@index([shareToken])
   @@map("reports")
 }
 
@@ -352,6 +401,7 @@ model Subscription {
   stripeSubscriptionId String?            @unique
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean            @default(false)
+  websiteLimitOverride Int?
   adminNotes           String?            @db.Text
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
@@ -395,4 +445,94 @@ model ActivityLog {
   @@index([userId])
   @@index([createdAt])
   @@map("activity_logs")
+}
+
+enum PaymentMethodDisplayStyle {
+  CARD
+  PLAIN
+}
+
+// ─── MANUAL UPGRADES & NOTIFICATIONS ─────────────
+
+/// Admin-configured payment options shown on the upgrade page.
+model PaymentMethodConfig {
+  id           String                    @id @default(cuid())
+  label        String
+  tagline      String?
+  displayStyle PaymentMethodDisplayStyle @default(PLAIN)
+  /// Array of { key, value } rows shown to users (e.g. account name, IBAN).
+  details      Json                      @default("[]")
+  enabled      Boolean                   @default(true)
+  sortOrder    Int                       @default(0)
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  upgradeRequests UpgradeRequest[]
+
+  @@index([enabled, sortOrder])
+  @@map("payment_method_configs")
+}
+
+model UpgradeRequest {
+  id                    String               @id @default(cuid())
+  userId                String
+  requestedPlan         PlanTier
+  paymentMethod         ManualPaymentMethod  @default(OTHER)
+  paymentMethodConfigId String?
+  paymentMethodLabel    String?
+  paymentReference      String
+  paymentProofUrl       String?
+  userNote              String?              @db.Text
+  status                UpgradeRequestStatus @default(PENDING)
+  adminNote             String?              @db.Text
+  reviewedById          String?
+  reviewedAt            DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentMethodConfig PaymentMethodConfig? @relation(fields: [paymentMethodConfigId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("upgrade_requests")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String           @db.Text
+  href      String?
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+/// Tracks unique hostnames ever connected per user (slot policy + reconnect limits).
+model WebsiteDomainSlot {
+  id               String    @id @default(cuid())
+  userId           String
+  websiteId        String?
+  normalizedHost   String
+  consumedAt       DateTime  @default(now())
+  releasedAt       DateTime?
+  /// How many times this hostname has been connected (initial add counts as 1).
+  lifetimeAddCount Int       @default(1)
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  website Website? @relation(fields: [websiteId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, normalizedHost])
+  @@index([userId])
+  @@index([releasedAt])
+  @@map("website_domain_slots")
 }

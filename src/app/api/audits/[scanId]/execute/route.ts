@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dispatchAuditScan, getAuditRunnerMode } from "@/lib/audit-dispatch";
 import { failAuditScan } from "@/lib/scanner/fail-audit-scan";
+import { AuditCancelledError } from "@/lib/scanner/audit-cancelled-error";
 
 export const maxDuration = 300;
 
@@ -54,6 +55,10 @@ export async function POST(
       overallScore: result.overallScore,
     });
   } catch (error) {
+    if (error instanceof AuditCancelledError) {
+      return NextResponse.json({ success: true, cancelled: true, scanId });
+    }
+
     console.error("Audit scan error:", error);
 
     await failAuditScan(

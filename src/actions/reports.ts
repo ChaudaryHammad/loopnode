@@ -7,7 +7,9 @@ import {
   generateReportForUser,
   getCompletedScansForWebsite,
   getReportsForUser,
+  setReportShareForUser,
 } from "@/lib/report-service";
+import { getReportShareUrl } from "@/lib/reports/share";
 import { generateReportSchema } from "@/lib/validations/reports";
 import { revalidatePath } from "next/cache";
 
@@ -95,6 +97,9 @@ export async function generateReportAction(input: unknown) {
         websiteName: result.report.website.name,
         scanId: result.report.scanId,
         createdAt: result.report.createdAt.toISOString(),
+        shareEnabled: result.report.shareEnabled,
+        shareToken: result.report.shareToken,
+        scanCompletedAt: result.report.scanCompletedAt?.toISOString() ?? null,
       },
     };
   } catch (error) {
@@ -123,5 +128,34 @@ export async function deleteReportAction(reportId: string) {
   } catch (error) {
     console.error("Delete report error:", error);
     return { success: false, error: "Failed to delete report." };
+  }
+}
+
+export async function setReportShareAction(reportId: string, enabled: boolean) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false as const, error: "Unauthorized." };
+  }
+
+  try {
+    const report = await setReportShareForUser(session.user.id, reportId, enabled);
+    if (!report) {
+      return { success: false as const, error: "Report not found." };
+    }
+
+    revalidatePath("/dashboard/reports");
+
+    return {
+      success: true as const,
+      message: enabled ? "Share link enabled." : "Share link disabled.",
+      data: {
+        shareEnabled: report.shareEnabled,
+        shareToken: report.shareToken,
+        shareUrl: report.shareToken ? getReportShareUrl(report.shareToken) : null,
+      },
+    };
+  } catch (error) {
+    console.error("Set report share error:", error);
+    return { success: false as const, error: "Failed to update sharing." };
   }
 }

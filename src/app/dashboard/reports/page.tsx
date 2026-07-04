@@ -43,6 +43,9 @@ export default async function ReportsPage() {
           websiteId: report.websiteId,
           websiteName: report.website.name,
           createdAt: report.createdAt.toISOString(),
+          shareEnabled: report.shareEnabled,
+          shareToken: report.shareToken,
+          scanCompletedAt: report.scanCompletedAt?.toISOString() ?? null,
         };
       })}
     />

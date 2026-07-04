@@ -5,6 +5,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 import { createTrialSubscription, ensureTrialSubscription } from "@/lib/subscription";
+import { getWebsiteLimitFromSubscription, getEntitlements } from "@/lib/entitlements";
+import {
+  notifyLimitsIncreased,
+  notifyUpgradeApproved,
+  notifyUpgradeRejected,
+  notifySubscriptionUpdated,
+} from "@/lib/notification-service";
+import { PLAN_LABELS } from "@/lib/plans";
 import type { ContactMessageStatus, PlanTier, Role, SubscriptionStatus } from "@prisma/client";
 
 const ADMIN_PATHS = [
@@ -12,6 +20,8 @@ const ADMIN_PATHS = [
   "/admin/users",
   "/admin/websites",
   "/admin/billing",
+  "/admin/payment-methods",
+  "/admin/upgrade-requests",
   "/admin/newsletter",
   "/admin/contacts",
 ] as const;
@@ -38,6 +48,8 @@ const subscriptionUpdateSchema = z.object({
   currentPeriodEnd: z.string().nullable(),
   cancelAtPeriodEnd: z.boolean(),
   adminNotes: z.string().nullable(),
+  websiteLimitOverride: z.number().int().positive().nullable().optional(),
+  notifyUser: z.boolean().optional(),
 });
 
 function parseOptionalDate(value: string | null) {
@@ -230,12 +242,22 @@ export async function updateSubscriptionAction(input: unknown) {
   }
 
   const data = parsed.data;
+  const notifyUser = data.notifyUser ?? true;
 
   try {
     const user = await prisma.user.findFirst({
       where: { id: data.userId, deletedAt: null },
     });
     if (!user) return { success: false, error: "User not found." };
+
+    const previous = await prisma.subscription.findUnique({
+      where: { userId: data.userId },
+    });
+
+    const limitOverride =
+      data.websiteLimitOverride === undefined
+        ? undefined
+        : data.websiteLimitOverride;
 
     await prisma.subscription.upsert({
       where: { userId: data.userId },
@@ -247,6 +269,7 @@ export async function updateSubscriptionAction(input: unknown) {
         currentPeriodEnd: parseOptionalDate(data.currentPeriodEnd),
         cancelAtPeriodEnd: data.cancelAtPeriodEnd,
         adminNotes: data.adminNotes,
+        websiteLimitOverride: limitOverride ?? null,
       },
       update: {
         plan: data.plan as PlanTier | null,
@@ -255,8 +278,23 @@ export async function updateSubscriptionAction(input: unknown) {
         currentPeriodEnd: parseOptionalDate(data.currentPeriodEnd),
         cancelAtPeriodEnd: data.cancelAtPeriodEnd,
         adminNotes: data.adminNotes,
+        ...(limitOverride !== undefined ? { websiteLimitOverride: limitOverride } : {}),
       },
     });
+
+    if (notifyUser) {
+      const entitlements = await getEntitlements(data.userId);
+      await notifySubscriptionUpdated(data.userId, {
+        planLabel: entitlements.planLabel,
+        websiteLimit: entitlements.websiteLimit,
+        status: entitlements.status,
+        adminNote: data.adminNotes,
+        previousPlan: previous?.plan ?? null,
+        previousLimit: previous
+          ? getWebsiteLimitFromSubscription(previous)
+          : null,
+      });
+    }
 
     await prisma.activityLog.create({
       data: {
@@ -267,12 +305,15 @@ export async function updateSubscriptionAction(input: unknown) {
           targetUserId: data.userId,
           plan: data.plan,
           status: data.status,
+          notifyUser,
         },
       },
     });
 
     revalidateAdmin();
-    return { success: true, message: "Subscription updated." };
+    revalidatePath("/dashboard/settings/billing");
+    revalidatePath("/dashboard");
+    return { success: true, message: notifyUser ? "Subscription updated and user notified." : "Subscription updated." };
   } catch (error) {
     console.error("updateSubscriptionAction:", error);
     return { success: false, error: "Failed to update subscription." };
@@ -363,4 +404,232 @@ export async function exportNewsletterCsvAction() {
       filename: `loopnode-newsletter-${new Date().toISOString().slice(0, 10)}.csv`,
     },
   };
+}
+
+const reviewUpgradeSchema = z.object({
+  requestId: z.string().min(1),
+  adminNote: z.string().max(2000).nullable(),
+  websiteLimitOverride: z.number().int().positive().nullable().optional(),
+});
+
+export async function approveUpgradeRequestAction(input: unknown) {
+  const auth = await requireAdminAction();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const parsed = reviewUpgradeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid review data." };
+  }
+
+  const { requestId, adminNote, websiteLimitOverride } = parsed.data;
+
+  try {
+    const request = await prisma.upgradeRequest.findUnique({
+      where: { id: requestId },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!request) return { success: false, error: "Upgrade request not found." };
+    if (request.status !== "PENDING") {
+      return { success: false, error: "This request has already been reviewed." };
+    }
+
+    const periodEnd = new Date();
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+    const subscription = await prisma.subscription.upsert({
+      where: { userId: request.userId },
+      create: {
+        userId: request.userId,
+        plan: request.requestedPlan,
+        status: "ACTIVE",
+        currentPeriodEnd: periodEnd,
+        websiteLimitOverride: websiteLimitOverride ?? null,
+      },
+      update: {
+        plan: request.requestedPlan,
+        status: "ACTIVE",
+        trialEndsAt: null,
+        currentPeriodEnd: periodEnd,
+        ...(websiteLimitOverride !== undefined
+          ? { websiteLimitOverride }
+          : { websiteLimitOverride: null }),
+      },
+    });
+
+    await prisma.upgradeRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "APPROVED",
+        adminNote,
+        reviewedById: auth.adminId,
+        reviewedAt: new Date(),
+      },
+    });
+
+    const newLimit = getWebsiteLimitFromSubscription(subscription);
+
+    await notifyUpgradeApproved(request.userId, request.requestedPlan, adminNote);
+    await notifyLimitsIncreased(request.userId, newLimit);
+
+    await prisma.activityLog.create({
+      data: {
+        userId: auth.adminId,
+        action: "ADMIN_UPGRADE_APPROVED",
+        description: `Approved upgrade to ${PLAN_LABELS[request.requestedPlan]} for ${request.user.email}`,
+        metadata: {
+          requestId,
+          targetUserId: request.userId,
+          plan: request.requestedPlan,
+          websiteLimit: newLimit,
+        },
+      },
+    });
+
+    revalidateAdmin();
+    revalidatePath("/dashboard/settings/billing");
+    return {
+      success: true,
+      message: `Approved ${PLAN_LABELS[request.requestedPlan]} for ${request.user.email}.`,
+    };
+  } catch (error) {
+    console.error("approveUpgradeRequestAction:", error);
+    return { success: false, error: "Failed to approve upgrade request." };
+  }
+}
+
+export async function rejectUpgradeRequestAction(input: unknown) {
+  const auth = await requireAdminAction();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const parsed = reviewUpgradeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid review data." };
+  }
+
+  const { requestId, adminNote } = parsed.data;
+
+  if (!adminNote?.trim()) {
+    return { success: false, error: "Please provide a reason for rejection." };
+  }
+
+  try {
+    const request = await prisma.upgradeRequest.findUnique({
+      where: { id: requestId },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!request) return { success: false, error: "Upgrade request not found." };
+    if (request.status !== "PENDING") {
+      return { success: false, error: "This request has already been reviewed." };
+    }
+
+    await prisma.upgradeRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "REJECTED",
+        adminNote: adminNote.trim(),
+        reviewedById: auth.adminId,
+        reviewedAt: new Date(),
+      },
+    });
+
+    await notifyUpgradeRejected(request.userId, adminNote.trim());
+
+    await prisma.activityLog.create({
+      data: {
+        userId: auth.adminId,
+        action: "ADMIN_UPGRADE_REJECTED",
+        description: `Rejected upgrade request for ${request.user.email}`,
+        metadata: { requestId, targetUserId: request.userId, adminNote },
+      },
+    });
+
+    revalidateAdmin();
+    revalidatePath("/dashboard/settings/billing");
+    return { success: true, message: "Upgrade request rejected." };
+  } catch (error) {
+    console.error("rejectUpgradeRequestAction:", error);
+    return { success: false, error: "Failed to reject upgrade request." };
+  }
+}
+
+const paymentDetailSchema = z.object({
+  key: z.string().min(1).max(80),
+  value: z.string().min(1).max(500),
+});
+
+const paymentMethodSchema = z.object({
+  id: z.string().optional(),
+  label: z.string().min(2).max(80),
+  tagline: z.string().max(160).nullable().optional(),
+  displayStyle: z.enum(["CARD", "PLAIN"]),
+  details: z.array(paymentDetailSchema).min(1),
+  enabled: z.boolean(),
+  sortOrder: z.number().int().min(0).max(999),
+});
+
+export async function upsertPaymentMethodAction(input: unknown) {
+  const auth = await requireAdminAction();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const parsed = paymentMethodSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid payment method." };
+  }
+
+  const { id, label, tagline, displayStyle, details, enabled, sortOrder } = parsed.data;
+
+  try {
+    const { normalizePaymentMethodInput } = await import("@/lib/payment-methods");
+    const data = normalizePaymentMethodInput({
+      label,
+      tagline,
+      displayStyle,
+      details,
+      enabled,
+      sortOrder,
+    });
+
+    if (id) {
+      const existing = await prisma.paymentMethodConfig.findUnique({ where: { id } });
+      if (!existing) return { success: false, error: "Payment method not found." };
+
+      await prisma.paymentMethodConfig.update({
+        where: { id },
+        data,
+      });
+    } else {
+      await prisma.paymentMethodConfig.create({ data });
+    }
+
+    revalidateAdmin();
+    revalidatePath("/dashboard/settings/billing/upgrade");
+    return { success: true, message: id ? "Payment method updated." : "Payment method created." };
+  } catch (error) {
+    console.error("upsertPaymentMethodAction:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to save payment method.",
+    };
+  }
+}
+
+export async function deletePaymentMethodAction(id: string) {
+  const auth = await requireAdminAction();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  try {
+    const existing = await prisma.paymentMethodConfig.findUnique({ where: { id } });
+    if (!existing) return { success: false, error: "Payment method not found." };
+
+    await prisma.paymentMethodConfig.delete({ where: { id } });
+
+    revalidateAdmin();
+    revalidatePath("/dashboard/settings/billing/upgrade");
+    return { success: true, message: "Payment method removed." };
+  } catch (error) {
+    console.error("deletePaymentMethodAction:", error);
+    return { success: false, error: "Failed to remove payment method." };
+  }
 }

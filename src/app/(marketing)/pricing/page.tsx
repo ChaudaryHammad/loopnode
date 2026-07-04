@@ -1,5 +1,19 @@
 import React from "react";
-import { Check, Sparkles, HelpCircle } from "lucide-react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Check,
+  CreditCard,
+  HelpCircle,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
+import { auth } from "@/lib/auth";
+import {
+  PLAN_LABELS,
+  PLAN_PRICES_USD,
+  PLAN_SITE_LIMITS,
+} from "@/lib/plans";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button-link";
 import {
@@ -15,53 +29,74 @@ import { Separator } from "@/components/ui/separator";
 export const metadata = {
   title: "Pricing",
   description:
-    "LoopNode pricing — start with a 14-day free trial, then choose a plan that fits your sites and scan frequency.",
+    "LoopNode pricing — 14-day free trial, then upgrade from your dashboard with bank transfer, mobile wallet, or other payment options.",
 };
 
-export default function PricingPage() {
+const UPGRADE_STEPS = [
+  {
+    title: "Start your free trial",
+    body: "Create an account — no payment needed. You get 14 days of Starter access.",
+  },
+  {
+    title: "Choose a plan in Billing",
+    body: "Go to Settings → Billing → Upgrade plan and pick Starter, Pro, or Agency.",
+  },
+  {
+    title: "Complete payment",
+    body: "Send the monthly amount using the payment option shown in your dashboard (bank, wallet, etc.).",
+  },
+  {
+    title: "Submit for verification",
+    body: "Enter your transaction ID. We verify payment and activate your plan within 1–2 business days.",
+  },
+] as const;
+
+export default async function PricingPage() {
+  const session = await auth();
+
+  const isLoggedIn = !!session?.user;
+  const upgradeHref = isLoggedIn
+    ? "/dashboard/settings/billing/upgrade"
+    : "/register";
+  const billingHref = isLoggedIn ? "/dashboard/settings/billing" : "/register";
+
   const plans = [
     {
-      name: "Starter",
-      price: "$19",
-      period: "per month",
+      tier: "STARTER" as const,
       description: "For freelancers and solo developers monitoring a handful of sites.",
       features: [
-        "Up to 3 websites",
+        `Up to ${PLAN_SITE_LIMITS.STARTER} websites`,
         "Manual audits on demand",
         "Performance, accessibility, SEO & security",
         "Broken link checker (internal)",
         "30-day scan history",
         "Email support",
       ],
-      cta: "Start free trial",
-      href: "/register",
+      cta: isLoggedIn ? "Upgrade to Starter" : "Start free trial",
+      href: upgradeHref,
       popular: false,
     },
     {
-      name: "Pro",
-      price: "$49",
-      period: "per month",
+      tier: "PRO" as const,
       description: "For growing businesses that need automated monitoring and deeper crawls.",
       features: [
-        "Up to 15 websites",
+        `Up to ${PLAN_SITE_LIMITS.PRO} websites`,
         "Daily automated scans",
-        "Full Lighthouse & axe-core audits",
+        "Full performance & accessibility audits",
         "Internal + external link crawls",
         "CSP grading & live header checks",
         "90-day score trends",
         "Priority email support",
       ],
-      cta: "Start free trial",
-      href: "/register",
+      cta: isLoggedIn ? "Upgrade to Pro" : "Start free trial",
+      href: upgradeHref,
       popular: true,
     },
     {
-      name: "Agency",
-      price: "$129",
-      period: "per month",
+      tier: "AGENCY" as const,
       description: "For agencies and teams managing many client domains.",
       features: [
-        "Up to 50 websites",
+        `Up to ${PLAN_SITE_LIMITS.AGENCY} websites`,
         "Hourly automated scans",
         "Unlimited broken link crawl depth",
         "All Pro audit features",
@@ -69,8 +104,8 @@ export default function PricingPage() {
         "Dedicated onboarding",
         "Priority support",
       ],
-      cta: "Contact sales",
-      href: "/contact",
+      cta: isLoggedIn ? "Upgrade to Agency" : "Start free trial",
+      href: upgradeHref,
       popular: false,
     },
   ];
@@ -79,22 +114,28 @@ export default function PricingPage() {
     {
       question: "Is there a free trial?",
       answer:
-        "Yes. Every new account gets a 14-day free trial with full access to Pro features. No credit card required to start.",
+        `Yes. Every new account gets a 14-day free trial on the Starter plan (up to ${PLAN_SITE_LIMITS.STARTER} websites). No payment or card is required to sign up.`,
     },
     {
-      question: "How long does a scan take?",
-      answer:
-        "A standard audit completes in 30–90 seconds depending on page complexity. Broken link crawls vary with site size — you can watch progress live and halt anytime.",
-    },
-    {
-      question: "Can I change or cancel my plan?",
-      answer:
-        "Upgrade, downgrade, or cancel anytime from your account settings. Billing is monthly with no long-term contracts.",
+      question: "How do I pay after the trial?",
+      answer: isLoggedIn
+        ? "Open Settings → Billing → Upgrade plan. Choose your plan, pay using the instructions shown, then submit your transaction ID for verification."
+        : "After you register, go to Settings → Billing → Upgrade plan in your dashboard. Choose a plan, complete payment using the methods shown there, and submit your transaction reference.",
     },
     {
       question: "What payment methods do you accept?",
       answer:
-        "We accept major credit and debit cards. Enterprise invoicing is available on the Agency plan — contact us for details.",
+        "Payment options are shown in your dashboard when you upgrade — bank transfer, mobile wallets, and similar methods. We verify each payment manually before activating your plan.",
+    },
+    {
+      question: "How long does activation take?",
+      answer:
+        "Once you submit your payment reference, our team verifies it and activates your plan. Most upgrades are approved within 1–2 business days. You'll get an in-app notification and email.",
+    },
+    {
+      question: "Can I change or cancel my plan?",
+      answer:
+        "Yes. Manage your subscription from Settings → Billing. Plans are monthly with no long-term contract. Contact support if you need help downgrading or cancelling.",
     },
   ];
 
@@ -105,18 +146,43 @@ export default function PricingPage() {
           Simple, honest pricing
         </h1>
         <p className="text-base text-muted-foreground leading-relaxed max-w-xl mx-auto">
-          LoopNode is a paid product built for teams who take site health seriously. Try everything free for 14 days, then pick the plan that fits.
+          Start free for 14 days. When you&apos;re ready, upgrade from your dashboard — pay by
+          transfer or wallet, submit your reference, and we&apos;ll activate your plan.
         </p>
       </div>
 
-      <p className="text-center text-sm text-primary font-medium mb-14">
-        14-day free trial · Full Pro access · No credit card required
+      <p className="text-center text-sm text-primary font-medium mb-10">
+        14-day free trial · Pay after you&apos;re ready · No card required to sign up
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch mb-24 max-w-6xl mx-auto">
-        {plans.map((plan, idx) => (
+      {isLoggedIn && (
+        <div className="max-w-2xl mx-auto mb-12">
+          <Card className="rounded-2xl border-primary/25 bg-primary/5">
+            <CardContent className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-left">
+                <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary shrink-0">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-semibold">Ready to upgrade?</p>
+                  <p className="text-sm text-muted-foreground">
+                    Payment instructions are in your dashboard billing settings.
+                  </p>
+                </div>
+              </div>
+              <ButtonLink href={upgradeHref} className="gap-2 shrink-0">
+                Upgrade now
+                <ArrowRight className="w-4 h-4" />
+              </ButtonLink>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch mb-20 max-w-6xl mx-auto">
+        {plans.map((plan) => (
           <Card
-            key={idx}
+            key={plan.tier}
             className={`relative flex flex-col h-full rounded-3xl ${
               plan.popular
                 ? "border-primary shadow-xl shadow-primary/10 ring-1 ring-primary"
@@ -132,21 +198,23 @@ export default function PricingPage() {
 
             <CardHeader className="space-y-6 flex-1">
               <div>
-                <CardTitle className="text-lg">{plan.name}</CardTitle>
+                <CardTitle className="text-lg">{PLAN_LABELS[plan.tier]}</CardTitle>
                 <CardDescription className="mt-2 leading-relaxed min-h-12">
                   {plan.description}
                 </CardDescription>
               </div>
 
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-foreground">{plan.price}</span>
-                <span className="text-sm text-muted-foreground">/ {plan.period}</span>
+                <span className="text-4xl font-extrabold text-foreground">
+                  ${PLAN_PRICES_USD[plan.tier]}
+                </span>
+                <span className="text-sm text-muted-foreground">/ month</span>
               </div>
 
               <Separator />
               <ul className="space-y-3">
-                {plan.features.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm text-muted-foreground">
                     <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                     <span>{f}</span>
                   </li>
@@ -168,6 +236,33 @@ export default function PricingPage() {
         ))}
       </div>
 
+      <section className="max-w-4xl mx-auto mb-20">
+        <div className="text-center mb-10 space-y-2">
+          <CreditCard className="w-8 h-8 text-primary mx-auto mb-2" />
+          <h2 className="text-2xl font-bold tracking-tight">How upgrading works</h2>
+          <p className="text-sm text-muted-foreground">
+            No checkout on this page — everything happens in your{" "}
+            <Link href={billingHref} className="text-primary hover:underline">
+              billing settings
+            </Link>
+            .
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {UPGRADE_STEPS.map((step, idx) => (
+            <Card key={step.title} className="border-border/30 rounded-2xl">
+              <CardHeader className="pb-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                  Step {idx + 1}
+                </p>
+                <CardTitle className="text-base">{step.title}</CardTitle>
+                <CardDescription className="leading-relaxed">{step.body}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </section>
+
       <section className="max-w-3xl mx-auto border-t border-border/20 pt-16">
         <div className="text-center mb-12 space-y-2">
           <HelpCircle className="w-8 h-8 text-primary mx-auto mb-2" />
@@ -177,8 +272,8 @@ export default function PricingPage() {
         </div>
 
         <div className="space-y-4">
-          {faqs.map((faq, idx) => (
-            <Card key={idx} className="border-border/30">
+          {faqs.map((faq) => (
+            <Card key={faq.question} className="border-border/30">
               <CardHeader>
                 <CardTitle className="text-base">{faq.question}</CardTitle>
                 <CardDescription className="leading-relaxed">{faq.answer}</CardDescription>

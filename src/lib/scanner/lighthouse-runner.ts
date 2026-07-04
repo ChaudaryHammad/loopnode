@@ -1,32 +1,47 @@
-import type { Page } from "puppeteer";
+import type { Browser, Page } from "puppeteer";
+import lighthouse from "lighthouse";
 import type { ScanIssueInput } from "./types";
+import { lighthouseSubstepMessage } from "./audit-phases";
 
-type PerformanceSnapshot = {
+export interface PerformanceAuditResult {
+  score: number;
+  bestPracticesScore: number;
   fcp: number | null;
   lcp: number | null;
   cls: number | null;
   inp: number | null;
   tbt: number | null;
-  loadTime: number | null;
-  domContentLoaded: number | null;
+  issues: ScanIssueInput[];
+  engine: "lighthouse" | "fallback";
+}
+
+type LighthouseAudit = {
+  id?: string;
+  title?: string;
+  description?: string;
+  score?: number | null;
+  scoreDisplayMode?: string;
+  displayValue?: string;
+  numericValue?: number;
+  details?: {
+    overallSavingsMs?: number;
+    overallSavingsBytes?: number;
+  };
 };
 
-function roundMetric(value: number | null): number | null {
-  return value === null ? null : Math.round(value);
+function roundMetric(value: number | null | undefined): number | null {
+  if (value === null || value === undefined || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  return Math.round(value);
 }
 
 function clampScore(score: number): number {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function firstNumber(...values: Array<number | null | undefined>): number | null {
-  for (const value of values) {
-    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
-      return value;
-    }
-  }
-
-  return null;
+function auditNumericValue(audits: Record<string, LighthouseAudit>, id: string): number | null {
+  return roundMetric(audits[id]?.numericValue);
 }
 
 function pushMetricIssue(
@@ -47,231 +62,275 @@ function pushMetricIssue(
   });
 }
 
-export async function preparePerformanceMonitoring(page: Page): Promise<void> {
-  await page.evaluateOnNewDocument(() => {
-    const state = {
-      fcp: null as number | null,
-      lcp: null as number | null,
-      cls: 0,
-      inp: null as number | null,
-      tbt: 0,
-    };
-
-    const update = (key: keyof typeof state, value: number) => {
-      if (Number.isNaN(value)) return;
-      if (key === "cls" || key === "tbt") {
-        state[key] = Number((state[key] + value).toFixed(3));
-        return;
-      }
-      state[key] = value;
-    };
-
-    try {
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          if (entry.name === "first-contentful-paint") {
-            update("fcp", entry.startTime);
-          }
-        }
-      }).observe({ type: "paint", buffered: true });
-    } catch {}
-
-    try {
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          update("lcp", entry.startTime);
-        }
-      }).observe({ type: "largest-contentful-paint", buffered: true });
-    } catch {}
-
-    try {
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          const shift = entry as PerformanceEntry & {
-            hadRecentInput?: boolean;
-            value?: number;
-          };
-          if (!shift.hadRecentInput) {
-            update("cls", shift.value ?? 0);
-          }
-        }
-      }).observe({ type: "layout-shift", buffered: true });
-    } catch {}
-
-    try {
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          const duration = Math.max(0, entry.duration - 50);
-          update("tbt", duration);
-        }
-      }).observe({ type: "longtask", buffered: true });
-    } catch {}
-
-    try {
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          update("inp", entry.duration);
-        }
-      }).observe({ type: "event", buffered: true } as PerformanceObserverInit);
-    } catch {}
-
-    (window as Window & { __loopnodePerformance?: typeof state }).__loopnodePerformance =
-      state;
-  });
+function severityFromScore(score: number): ScanIssueInput["severity"] {
+  if (score < 0.5) return "MAJOR";
+  if (score < 0.75) return "MINOR";
+  return "INFO";
 }
 
-export async function runPerformanceAudit(
-  page: Page,
+function severityFromSavings(ms: number, bytes: number): ScanIssueInput["severity"] {
+  if (ms >= 1000 || bytes >= 500_000) return "MAJOR";
+  if (ms >= 300 || bytes >= 100_000) return "MINOR";
+  return "INFO";
+}
+
+function shouldIncludeAudit(audit: LighthouseAudit): boolean {
+  if (!audit.id || !audit.title) return false;
+  if (audit.scoreDisplayMode === "notApplicable" || audit.scoreDisplayMode === "manual") {
+    return false;
+  }
+
+  if (audit.score !== null && audit.score !== undefined) {
+    return audit.score < 0.9;
+  }
+
+  if (audit.scoreDisplayMode === "metricSavings") {
+    const savingsMs = audit.numericValue ?? audit.details?.overallSavingsMs ?? 0;
+    const savingsBytes = audit.details?.overallSavingsBytes ?? 0;
+    return savingsMs > 0 || savingsBytes > 0;
+  }
+
+  if (audit.scoreDisplayMode === "binary") {
+    return audit.score != null && audit.score < 1;
+  }
+
+  return false;
+}
+
+function buildIssueDescription(audit: LighthouseAudit): string {
+  if (audit.displayValue) {
+    return audit.description
+      ? `${audit.description} (${audit.displayValue})`
+      : audit.displayValue;
+  }
+  return audit.description ?? audit.title ?? "Lighthouse flagged this item.";
+}
+
+function issuesFromLighthouseAudits(
+  audits: Record<string, LighthouseAudit>,
+  auditIds: string[],
+  issueCategory: ScanIssueInput["category"],
   url: string
-): Promise<{
-  score: number;
-  fcp: number | null;
-  lcp: number | null;
-  cls: number | null;
-  inp: number | null;
-  tbt: number | null;
-  issues: ScanIssueInput[];
-}> {
-  await new Promise((resolve) => setTimeout(resolve, 2500));
-
-  const snapshot = await page.evaluate(() => {
-    const perf = (window as Window & {
-      __loopnodePerformance?: PerformanceSnapshot;
-    }).__loopnodePerformance;
-    const paints = performance.getEntriesByType("paint");
-    const fcpEntry = paints.find((entry) => entry.name === "first-contentful-paint");
-    const navigation = performance.getEntriesByType("navigation")[0] as
-      | PerformanceNavigationTiming
-      | undefined;
-    const lcpEntries = performance.getEntriesByType("largest-contentful-paint");
-    const lcpEntry = lcpEntries.at(-1);
-
-    return {
-      fcp: perf?.fcp ?? fcpEntry?.startTime ?? null,
-      lcp: perf?.lcp ?? lcpEntry?.startTime ?? null,
-      cls: perf?.cls ?? 0,
-      inp: perf?.inp ?? null,
-      tbt: perf?.tbt ?? 0,
-      loadTime: navigation?.loadEventEnd
-        ? navigation.loadEventEnd - navigation.startTime
-        : null,
-      domContentLoaded: navigation?.domContentLoadedEventEnd
-        ? navigation.domContentLoadedEventEnd - navigation.startTime
-        : null,
-    };
-  });
-
-  const cdpMetrics = await page.metrics().catch(() => null);
-
+): ScanIssueInput[] {
   const issues: ScanIssueInput[] = [];
 
-  const taskDuration = cdpMetrics?.TaskDuration
-    ? Math.max(0, cdpMetrics.TaskDuration * 1000)
-    : null;
-  const fallbackPaint = firstNumber(snapshot.domContentLoaded, snapshot.loadTime);
+  for (const auditId of auditIds) {
+    const audit = audits[auditId];
+    if (!audit || !shouldIncludeAudit(audit)) continue;
 
-  const fcp = roundMetric(firstNumber(snapshot.fcp, fallbackPaint));
-  const lcp = roundMetric(firstNumber(snapshot.lcp, snapshot.fcp, fallbackPaint));
-  const cls = snapshot.cls === null ? null : parseFloat(snapshot.cls.toFixed(3));
-  const tbt = roundMetric(firstNumber(snapshot.tbt, taskDuration, 0));
-  const inp = roundMetric(firstNumber(snapshot.inp, tbt));
+    let severity: ScanIssueInput["severity"] = "INFO";
 
-  let score = 100;
-
-  if (fcp !== null) {
-    if (fcp > 1800) {
-      const penalty = Math.min(20, (fcp - 1800) / 150);
-      score -= penalty;
-      pushMetricIssue(
-        issues,
-        "Slow first contentful paint",
-        fcp > 3000 ? "MAJOR" : "MINOR",
-        `First contentful paint was ${fcp} ms.`,
-        "Reduce render-blocking work, optimize critical CSS, and defer non-essential scripts.",
-        { metric: "fcp", value: fcp, url }
-      );
+    if (audit.score !== null && audit.score !== undefined) {
+      severity = severityFromScore(audit.score);
+    } else if (audit.scoreDisplayMode === "metricSavings") {
+      const savingsMs = audit.numericValue ?? audit.details?.overallSavingsMs ?? 0;
+      const savingsBytes = audit.details?.overallSavingsBytes ?? 0;
+      severity = severityFromSavings(savingsMs, savingsBytes);
     }
-  } else {
-    pushMetricIssue(
-      issues,
-      "First contentful paint unavailable",
-      "INFO",
-      "The browser could not capture a first contentful paint value.",
-      "This can happen on highly dynamic pages; verify the page renders real content after navigation.",
-      { metric: "fcp", value: null, url }
-    );
+
+    issues.push({
+      category: issueCategory,
+      severity,
+      title: audit.title ?? audit.id ?? "Lighthouse audit",
+      description: buildIssueDescription(audit),
+      recommendation:
+        audit.description ??
+        "Review this item in Chrome DevTools Lighthouse report for remediation steps.",
+      metadata: {
+        lighthouseAuditId: audit.id,
+        score: audit.score ?? null,
+        scoreDisplayMode: audit.scoreDisplayMode ?? null,
+        displayValue: audit.displayValue ?? null,
+        numericValue: audit.numericValue ?? null,
+        url,
+      },
+    });
   }
 
-  if (lcp !== null) {
-    if (lcp > 2500) {
-      const penalty = Math.min(30, (lcp - 2500) / 120);
-      score -= penalty;
+  return issues;
+}
+
+function getBrowserPort(browser: Browser): number {
+  const endpoint = browser.wsEndpoint();
+  return Number(new URL(endpoint).port);
+}
+
+export async function runLighthousePerformanceAudit(
+  browser: Browser,
+  page: Page,
+  url: string,
+  onSubstep?: (message: string) => Promise<void>
+): Promise<PerformanceAuditResult> {
+  const port = getBrowserPort(browser);
+
+  const logLighthouse = (message: string) => {
+    void onSubstep?.(lighthouseSubstepMessage(message));
+  };
+
+  logLighthouse("Initializing Lighthouse");
+
+  const runnerResult = await lighthouse(
+    url,
+    {
+      port,
+      output: "json",
+      logLevel: "error",
+      onlyCategories: ["performance", "best-practices"],
+      formFactor: "mobile",
+      screenEmulation: {
+        mobile: true,
+        width: 412,
+        height: 823,
+        deviceScaleFactor: 2.625,
+        disabled: false,
+      },
+      throttling: {
+        rttMs: 150,
+        throughputKbps: 1638.4,
+        cpuSlowdownMultiplier: 4,
+      },
+    },
+    undefined,
+    page
+  );
+
+  const lhr = runnerResult?.lhr;
+  if (!lhr?.categories?.performance) {
+    throw new Error("Lighthouse did not return performance results.");
+  }
+
+  logLighthouse("Analyzing metrics and opportunities");
+
+  const audits = lhr.audits as Record<string, LighthouseAudit>;
+  const performanceAuditIds = lhr.categories.performance.auditRefs.map((ref) => ref.id);
+  const bestPracticesAuditIds =
+    lhr.categories["best-practices"]?.auditRefs.map((ref) => ref.id) ?? [];
+
+  const score = clampScore((lhr.categories.performance.score ?? 0) * 100);
+  const bestPracticesScore = clampScore(
+    (lhr.categories["best-practices"]?.score ?? 1) * 100
+  );
+
+  const fcp = auditNumericValue(audits, "first-contentful-paint");
+  const lcp = auditNumericValue(audits, "largest-contentful-paint");
+  const clsRaw = audits["cumulative-layout-shift"]?.numericValue;
+  const cls = clsRaw === undefined ? null : parseFloat(Number(clsRaw).toFixed(3));
+  const tbt = auditNumericValue(audits, "total-blocking-time");
+  const inp =
+    auditNumericValue(audits, "interaction-to-next-paint") ??
+    auditNumericValue(audits, "experimental-interaction-to-next-paint");
+
+  const performanceIssues = issuesFromLighthouseAudits(
+    audits,
+    performanceAuditIds,
+    "PERFORMANCE",
+    url
+  );
+  const bestPracticesIssues = issuesFromLighthouseAudits(
+    audits,
+    bestPracticesAuditIds,
+    "SECURITY",
+    url
+  ).map((issue) => ({
+    ...issue,
+    metadata: { ...issue.metadata, lighthouseCategory: "best-practices" },
+  }));
+
+  const issues = [...performanceIssues, ...bestPracticesIssues];
+
+  if (lcp !== null && lcp > 2500) {
+    const alreadyHasLcp = issues.some(
+      (i) => String((i.metadata as Record<string, unknown>)?.lighthouseAuditId ?? "") === "largest-contentful-paint"
+    );
+    if (!alreadyHasLcp) {
       pushMetricIssue(
         issues,
-        "Largest contentful paint is slow",
+        "Largest Contentful Paint needs improvement",
         lcp > 4000 ? "CRITICAL" : "MAJOR",
-        `Largest contentful paint was ${lcp} ms.`,
-        "Optimize the hero element, compress images, and reduce server or script latency.",
-        { metric: "lcp", value: lcp, url }
+        `LCP was ${lcp} ms under mobile throttling.`,
+        "Optimize the largest above-the-fold element — compress images, preload hero assets, reduce server latency.",
+        { metric: "lcp", value: lcp, url, source: "lighthouse" }
       );
     }
-  } else {
-    pushMetricIssue(
-      issues,
-      "Largest contentful paint unavailable",
-      "INFO",
-      "The browser could not capture a largest contentful paint value.",
-      "If the page keeps updating after load, give it a moment to settle and try again.",
-      { metric: "lcp", value: null, url }
-    );
-  }
-
-  if (cls !== null && cls > 0.1) {
-    const penalty = Math.min(20, cls * 100);
-    score -= penalty;
-    pushMetricIssue(
-      issues,
-      "Layout shift detected",
-      cls > 0.25 ? "MAJOR" : "MINOR",
-      `Cumulative layout shift was ${cls.toFixed(3)}.`,
-      "Reserve space for images, ads, and late-loading UI so the page stays stable.",
-      { metric: "cls", value: cls, url }
-    );
-  }
-
-  if (inp !== null && inp > 200) {
-    const penalty = Math.min(20, (inp - 200) / 100);
-    score -= penalty;
-    pushMetricIssue(
-      issues,
-      "Interaction latency is high",
-      inp > 500 ? "MAJOR" : "MINOR",
-      `Interaction latency was ${inp} ms.`,
-      "Reduce expensive JavaScript and split up long tasks on the main thread.",
-      { metric: "inp", value: inp, url }
-    );
-  }
-
-  if (tbt !== null && tbt > 200) {
-    const penalty = Math.min(20, (tbt - 200) / 100);
-    score -= penalty;
-    pushMetricIssue(
-      issues,
-      "Long tasks are blocking the main thread",
-      tbt > 600 ? "MAJOR" : "MINOR",
-      `Total blocking time was ${tbt} ms.`,
-      "Break up expensive work, lazy-load non-critical code, and trim third-party scripts.",
-      { metric: "tbt", value: tbt, url }
-    );
   }
 
   return {
-    score: clampScore(score),
+    score,
+    bestPracticesScore,
     fcp,
     lcp,
     cls,
     inp,
     tbt,
     issues,
+    engine: "lighthouse",
   };
+}
+
+export async function runFallbackPerformanceAudit(
+  page: Page,
+  url: string
+): Promise<PerformanceAuditResult> {
+  const snapshot = await page.evaluate(() => {
+    const paints = performance.getEntriesByType("paint");
+    const fcpEntry = paints.find((entry) => entry.name === "first-contentful-paint");
+    const lcpEntries = performance.getEntriesByType("largest-contentful-paint");
+    const lcpEntry = lcpEntries.at(-1);
+    const navigation = performance.getEntriesByType("navigation")[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+
+    return {
+      fcp: fcpEntry?.startTime ?? null,
+      lcp: lcpEntry?.startTime ?? null,
+      loadTime: navigation?.loadEventEnd
+        ? navigation.loadEventEnd - navigation.startTime
+        : null,
+    };
+  });
+
+  const fcp = roundMetric(snapshot.fcp ?? snapshot.loadTime);
+  const lcp = roundMetric(snapshot.lcp ?? fcp);
+
+  let score = 100;
+  const issues: ScanIssueInput[] = [];
+
+  if (lcp !== null && lcp > 2500) {
+    score -= Math.min(35, (lcp - 2500) / 100);
+    pushMetricIssue(
+      issues,
+      "Page load appears slow (fallback measurement)",
+      "MAJOR",
+      `Estimated LCP was ${lcp} ms. Lighthouse could not complete; this is a simplified reading.`,
+      "Retry the audit. If it keeps failing, the page may block headless browsers or heavy media.",
+      { metric: "lcp", value: lcp, url, source: "fallback" }
+    );
+  }
+
+  return {
+    score: clampScore(score),
+    bestPracticesScore: 0,
+    fcp,
+    lcp,
+    cls: null,
+    inp: null,
+    tbt: null,
+    issues,
+    engine: "fallback",
+  };
+}
+
+export async function runPerformanceAuditWithFallback(
+  browser: Browser,
+  page: Page,
+  url: string,
+  onSubstep?: (message: string) => Promise<void>
+): Promise<PerformanceAuditResult> {
+  try {
+    return await runLighthousePerformanceAudit(browser, page, url, onSubstep);
+  } catch (error) {
+    console.warn("[audit] Lighthouse failed, using fallback performance metrics:", error);
+    await onSubstep?.("Lighthouse could not finish — collecting fallback Web Vitals…");
+    return runFallbackPerformanceAudit(page, url);
+  }
 }

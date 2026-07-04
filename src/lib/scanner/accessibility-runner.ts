@@ -2,6 +2,7 @@ import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { createRequire } from "module";
 import path from "path";
+import { parseElementSnippet } from "@/lib/parse-element-snippet";
 import type { Page } from "puppeteer";
 import type { ScanIssueInput } from "./types";
 
@@ -118,6 +119,8 @@ export async function runAccessibilityAudit(page: Page): Promise<{
   }) => {
     const node = v.nodes[0];
     const selector = node?.target?.join(" > ") ?? null;
+    const htmlSnippet = node?.html?.slice(0, 200);
+    const element = parseElementSnippet(htmlSnippet);
     return {
       category: "ACCESSIBILITY" as const,
       severity: IMPACT_TO_SEVERITY[v.impact ?? "moderate"] ?? "MINOR",
@@ -127,7 +130,13 @@ export async function runAccessibilityAudit(page: Page): Promise<{
         : v.description,
       selector,
       recommendation: `See ${v.helpUrl} for remediation guidance.`,
-      metadata: { axeId: v.id, html: node?.html?.slice(0, 200) },
+      metadata: {
+        axeId: v.id,
+        html: htmlSnippet,
+        elementTag: element.elementTag ?? "element",
+        elementId: element.elementId,
+        elementClass: element.elementClass,
+      },
     };
   });
 

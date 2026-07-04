@@ -191,6 +191,32 @@ export async function getAdminContactMessages() {
   });
 }
 
+export async function getAdminUpgradeRequests() {
+  return prisma.upgradeRequest.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          subscription: {
+            select: {
+              plan: true,
+              status: true,
+              websiteLimitOverride: true,
+            },
+          },
+          _count: { select: { websites: { where: { deletedAt: null } } } },
+        },
+      },
+      paymentMethodConfig: {
+        select: { label: true },
+      },
+    },
+  });
+}
+
 export type AdminSubscriptionUpdate = {
   userId: string;
   plan: PlanTier | null;

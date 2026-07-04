@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { assertScanRunnable } from "./audit-scan-control";
+import {
+  assertScanRunnable,
+  updateScanProgress,
+} from "./audit-scan-control";
+import { AuditCancelledError } from "./audit-cancelled-error";
 import { autoResolveIssuesAfterAudit } from "@/lib/issue-service";
 import { computeIssueFingerprint } from "@/lib/issues";
 
@@ -8,9 +12,19 @@ export async function completeAuditScan(
   website: { id: string; name: string; url: string; userId: string }
 ) {
   await assertScanRunnable(scanId);
+  await updateScanProgress(scanId, "queued", { url: website.url });
 
   const { runFullAudit } = await import("./audit-runner");
-  const result = await runFullAudit(website.url);
+
+  let result;
+  try {
+    result = await runFullAudit(website.url, { scanId });
+  } catch (error) {
+    if (error instanceof AuditCancelledError) {
+      throw error;
+    }
+    throw error;
+  }
 
   await assertScanRunnable(scanId);
 
@@ -18,6 +32,9 @@ export async function completeAuditScan(
     where: { id: scanId },
     data: {
       status: "COMPLETED",
+      phase: "completed",
+      statusMessage: "Audit complete — results are ready.",
+      progressPercent: 100,
       overallScore: result.overallScore,
       performanceScore: result.performanceScore,
       accessibilityScore: result.accessibilityScore,

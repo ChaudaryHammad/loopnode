@@ -12,6 +12,7 @@ const LAUNCH_ARGS = [
   "--disable-sync",
   "--no-first-run",
   "--mute-audio",
+  "--remote-debugging-port=0",
 ];
 
 function systemChromePaths(): string[] {
