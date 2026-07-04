@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  cancelScanAction,
-  getScanStatusAction,
-  startScanAction,
-} from "@/actions/scans";
+import { cancelScanAction, startScanAction } from "@/actions/scans";
 import type { AuditProgressState } from "@/components/websites/audit-progress-panel";
 
 export interface CompletedScanSnapshot {
@@ -41,8 +37,41 @@ const EMPTY_PROGRESS: AuditProgressState = {
   startedAt: null,
 };
 
+const POLL_MS = 1000;
+
 function isTerminalStatus(status: string): boolean {
   return status === "COMPLETED" || status === "FAILED";
+}
+
+type ScanStatusPayload = CompletedScanSnapshot & {
+  phase: string | null;
+  statusMessage: string | null;
+  progressPercent: number;
+  startedAt: Date | string | null;
+  errorMessage: string | null;
+};
+
+async function fetchScanStatus(scanId: string): Promise<{
+  ok: boolean;
+  status: string;
+  data?: ScanStatusPayload;
+}> {
+  const response = await fetch(`/api/audits/${scanId}/status`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+
+  const body = (await response.json().catch(() => ({}))) as {
+    success?: boolean;
+    data?: ScanStatusPayload;
+  };
+
+  if (!response.ok || !body.success || !body.data) {
+    return { ok: false, status: "FAILED" };
+  }
+
+  return { ok: true, status: body.data.status, data: body.data };
 }
 
 export function useAuditScan({
@@ -66,7 +95,7 @@ export function useAuditScan({
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     refreshTimerRef.current = setTimeout(() => {
       router.refresh();
-    }, 500);
+    }, 400);
   }, [router]);
 
   useEffect(() => {
@@ -75,12 +104,11 @@ export function useAuditScan({
     };
   }, []);
 
-  // Sync with server props, but don't resurrect a scan the user just halted locally.
+  // Start polling when the server says a scan is running — never overwrite live progress from props.
   useEffect(() => {
     if (initialRunningScanId) {
       if (!haltedLocallyRef.current) {
-        setPollingId(initialRunningScanId);
-        if (initialProgress) setProgress(initialProgress);
+        setPollingId((current) => current ?? initialRunningScanId);
       }
       return;
     }
@@ -88,47 +116,53 @@ export function useAuditScan({
     haltedLocallyRef.current = false;
     setPollingId(null);
     setIsStarting(false);
-  }, [initialRunningScanId, initialProgress]);
+  }, [initialRunningScanId]);
 
-  const pollScan = useCallback(async (scanId: string) => {
-    const res = await getScanStatusAction(scanId);
-    if (res.success && res.data) {
-      setProgress({
-        phase: res.data.phase,
-        statusMessage: res.data.statusMessage,
-        progressPercent: res.data.progressPercent ?? 0,
-        startedAt: res.data.startedAt,
+  const applyScanPayload = useCallback((data: ScanStatusPayload) => {
+    setProgress({
+      phase: data.phase,
+      statusMessage: data.statusMessage,
+      progressPercent: data.progressPercent ?? 0,
+      startedAt: data.startedAt,
+    });
+
+    if (data.status === "COMPLETED") {
+      setCompletedScan({
+        id: data.id,
+        status: data.status,
+        overallScore: data.overallScore,
+        performanceScore: data.performanceScore,
+        accessibilityScore: data.accessibilityScore,
+        seoScore: data.seoScore,
+        securityScore: data.securityScore,
+        fcp: data.fcp,
+        lcp: data.lcp,
+        cls: data.cls,
+        inp: data.inp,
+        tbt: data.tbt,
+        completedAt: data.completedAt,
+        createdAt: data.createdAt,
+        issueCount: data.issueCount,
+        criticalCount: data.criticalCount,
       });
-
-      if (res.data.status === "COMPLETED") {
-        setCompletedScan({
-          id: res.data.id,
-          status: res.data.status,
-          overallScore: res.data.overallScore,
-          performanceScore: res.data.performanceScore,
-          accessibilityScore: res.data.accessibilityScore,
-          seoScore: res.data.seoScore,
-          securityScore: res.data.securityScore,
-          fcp: res.data.fcp,
-          lcp: res.data.lcp,
-          cls: res.data.cls,
-          inp: res.data.inp,
-          tbt: res.data.tbt,
-          completedAt: res.data.completedAt,
-          createdAt: res.data.createdAt,
-          issueCount: res.data.issueCount,
-          criticalCount: res.data.criticalCount,
-        });
-      }
-
-      if (res.data.phase === "cancelled" || res.data.status === "FAILED") {
-        haltedLocallyRef.current = false;
-      }
-
-      return res.data.status;
     }
-    return "FAILED";
+
+    if (data.phase === "cancelled" || data.status === "FAILED") {
+      haltedLocallyRef.current = false;
+    }
   }, []);
+
+  const pollScan = useCallback(
+    async (scanId: string) => {
+      const result = await fetchScanStatus(scanId);
+      if (result.ok && result.data) {
+        applyScanPayload(result.data);
+        return result.status;
+      }
+      return "FAILED";
+    },
+    [applyScanPayload]
+  );
 
   const finishPolling = useCallback(() => {
     setPollingId(null);
@@ -139,16 +173,32 @@ export function useAuditScan({
   useEffect(() => {
     if (!pollingId || haltedLocallyRef.current) return;
 
-    void pollScan(pollingId);
+    let cancelled = false;
 
-    const interval = setInterval(async () => {
+    const runPoll = async () => {
+      if (cancelled || haltedLocallyRef.current) return;
       const status = await pollScan(pollingId);
+      if (cancelled) return;
       if (isTerminalStatus(status)) {
         finishPolling();
       }
-    }, 1500);
+    };
 
-    return () => clearInterval(interval);
+    void runPoll();
+    const interval = setInterval(runPoll, POLL_MS);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void runPoll();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [pollingId, pollScan, finishPolling]);
 
   const startScan = useCallback(async () => {
