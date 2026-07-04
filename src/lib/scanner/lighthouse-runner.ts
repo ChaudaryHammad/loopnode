@@ -155,23 +155,43 @@ function getBrowserPort(browser: Browser): number {
   return Number(new URL(endpoint).port);
 }
 
+async function importLighthouseWithTimeout(timeoutMs: number) {
+  console.log("[lighthouse] Loading module…");
+  const mod = await Promise.race([
+    import("lighthouse"),
+    new Promise<never>((_, reject) => {
+      setTimeout(
+        () => reject(new Error(`Lighthouse module import timed out after ${timeoutMs / 1000}s`)),
+        timeoutMs
+      );
+    }),
+  ]);
+  console.log("[lighthouse] Module loaded");
+  return mod.default;
+}
+
 export async function runLighthousePerformanceAudit(
   browser: Browser,
-  page: Page,
+  _page: Page,
   url: string,
   onSubstep?: (message: string) => Promise<void>
 ): Promise<PerformanceAuditResult> {
   const port = getBrowserPort(browser);
 
-  const logLighthouse = (message: string) => {
-    void onSubstep?.(lighthouseSubstepMessage(message));
+  const logLighthouse = async (message: string) => {
+    console.log(`[lighthouse] ${message}`);
+    await onSubstep?.(lighthouseSubstepMessage(message));
   };
 
-  logLighthouse("Initializing Lighthouse");
+  await logLighthouse("Initializing Lighthouse");
 
   ensureLighthouseLocales();
-  const lighthouse = (await import("lighthouse")).default;
+  const lighthouse = await importLighthouseWithTimeout(45000);
 
+  await logLighthouse("Running Lighthouse in a fresh tab (via CDP port)");
+  console.log(`[lighthouse] Starting audit for ${url} on port ${port}`);
+
+  // Do not pass our audit `page` — it has request interception enabled, which makes Lighthouse hang.
   const runnerResult = await lighthouse(
     url,
     {
@@ -179,6 +199,10 @@ export async function runLighthousePerformanceAudit(
       output: "json",
       logLevel: "error",
       onlyCategories: ["performance", "best-practices"],
+      maxWaitForLoad: 45000,
+      maxWaitForFcp: 30000,
+      networkQuietThresholdMs: 3000,
+      cpuQuietThresholdMs: 3000,
       formFactor: "mobile",
       screenEmulation: {
         mobile: true,
@@ -193,16 +217,17 @@ export async function runLighthousePerformanceAudit(
         cpuSlowdownMultiplier: 4,
       },
     },
-    undefined,
-    page
+    undefined
   );
+
+  console.log("[lighthouse] Run finished");
 
   const lhr = runnerResult?.lhr;
   if (!lhr?.categories?.performance) {
     throw new Error("Lighthouse did not return performance results.");
   }
 
-  logLighthouse("Analyzing metrics and opportunities");
+  await logLighthouse("Analyzing metrics and opportunities");
 
   const audits = lhr.audits as Record<string, LighthouseAudit>;
   const performanceAuditIds = lhr.categories.performance.auditRefs.map((ref) => ref.id);

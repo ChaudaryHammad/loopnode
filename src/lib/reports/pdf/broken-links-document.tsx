@@ -3,6 +3,7 @@ import type { BrokenLinksReportInput } from "@/lib/reports/generate-broken-links
 import { formatResourceTypes } from "@/lib/scanner/link-resource-types";
 import { LOOPNODE_BRAND } from "@/lib/reports/report-html-shared";
 import {
+  BrokenLinksFindingTable,
   PdfFooter,
   PdfHeadlineBox,
   PdfPageHeader,
@@ -80,27 +81,13 @@ function BrokenLinksDocument({ input }: { input: BrokenLinksReportInput }) {
         <PdfTable
           columns={[
             { key: "setting", label: "Setting", flex: 1 },
-            { key: "value", label: "Value", flex: 2 },
+            { key: "value", label: "Value", flex: 2, wrap: true },
           ]}
           rows={summaryRows}
         />
 
         <Text style={sharedStyles.h2}>Findings ({input.findings.length})</Text>
-        {findingRows.length === 0 ? (
-          <Text style={sharedStyles.empty}>No broken links found in this scan.</Text>
-        ) : (
-          <PdfTable
-            columns={[
-              { key: "num", label: "#", flex: 0.4 },
-              { key: "sev", label: "Sev", flex: 0.7 },
-              { key: "status", label: "Status", flex: 1, strong: true },
-              { key: "url", label: "Broken URL", flex: 2.2, mono: true },
-              { key: "page", label: "Found on page", flex: 2, mono: true },
-              { key: "element", label: "Element", flex: 1.6, mono: true },
-            ]}
-            rows={findingRows}
-          />
-        )}
+        <BrokenLinksFindingTable rows={findingRows} />
 
         <PdfFooter
           left={`${LOOPNODE_BRAND} · loopnode.app`}

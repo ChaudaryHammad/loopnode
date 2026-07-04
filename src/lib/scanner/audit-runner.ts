@@ -10,7 +10,7 @@ import type { AuditResult } from "./types";
 
 const BROWSER_CLOSE_TIMEOUT_MS = 5000;
 const PAGE_SETUP_TIMEOUT_MS = 15000;
-const PERFORMANCE_TIMEOUT_MS = 120000;
+const PERFORMANCE_TIMEOUT_MS = 90000;
 
 export interface RunFullAuditOptions {
   scanId: string;
@@ -165,6 +165,7 @@ export async function runFullAudit(
       "Performance audit",
       PERFORMANCE_TIMEOUT_MS,
       runPerformanceAuditWithFallback(browser, page, normalizedUrl, async (substep) => {
+        await assertScanRunnable(scanId);
         await updateScanProgress(scanId, "performance", { url, host, substep });
         await onProgressSubstep?.(substep);
       })

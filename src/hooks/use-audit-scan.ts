@@ -52,6 +52,7 @@ export function useAuditScan({
 }: UseAuditScanOptions) {
   const router = useRouter();
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const haltedLocallyRef = useRef(false);
   const [pollingId, setPollingId] = useState<string | null>(initialRunningScanId ?? null);
   const [isStarting, setIsStarting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -74,15 +75,20 @@ export function useAuditScan({
     };
   }, []);
 
-  // Keep polling in sync when the server page revalidates (e.g. after cancel).
+  // Sync with server props, but don't resurrect a scan the user just halted locally.
   useEffect(() => {
     if (initialRunningScanId) {
-      setPollingId(initialRunningScanId);
-      if (initialProgress) setProgress(initialProgress);
-    } else if (!isStarting) {
-      setPollingId(null);
+      if (!haltedLocallyRef.current) {
+        setPollingId(initialRunningScanId);
+        if (initialProgress) setProgress(initialProgress);
+      }
+      return;
     }
-  }, [initialRunningScanId, initialProgress, isStarting]);
+
+    haltedLocallyRef.current = false;
+    setPollingId(null);
+    setIsStarting(false);
+  }, [initialRunningScanId, initialProgress]);
 
   const pollScan = useCallback(async (scanId: string) => {
     const res = await getScanStatusAction(scanId);
@@ -115,6 +121,10 @@ export function useAuditScan({
         });
       }
 
+      if (res.data.phase === "cancelled" || res.data.status === "FAILED") {
+        haltedLocallyRef.current = false;
+      }
+
       return res.data.status;
     }
     return "FAILED";
@@ -127,7 +137,7 @@ export function useAuditScan({
   }, [scheduleRefresh]);
 
   useEffect(() => {
-    if (!pollingId) return;
+    if (!pollingId || haltedLocallyRef.current) return;
 
     void pollScan(pollingId);
 
@@ -144,6 +154,7 @@ export function useAuditScan({
   const startScan = useCallback(async () => {
     setError(null);
     setIsStarting(true);
+    haltedLocallyRef.current = false;
     setCompletedScan(null);
     setProgress(EMPTY_PROGRESS);
 
@@ -152,6 +163,7 @@ export function useAuditScan({
       if (!res.success) {
         if (res.data?.scanId) {
           setPollingId(res.data.scanId);
+          setIsStarting(false);
           return;
         }
         setError(res.error ?? "Failed to start audit.");
@@ -171,8 +183,20 @@ export function useAuditScan({
 
       void fetch(`/api/audits/${scanId}/execute`, { method: "POST" })
         .then(async (response) => {
+          const data = await response.json().catch(() => ({}));
+          if (response.status === 409 || data.cancelled) {
+            haltedLocallyRef.current = true;
+            setPollingId(null);
+            setProgress({
+              phase: "cancelled",
+              statusMessage: "Audit stopped.",
+              progressPercent: 0,
+              startedAt: null,
+            });
+            scheduleRefresh();
+            return;
+          }
           if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
             setError(
               typeof data.error === "string"
                 ? data.error
@@ -190,7 +214,7 @@ export function useAuditScan({
       setError("Something went wrong starting the audit.");
       setIsStarting(false);
     }
-  }, [websiteId, pollScan]);
+  }, [websiteId, pollScan, scheduleRefresh]);
 
   const cancelScan = useCallback(async () => {
     const scanId = pollingId ?? initialRunningScanId;
@@ -198,29 +222,44 @@ export function useAuditScan({
 
     setIsCancelling(true);
     setError(null);
+    haltedLocallyRef.current = true;
+    setPollingId(null);
+    setIsStarting(false);
+    setProgress({
+      phase: "cancelled",
+      statusMessage: "Stopping audit…",
+      progressPercent: 0,
+      startedAt: null,
+    });
 
     try {
       const res = await cancelScanAction(scanId);
       if (!res.success) {
+        haltedLocallyRef.current = false;
+        setPollingId(scanId);
         setError(res.error ?? "Failed to stop audit.");
         return;
       }
+
       setProgress({
-        phase: "failed",
+        phase: "cancelled",
         statusMessage: "Audit stopped.",
         progressPercent: 0,
         startedAt: null,
       });
-      finishPolling();
+      scheduleRefresh();
     } catch (err) {
       console.error(err);
+      haltedLocallyRef.current = false;
+      setPollingId(scanId);
       setError("Something went wrong stopping the audit.");
     } finally {
       setIsCancelling(false);
     }
-  }, [pollingId, initialRunningScanId, finishPolling]);
+  }, [pollingId, initialRunningScanId, scheduleRefresh]);
 
-  const isRunning = isStarting || pollingId !== null;
+  const isRunning =
+    !haltedLocallyRef.current && (isStarting || pollingId !== null);
 
   return {
     startScan,

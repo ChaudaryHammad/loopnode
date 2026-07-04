@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { AUDIT_PHASES, type AuditPhase } from "@/lib/scanner/audit-phases";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -84,7 +83,6 @@ export function AuditProgressPanel({
         <div className="space-y-2 min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="bg-primary/10 border-primary/20 text-primary">
-              <Loader2 className="w-3 h-3 animate-spin" />
               Audit running
             </Badge>
             <span className="text-xs text-muted-foreground tabular-nums">

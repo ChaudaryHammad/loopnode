@@ -145,6 +145,9 @@ export const sharedStyles = StyleSheet.create({
     fontSize: 9,
     paddingRight: 6,
   },
+  tdWrap: {
+    lineHeight: 1.45,
+  },
   tdStrong: {
     fontWeight: 700,
   },
@@ -255,7 +258,14 @@ export type TableColumn = {
   flex: number;
   mono?: boolean;
   strong?: boolean;
+  wrap?: boolean;
 };
+
+/** Insert soft break points so long URLs/paths wrap in react-pdf cells. */
+export function pdfBreakableText(text: string): string {
+  if (!text) return "—";
+  return text.replace(/([/.:?=&_%-])/g, "$1\u200b");
+}
 
 export function PdfTable({
   columns,
@@ -278,20 +288,74 @@ export function PdfTable({
         ))}
       </View>
       {rows.map((row, index) => (
-        <View key={`${index}-${row[columns[0]?.key ?? "row"]}`} style={sharedStyles.tableRow} wrap={false}>
-          {columns.map((column) => (
-            <Text
-              key={column.key}
-              style={[
-                sharedStyles.td,
-                { flex: column.flex },
-                ...(column.mono ? [sharedStyles.mono] : []),
-                ...(column.strong ? [sharedStyles.tdStrong] : []),
-              ]}
-            >
-              {row[column.key] ?? "—"}
-            </Text>
-          ))}
+        <View key={`${index}-${row[columns[0]?.key ?? "row"]}`} style={sharedStyles.tableRow}>
+          {columns.map((column) => {
+            const raw = row[column.key] ?? "—";
+            const value = column.wrap ? pdfBreakableText(raw) : raw;
+            return (
+              <Text
+                key={column.key}
+                style={[
+                  sharedStyles.td,
+                  sharedStyles.tdWrap,
+                  { flex: column.flex },
+                  ...(column.mono ? [sharedStyles.mono] : []),
+                  ...(column.strong ? [sharedStyles.tdStrong] : []),
+                ]}
+              >
+                {value}
+              </Text>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+export function BrokenLinksFindingTable({
+  rows,
+}: {
+  rows: Array<{
+    num: string;
+    sev: string;
+    status: string;
+    url: string;
+    page: string;
+    element: string;
+  }>;
+}) {
+  if (rows.length === 0) {
+    return <Text style={sharedStyles.empty}>No broken links found in this scan.</Text>;
+  }
+
+  return (
+    <View style={sharedStyles.table}>
+      <View style={sharedStyles.tableHeader}>
+        <Text style={[sharedStyles.th, { flex: 0.4 }]}>#</Text>
+        <Text style={[sharedStyles.th, { flex: 0.7 }]}>Sev</Text>
+        <Text style={[sharedStyles.th, { flex: 1 }]}>Status</Text>
+        <Text style={[sharedStyles.th, { flex: 2.2 }]}>Broken URL</Text>
+        <Text style={[sharedStyles.th, { flex: 2 }]}>Found on page</Text>
+        <Text style={[sharedStyles.th, { flex: 1.6 }]}>Element</Text>
+      </View>
+      {rows.map((row) => (
+        <View key={row.num} style={sharedStyles.tableRow}>
+          <Text style={[sharedStyles.td, { flex: 0.4 }]}>{row.num}</Text>
+          <View style={{ flex: 0.7 }}>
+            <SeverityText severity={row.sev} />
+          </View>
+          <Text style={[sharedStyles.td, sharedStyles.tdStrong, sharedStyles.tdWrap, { flex: 1 }]}>
+            {pdfBreakableText(row.status)}
+          </Text>
+          <Text style={[sharedStyles.td, sharedStyles.mono, sharedStyles.tdWrap, { flex: 2.2 }]}>
+            {pdfBreakableText(row.url)}
+          </Text>
+          <Text style={[sharedStyles.td, sharedStyles.mono, sharedStyles.tdWrap, { flex: 2 }]}>
+            {pdfBreakableText(row.page)}
+          </Text>
+          <Text style={[sharedStyles.td, sharedStyles.mono, sharedStyles.tdWrap, { flex: 1.6 }]}>
+            {pdfBreakableText(row.element)}
+          </Text>
         </View>
       ))}
     </View>
@@ -324,17 +388,25 @@ export function FindingTable({
         <Text style={[sharedStyles.th, { flex: 2.2 }]}>Action required</Text>
       </View>
       {rows.map((row) => (
-        <View key={row.index} style={sharedStyles.tableRow} wrap={false}>
+        <View key={row.index} style={sharedStyles.tableRow}>
           <Text style={[sharedStyles.td, { flex: 0.5 }]}>{row.index}</Text>
           <View style={{ flex: 0.8 }}>
             <SeverityText severity={row.severity} />
           </View>
           <View style={{ flex: 2.2, paddingRight: 6 }}>
             <Text style={sharedStyles.tdStrong}>{row.title}</Text>
-            {row.description ? <Text style={sharedStyles.tdMuted}>{row.description}</Text> : null}
+            {row.description ? (
+              <Text style={[sharedStyles.tdMuted, sharedStyles.tdWrap]}>
+                {pdfBreakableText(row.description)}
+              </Text>
+            ) : null}
           </View>
-          <Text style={[sharedStyles.td, sharedStyles.mono, { flex: 1.8 }]}>{row.location}</Text>
-          <Text style={[sharedStyles.td, sharedStyles.action, { flex: 2.2 }]}>{row.action}</Text>
+          <Text style={[sharedStyles.td, sharedStyles.mono, sharedStyles.tdWrap, { flex: 1.8 }]}>
+            {pdfBreakableText(row.location)}
+          </Text>
+          <Text style={[sharedStyles.td, sharedStyles.action, sharedStyles.tdWrap, { flex: 2.2 }]}>
+            {pdfBreakableText(row.action)}
+          </Text>
         </View>
       ))}
     </View>

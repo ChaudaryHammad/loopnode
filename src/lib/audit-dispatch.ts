@@ -17,11 +17,22 @@ export async function dispatchAuditScan(scanId: string): Promise<{
   runId?: string;
   overallScore?: number | null;
 }> {
+  const scan = await prisma.scan.findFirst({
+    where: { id: scanId, status: "RUNNING" },
+    include: {
+      website: { select: { id: true, name: true, url: true, userId: true } },
+    },
+  });
+
+  if (!scan) {
+    throw new AuditCancelledError("Scan was halted or is no longer running.");
+  }
+
   if (getAuditRunnerMode() === "trigger") {
-    const { tasks } = await import("@trigger.dev/sdk");
+    const { tasks, runs } = await import("@trigger.dev/sdk");
     const handle = await tasks.trigger<typeof runAuditTask>("run-audit", { scanId });
 
-    await prisma.scan.updateMany({
+    const updated = await prisma.scan.updateMany({
       where: { id: scanId, status: "RUNNING" },
       data: {
         triggerRunId: handle.id,
@@ -31,18 +42,16 @@ export async function dispatchAuditScan(scanId: string): Promise<{
       },
     });
 
+    if (updated.count === 0) {
+      try {
+        await runs.cancel(handle.id);
+      } catch (error) {
+        console.warn("Failed to cancel orphaned Trigger.dev run after halt:", error);
+      }
+      throw new AuditCancelledError("Scan was halted before the worker started.");
+    }
+
     return { mode: "trigger", runId: handle.id };
-  }
-
-  const scan = await prisma.scan.findFirst({
-    where: { id: scanId, status: "RUNNING" },
-    include: {
-      website: { select: { id: true, name: true, url: true, userId: true } },
-    },
-  });
-
-  if (!scan) {
-    throw new Error("Scan not found or not runnable.");
   }
 
   try {

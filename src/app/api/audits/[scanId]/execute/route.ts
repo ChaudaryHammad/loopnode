@@ -30,6 +30,9 @@ export async function POST(
   }
 
   if (scan.status !== "RUNNING") {
+    if (scan.phase === "cancelled" || scan.status === "FAILED") {
+      return NextResponse.json({ success: true, cancelled: true, scanId });
+    }
     return NextResponse.json({ error: "Scan is not runnable" }, { status: 409 });
   }
 

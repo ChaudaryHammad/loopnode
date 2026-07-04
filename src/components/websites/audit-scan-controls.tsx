@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, Square, Zap } from "lucide-react";
+import { Square, Zap } from "lucide-react";
 import { useAuditScan } from "@/hooks/use-audit-scan";
 import { AuditProgressPanel, type AuditProgressState } from "@/components/websites/audit-progress-panel";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ interface AuditScanControlsProps {
   runningScanId?: string | null;
   initialProgress?: AuditProgressState | null;
   label?: string;
-  runningLabel?: string;
+  stopLabel?: string;
   iconOnly?: boolean;
   size?: "default" | "sm" | "lg" | "icon" | "icon-sm";
   className?: string;
@@ -23,7 +23,7 @@ export function AuditScanControls({
   runningScanId,
   initialProgress,
   label = "Audit now",
-  runningLabel = "Auditing…",
+  stopLabel = "Stop audit",
   iconOnly = false,
   size = "sm",
   className,
@@ -38,30 +38,19 @@ export function AuditScanControls({
 
   if (isRunning) {
     return (
-      <div className={`space-y-4 ${className ?? ""}`}>
-        {showProgressPanel ? (
-          <AuditProgressPanel progress={progress} />
-        ) : null}
+      <div className={`space-y-3 ${className ?? ""}`}>
+        {showProgressPanel ? <AuditProgressPanel progress={progress} compact /> : null}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant={runVariant} size={size} disabled className="gap-2">
-            <RefreshCw className="animate-spin" />
-            {!iconOnly && runningLabel}
-          </Button>
-          <Button
-            variant="destructive"
-            size={size}
-            onClick={() => void cancelScan()}
-            disabled={isCancelling}
-          >
-            {isCancelling ? (
-              <RefreshCw className="animate-spin" />
-            ) : (
-              <Square className="fill-current" />
-            )}
-            {!iconOnly && (isCancelling ? "Stopping…" : "Stop audit")}
-          </Button>
-        </div>
+        <Button
+          variant="destructive"
+          size={size}
+          onClick={() => void cancelScan()}
+          disabled={isCancelling}
+          className={iconOnly ? undefined : "gap-2"}
+          title={iconOnly ? stopLabel : undefined}
+        >
+          {iconOnly ? <Square className="fill-current" /> : isCancelling ? "Stopping…" : stopLabel}
+        </Button>
 
         {!showProgressPanel && !iconOnly ? (
           <AuditProgressPanel progress={progress} compact />

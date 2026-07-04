@@ -22,7 +22,6 @@ import {
   Settings,
   History,
   TrendingUp,
-  RefreshCw,
   Square,
 } from "lucide-react";
 import { ScoreGauge } from "./score-gauge";
@@ -327,26 +326,16 @@ export function WebsiteOverviewClient({
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               {isRunning ? (
-                <>
-                  <Button variant="default" size="lg" disabled className="gap-2">
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Auditing…
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="lg"
-                    onClick={() => void cancelScan()}
-                    disabled={isCancelling}
-                    className="gap-2"
-                  >
-                    {isCancelling ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Square className="w-4 h-4 fill-current" />
-                    )}
-                    Stop
-                  </Button>
-                </>
+                <Button
+                  variant="destructive"
+                  size="lg"
+                  onClick={() => void cancelScan()}
+                  disabled={isCancelling}
+                  className="gap-2"
+                >
+                  <Square className="w-4 h-4 fill-current" />
+                  {isCancelling ? "Stopping…" : "Stop audit"}
+                </Button>
               ) : (
                 <Button size="lg" onClick={() => void startScan()} className="gap-2">
                   <Zap className="w-4 h-4" />

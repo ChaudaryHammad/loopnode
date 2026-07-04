@@ -46,6 +46,8 @@ export default defineConfig({
     env: taskEnv(),
   },
   build: {
+    // Lighthouse uses import.meta.url for package root + locales; bundling breaks paths (//package.json).
+    external: ["lighthouse", "chrome-launcher", "lighthouse-logger"],
     extensions: [
       puppeteer(),
       lighthouseLocalesExtension(),

@@ -28,9 +28,8 @@ function copyLocaleFiles(srcDir: string, destDir: string): number {
 }
 
 /**
- * Trigger.dev bundles task code in a way that breaks Lighthouse's import.meta.url,
- * so locale files are resolved to `/app/locales/*.json` instead of node_modules.
- * Copy the real locale files there before importing lighthouse.
+ * Trigger.dev bundling breaks Lighthouse's import.meta.url (locales → /app/locales, root → //package.json).
+ * Lighthouse is marked external in trigger.config.ts; this shim is a fallback for copied locale files.
  */
 export function ensureLighthouseLocales(): void {
   const shimDir = path.join(process.cwd(), "locales");
@@ -42,9 +41,8 @@ export function ensureLighthouseLocales(): void {
 
   const srcDir = lighthouseLocaleSourceDir();
   if (!srcDir) {
-    throw new Error(
-      `[lighthouse] Locale files not found under node_modules/lighthouse. cwd=${process.cwd()}`
-    );
+    // External lighthouse resolves locales from node_modules — no shim needed.
+    return;
   }
 
   const copied = copyLocaleFiles(srcDir, shimDir);

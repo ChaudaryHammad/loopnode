@@ -147,19 +147,32 @@ export async function cancelScanAction(scanId: string) {
   });
 
   if (!scan) {
+    const existing = await prisma.scan.findFirst({
+      where: {
+        id: scanId,
+        website: { userId: session.user.id, deletedAt: null },
+      },
+      select: { phase: true, status: true },
+    });
+
+    if (existing?.phase === "cancelled" || existing?.status === "FAILED") {
+      return { success: true, message: AUDIT_HALTED_MESSAGE };
+    }
+
     return { success: false, error: "No running audit found to stop." };
   }
+
+  // Mark halted in DB first so workers stop at the next checkpoint.
+  await markScanCancelled(scanId);
 
   if (scan.triggerRunId && useTriggerDev()) {
     try {
       const { runs } = await import("@trigger.dev/sdk");
       await runs.cancel(scan.triggerRunId);
     } catch (error) {
-      console.warn("Failed to cancel Trigger.dev run:", error);
+      console.error("Failed to cancel Trigger.dev run:", error);
     }
   }
-
-  await markScanCancelled(scanId);
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/websites");
