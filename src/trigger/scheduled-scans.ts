@@ -94,7 +94,7 @@ export const scheduledScansTask = schedules.task({
       });
 
       try {
-        await dispatchAuditScan(scan.id);
+        await dispatchAuditScan(scan.id, { forceTrigger: true });
         started += 1;
 
         await prisma.website.update({

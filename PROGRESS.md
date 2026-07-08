@@ -2,7 +2,7 @@
 
 > **Product:** LoopNode — website health monitoring SaaS (performance, accessibility, SEO, security, broken links)  
 > **Stack:** Next.js 16 · TypeScript · Prisma 7 · PostgreSQL · Auth.js v5 · shadcn/ui · Lighthouse · axe-core  
-> **Last updated:** June 2026
+> **Last updated:** July 2026
 
 Use this file to track what is **done**, **partial**, or **not started**. Update it when a module ships or scope changes.
 
@@ -29,13 +29,13 @@ Use this file to track what is **done**, **partial**, or **not started**. Update
 | Audit engine | ✅ | Real Lighthouse, axe-core, SEO, security scans |
 | Audit report pages | ✅ | Performance, A11y, SEO, Security — rich category UIs |
 | Broken link checker | 🟡 | Full crawler + live progress; findings **not** persisted to DB |
-| Billing & payments | 🟡 | `Subscription` + trial ✅; Stripe Elements + webhooks planned — see [BILLING.md](./BILLING.md) |
+| Billing & payments | 🟡 | Manual upgrade flow ✅; Stripe Elements planned — see [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | Admin dashboard | ✅ | `/admin` — overview, users, websites, billing, newsletter, support inbox |
-| Scheduled scans | 🟡 | `scanFrequency` saved in DB; no cron / Trigger.dev jobs |
+| Scheduled scans | 🟡 | Trigger `scheduled-scans` cron + `nextScanAt`; Pro/Agency only |
 | Reports (PDF/export) | ✅ | `/dashboard/reports` — generate, download, delete |
 | Issue center | ✅ | Portfolio inbox at `/dashboard/issues` |
 | Account settings | 🟡 | Profile + billing UI; Stripe checkout not wired |
-| Background jobs | 🟡 | Trigger.dev `run-audit` task + `USE_TRIGGER_DEV` toggle; no scheduled cron yet |
+| Background jobs | 🟡 | Trigger.dev `run-audit` (medium) + scan sync; broken links still on Vercel |
 | Screenshots / Cloudinary | ❌ | Env + `Scan.screenshot` field; upload not implemented |
 | Plan limits | ❌ | No site caps, history retention, or feature gating |
 | Automated tests | ❌ | Vitest in devDependencies; no test files |
@@ -304,7 +304,7 @@ Topbar “Profile Settings” → profile tab; “Account Settings” → billin
 
 ### Subscription & billing — how it should work
 
-> **Full specification:** [BILLING.md](./BILLING.md) — Stripe Elements, user/admin/visitor flows, webhooks, implementation map.
+> **Architecture & billing overview:** [ARCHITECTURE.md](./ARCHITECTURE.md) — manual billing today; Stripe Elements planned.
 
 #### Plans (match marketing pricing)
 
@@ -463,15 +463,11 @@ model Subscription {
 
 | Item | Status | Details |
 |------|--------|---------|
-| Trigger.dev | 🟡 | `run-audit` task + `USE_TRIGGER_DEV`; scheduled scans not wired |
-| Cron / scheduled audits | ❌ | `scanFrequency` not read by any worker |
-| Async audit queue | ✅ | `POST /api/audits/[scanId]/execute` + client polling; cancel support |
-| Broken link execute API | ✅ | `POST /api/broken-links/[scanId]/execute` (`maxDuration` 300s) |
-
-**Suggested approach**
-
-- Move `runFullAudit` + scheduled scans to Trigger.dev (or Vercel cron + queue)  
-- Daily/hourly jobs query websites where `scanFrequency` matches and plan allows automation  
+| Trigger.dev `run-audit` | ✅ | Medium machine; Lighthouse + full audit pipeline |
+| Trigger.dev `scheduled-scans` | 🟡 | Hourly cron; dispatches due sites; Pro/Agency entitlements |
+| Scan cancel / sync | 🟡 | `onCancel`/`onFailure` + status API sync; broken links pending |
+| Async audit queue | ✅ | `dispatchAuditScan` + client polling |
+| Broken link execute API | ✅ | `POST /api/broken-links/[scanId]/execute` on Vercel (`maxDuration` 300s) |
 
 ---
 
@@ -507,12 +503,12 @@ model Subscription {
 
 ## 15. Documentation
 
-| File | Status | Notes |
-|------|--------|-------|
-| `SETUP.md` | 🟡 | Still says "HealthMonitor" in places; update to LoopNode |
-| `README.md` | 🟡 | Default create-next-app boilerplate |
-| `PROGRESS.md` | ✅ | This file |
-| `.env.example` | ✅ | SMTP, Cloudinary, Trigger placeholders |
+| File | Purpose |
+|------|---------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design, deploy, env vars, audit pipeline |
+| [PROGRESS.md](./PROGRESS.md) | This file — module status |
+| [README.md](./README.md) | Quick start + links to docs above |
+| `.env.example` | Env var template |
 
 ---
 
@@ -522,15 +518,16 @@ Priority order for a shippable paid SaaS:
 
 ### Phase A — Monetization (critical)
 - [x] `Subscription` model + trial on register  
-- [ ] Stripe Elements subscribe flow + Customer Portal (see [BILLING.md](./BILLING.md))  
+- [ ] Stripe Elements subscribe flow + Customer Portal (see [ARCHITECTURE.md](./ARCHITECTURE.md))  
 - [ ] Stripe webhooks (`/api/webhooks/stripe`)  
 - [ ] `getEntitlements()` + server gates (sites, scans, features)  
 - [ ] Settings → Billing tab (real subscription UI + Elements)  
 - [ ] `UpgradeModal` component (paywall dialog)  
 
 ### Phase B — Operations
-- [ ] Trigger.dev for audits + scheduled scans  
-- [ ] Honor `scanFrequency` (daily / weekly / monthly) per plan  
+- [x] Trigger.dev for audits (`run-audit` on medium machine)  
+- [x] Scheduled scans cron (`scheduled-scans` task)  
+- [ ] Broken link scans on Trigger.dev (optional)  
 - [ ] Persist broken link findings to `BrokenLinkResult` (optional)  
 
 ### Phase C — Admin
@@ -548,7 +545,6 @@ Priority order for a shippable paid SaaS:
 ### Phase E — Quality
 - [ ] Vitest tests for scanners & critical actions  
 - [ ] CI pipeline  
-- [ ] Update `SETUP.md` / `README.md` for LoopNode  
 
 ---
 
@@ -558,7 +554,7 @@ Priority order for a shippable paid SaaS:
 |---------------|--------------|
 | 14-day free trial | Sign up works; no trial expiry or paywall |
 | Plans from $19/mo | No payment |
-| Daily / hourly automated scans | Frequency saved only; no scheduler |
+| Daily / weekly / monthly automated scans | Wired via Trigger cron; Pro/Agency plans only |
 | 30 / 90 / 365-day history | All scan history kept; no retention limits |
 | Agency onboarding | Contact form only |
 
@@ -578,7 +574,7 @@ Keep pricing copy aligned as billing and scheduling ship.
 | Auth | `src/actions/auth.ts`, `src/app/(auth)/` |
 | Admin | `src/app/admin/`, `src/actions/admin.ts`, `src/lib/admin-data.ts` |
 | Subscriptions | `src/lib/subscription.ts`, `src/lib/plans.ts` |
-| Billing (planned) | [BILLING.md](./BILLING.md) |
+| Billing (planned) | [ARCHITECTURE.md](./ARCHITECTURE.md) § Auth & billing |
 | Email | `src/lib/email/` |
 | Schema | `prisma/schema.prisma` |
 

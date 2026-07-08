@@ -12,7 +12,10 @@ export function getAuditRunnerMode(): AuditRunnerMode {
   return useTriggerDev() ? "trigger" : "local";
 }
 
-export async function dispatchAuditScan(scanId: string): Promise<{
+export async function dispatchAuditScan(
+  scanId: string,
+  options?: { forceTrigger?: boolean }
+): Promise<{
   mode: AuditRunnerMode;
   runId?: string;
   overallScore?: number | null;
@@ -30,7 +33,10 @@ export async function dispatchAuditScan(scanId: string): Promise<{
 
   // Never run Chrome/Lighthouse on Vercel serverless — control plane only.
   const onVercel = Boolean(process.env.VERCEL);
-  const preferTrigger = getAuditRunnerMode() === "trigger" || onVercel;
+  // Scheduled scans run inside the small `scheduled-scans` cron task — always queue
+  // the heavy audit to `run-audit` on a medium machine instead of running inline.
+  const preferTrigger =
+    options?.forceTrigger === true || getAuditRunnerMode() === "trigger" || onVercel;
 
   if (preferTrigger) {
     if (!useTriggerDev() && onVercel) {
@@ -39,7 +45,11 @@ export async function dispatchAuditScan(scanId: string): Promise<{
       );
     }
     const { tasks, runs } = await import("@trigger.dev/sdk");
-    const handle = await tasks.trigger<typeof runAuditTask>("run-audit", { scanId });
+    const handle = await tasks.trigger<typeof runAuditTask>(
+      "run-audit",
+      { scanId },
+      { machine: "medium-1x" }
+    );
 
     const updated = await prisma.scan.updateMany({
       where: { id: scanId, status: "RUNNING" },
