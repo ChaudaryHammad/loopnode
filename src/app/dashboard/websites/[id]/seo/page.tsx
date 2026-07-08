@@ -1,10 +1,13 @@
-import React from "react";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { redirect, notFound } from "next/navigation";
+import React, { Suspense } from "react";
 import { SeoAuditClient } from "@/components/websites/seo-audit-client";
-import { fetchSeoSnapshot } from "@/lib/seo/fetch-seo-snapshot";
-import type { AuditIssue } from "@/components/websites/audit-shared";
+import { SeoLiveSnapshot } from "@/components/websites/seo-live-snapshot";
+import { SeoSnapshotSkeleton } from "@/components/layout/page-loaders";
+import {
+  generateAuditPageMetadata,
+  getAuditPageWebsite,
+  getLatestCompletedScanWithIssues,
+  mapScanIssuesToAuditIssues,
+} from "@/lib/audit/get-audit-page-data";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -12,45 +15,14 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
-  const w = await prisma.website.findUnique({ where: { id }, select: { name: true } });
-  return { title: `${w?.name ?? "Website"} — SEO Audit` };
+  return generateAuditPageMetadata(id, "SEO");
 }
 
 export default async function SeoPage({ params }: Props) {
   const { id } = await params;
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  const website = await prisma.website.findFirst({
-    where: { id, userId: session.user.id, deletedAt: null },
-    select: { id: true, name: true, url: true },
-  });
-  if (!website) notFound();
-
-  const [latestScan, snapshot] = await Promise.all([
-    prisma.scan.findFirst({
-      where: { websiteId: id, status: "COMPLETED" },
-      orderBy: { createdAt: "desc" },
-      include: {
-        issues: {
-          where: { category: "SEO" },
-          orderBy: [{ severity: "asc" }, { createdAt: "desc" }],
-        },
-      },
-    }),
-    fetchSeoSnapshot(website.url),
-  ]);
-
-  const issues: AuditIssue[] =
-    latestScan?.issues.map((i) => ({
-      id: i.id,
-      severity: i.severity as AuditIssue["severity"],
-      title: i.title,
-      description: i.description,
-      selector: i.selector,
-      url: i.url,
-      recommendation: i.recommendation,
-    })) ?? [];
+  const { website } = await getAuditPageWebsite(id);
+  const latestScan = await getLatestCompletedScanWithIssues(id, "SEO");
+  const issues = mapScanIssuesToAuditIssues(latestScan?.issues ?? []);
 
   return (
     <SeoAuditClient
@@ -60,7 +32,10 @@ export default async function SeoPage({ params }: Props) {
       score={latestScan?.seoScore ?? null}
       issues={issues}
       lastScanned={latestScan?.completedAt?.toISOString() ?? null}
-      snapshot={snapshot}
-    />
+    >
+      <Suspense fallback={<SeoSnapshotSkeleton />}>
+        <SeoLiveSnapshot url={website.url} />
+      </Suspense>
+    </SeoAuditClient>
   );
 }

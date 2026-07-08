@@ -12,6 +12,48 @@ export interface ScanIssueInput {
   metadata?: Record<string, unknown>;
 }
 
+export type PerformanceIssueKind =
+  | "resource-waste"
+  | "image-delivery"
+  | "render-blocking"
+  | "metric"
+  | "font"
+  | "layout"
+  | "cache"
+  | "network"
+  | "general";
+
+export interface PerformanceIssueOffender {
+  label: string;
+  url: string | null;
+  wastedBytes: number | null;
+  wastedMs: number | null;
+  transferSize: number | null;
+  totalBytes: number | null;
+  snippet: string | null;
+}
+
+export interface PerformanceIssueMetadata {
+  [key: string]: unknown;
+  version: 1;
+  source: "lighthouse" | "fallback";
+  lighthouseAuditId?: string | null;
+  lighthouseCategory?: string | null;
+  kind: PerformanceIssueKind;
+  score: number | null;
+  scoreDisplayMode: string | null;
+  displayValue: string | null;
+  numericValue: number | null;
+  estimatedSavingsMs: number | null;
+  estimatedSavingsBytes: number | null;
+  summary: string;
+  impact: string | null;
+  primaryAction: string | null;
+  headings: string[];
+  topOffenders: PerformanceIssueOffender[];
+  url: string | null;
+}
+
 export interface AuditResult {
   performanceScore: number;
   accessibilityScore: number;

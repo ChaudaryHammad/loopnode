@@ -1,336 +1,279 @@
 "use client";
 
 import React from "react";
-import { motion, Variants, useInView } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import {
-  Zap, Eye, Search, Shield, Link2, BarChart3,
-  ArrowRight, MousePointerClick, MonitorCheck, ServerCog,
+  ArrowRight,
+  Bug,
+  Building2,
+  Check,
+  ClipboardCheck,
+  Code2,
+  Globe2,
+  Layers,
+  Rocket,
+  Search,
+  Shield,
+  Terminal,
+  User,
+  Zap,
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button-link";
+import { MarketingFaq } from "@/components/marketing/marketing-faq";
 
-// ─── Shared animation presets ─────────────────────────────────────────────────
+const VIEWPORT = { once: true, margin: "-50px" };
 
-const VIEWPORT = { once: true, margin: "-80px" };
-
-/** Fade + rise from below */
 const fadeUp = (delay = 0): Variants => ({
-  hidden: { opacity: 0, y: 48, filter: "blur(6px)" },
+  hidden: { opacity: 0, y: 24 },
   visible: {
-    opacity: 1, y: 0, filter: "blur(0px)",
-    transition: { type: "spring", stiffness: 200, damping: 22, delay },
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] },
   },
 });
 
-/** Slide in from left */
-const fadeLeft = (delay = 0): Variants => ({
-  hidden: { opacity: 0, x: -56, filter: "blur(4px)" },
-  visible: {
-    opacity: 1, x: 0, filter: "blur(0px)",
-    transition: { type: "spring", stiffness: 180, damping: 22, delay },
-  },
-});
+const valueStrip = [
+  "Full audits in minutes",
+  "No local setup required",
+  "Track scores after every deploy",
+];
 
-/** Slide in from right */
-const fadeRight = (delay = 0): Variants => ({
-  hidden: { opacity: 0, x: 56, filter: "blur(4px)" },
-  visible: {
-    opacity: 1, x: 0, filter: "blur(0px)",
-    transition: { type: "spring", stiffness: 180, damping: 22, delay },
-  },
-});
-
-/** Scale up from center */
-const scaleIn = (delay = 0): Variants => ({
-  hidden: { opacity: 0, scale: 0.82, filter: "blur(6px)" },
-  visible: {
-    opacity: 1, scale: 1, filter: "blur(0px)",
-    transition: { type: "spring", stiffness: 240, damping: 24, delay },
-  },
-});
-
-/** Staggered container */
-const stagger = (staggerDelay = 0.08): Variants => ({
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: staggerDelay } },
-});
-
-/** Child for staggered lists */
-const staggerChild: Variants = {
-  hidden: { opacity: 0, y: 24, filter: "blur(4px)" },
-  visible: {
-    opacity: 1, y: 0, filter: "blur(0px)",
-    transition: { type: "spring", stiffness: 260, damping: 24 },
-  },
-};
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const features = [
+const personas = [
   {
-    title: "Performance",
-    description: "Real Lighthouse runs measuring LCP, INP, CLS, FCP, TBT with Good/Poor ratings and waterfall breakdowns.",
-    icon: Zap,
-    accent: "#34d399", accentRgb: "52,211,153",
-    accentClass: "text-emerald-400", borderClass: "border-emerald-400/20",
-    bgClass: "bg-emerald-400/5", glowClass: "from-emerald-500/20", size: "lg",
+    icon: User,
+    title: "Freelance developers",
+    scenario: "You ship client sites and need proof they are fast, accessible, and link-clean before handoff.",
+    outcome: "Run a full audit from one URL and send a report that clients actually understand.",
   },
   {
-    title: "Accessibility",
-    description: "axe-core WCAG 2.1 checks in a real browser with CSS selectors for every violation.",
-    icon: Eye,
-    accent: "#a78bfa", accentRgb: "167,139,250",
-    accentClass: "text-violet-400", borderClass: "border-violet-400/20",
-    bgClass: "bg-violet-400/5", glowClass: "from-violet-500/20", size: "md",
+    icon: Building2,
+    title: "Agencies",
+    scenario: "You manage dozens of domains and cannot manually open DevTools on every site every week.",
+    outcome: "Monitor every client site from one dashboard and catch regressions between sprints.",
   },
   {
-    title: "SEO Health",
-    description: "Title tags, meta, Open Graph, canonical, robots.txt and sitemap reachability.",
-    icon: Search,
-    accent: "#fbbf24", accentRgb: "251,191,36",
-    accentClass: "text-amber-400", borderClass: "border-amber-400/20",
-    bgClass: "bg-amber-400/5", glowClass: "from-amber-500/20", size: "md",
+    icon: Layers,
+    title: "In-house product teams",
+    scenario: "Performance and a11y slip through code review because nobody owns the full audit.",
+    outcome: "Give engineering a shared source of truth after every deploy — with history to prove it.",
+  },
+];
+
+const painPoints = [
+  {
+    icon: Terminal,
+    title: "Five tools, zero overview",
+    body: "Lighthouse in Chrome, axe in DevTools, SEO in a spreadsheet, headers in curl. Nothing talks to each other.",
   },
   {
-    title: "Security & CSP",
-    description: "Live HTTP header analysis, HSTS, X-Frame-Options and an A–F CSP grade.",
-    icon: Shield,
-    accent: "#f87171", accentRgb: "248,113,113",
-    accentClass: "text-rose-400", borderClass: "border-rose-400/20",
-    bgClass: "bg-rose-400/5", glowClass: "from-rose-500/20", size: "md",
+    icon: Bug,
+    title: "Found out from a client email",
+    body: "The deploy looked fine locally. Production LCP doubled and nobody caught it until a stakeholder noticed.",
   },
   {
-    title: "Broken Links",
-    description: "Deep BFS crawler for internal and external links — finds 404s and dead assets across your entire site.",
-    icon: Link2,
-    accent: "#60a5fa", accentRgb: "96,165,250",
-    accentClass: "text-blue-400", borderClass: "border-blue-400/20",
-    bgClass: "bg-blue-400/5", glowClass: "from-blue-500/20", size: "md",
-  },
-  {
-    title: "Score Trends",
-    description: "Historical data across every audit lets you pinpoint exactly which deploy broke your scores.",
-    icon: BarChart3,
-    accent: "#22d3ee", accentRgb: "34,211,238",
-    accentClass: "text-cyan-400", borderClass: "border-cyan-400/20",
-    bgClass: "bg-cyan-400/5", glowClass: "from-cyan-500/20", size: "lg",
+    icon: Rocket,
+    title: "Audit output nobody acts on",
+    body: "A PDF of warnings is not a backlog. Developers need severity, selectors, and clear next steps.",
   },
 ];
 
 const steps = [
-  { icon: MousePointerClick, step: "01", title: "Connect your site", description: "Add any public URL. LoopNode validates the connection instantly." },
-  { icon: ServerCog, step: "02", title: "Run a full audit", description: "One click triggers Lighthouse, axe-core, and security checks in the cloud." },
-  { icon: MonitorCheck, step: "03", title: "Fix with confidence", description: "Detailed findings, severity ratings, and actionable recommendations per issue." },
+  {
+    icon: Globe2,
+    title: "Paste a URL",
+    body: "No CLI install, no CI pipeline required. LoopNode runs a real Chrome audit in the cloud.",
+  },
+  {
+    icon: Code2,
+    title: "Read the report",
+    body: "Scores, vitals, and findings grouped by category — performance, a11y, SEO, security, links.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Fix, deploy, re-run",
+    body: "Work the list, ship the fix, scan again. Score history shows whether it actually worked.",
+  },
 ];
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+const differentiators = [
+  {
+    icon: Zap,
+    title: "Real browser audits",
+    body: "Not simulated checks. Real browser runs against your live URL — the same depth you would expect from a manual audit.",
+  },
+  {
+    icon: Search,
+    title: "Findings you can locate",
+    body: "Accessibility issues include CSS selectors. Performance items name the offending resource.",
+  },
+  {
+    icon: Shield,
+    title: "Live security headers",
+    body: "Fetch and grade response headers and CSP policies from production — not a static config file.",
+  },
+];
 
-function SparklineSVG({ color }: { color: string }) {
-  const pts = [18, 32, 22, 38, 28, 42, 34, 30, 45, 38, 52];
-  const w = 120, h = 56;
-  const max = Math.max(...pts), min = Math.min(...pts);
-  const norm = pts.map((v) => ((v - min) / (max - min)) * (h - 8) + 4);
-  const pathD = pts.map((_, i) => `${i === 0 ? "M" : "L"}${(i / (pts.length - 1)) * w},${h - norm[i]}`).join(" ");
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" className="opacity-80">
-      <defs>
-        <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={`${pathD} L${w},${h} L0,${h} Z`} fill="url(#spark-fill)" />
-      <path d={pathD} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      {pts.map((_, i) => i === pts.length - 1 ? (
-        <circle key={i} cx={(i / (pts.length - 1)) * w} cy={h - norm[i]} r="3.5" fill={color} />
-      ) : null)}
-    </svg>
-  );
+const homepageFaq = [
+  {
+    question: "Do I need to install anything?",
+    answer:
+      "No. Add a public URL in the dashboard and LoopNode runs the audit in the cloud. You get results in the browser — no local Chrome flags, no CI setup required to start.",
+  },
+  {
+    question: "What does an audit actually check?",
+    answer:
+      "Performance (Lighthouse + Core Web Vitals), accessibility (axe-core WCAG rules), on-page SEO, live HTTP security headers, broken links, and score history across runs. Full details are on the features page.",
+  },
+  {
+    question: "Is this only for big teams?",
+    answer:
+      "LoopNode works for solo freelancers checking a client handoff, agencies managing many domains, and product teams who want a shared health baseline after each release.",
+  },
+  {
+    question: "How is this different from running Lighthouse myself?",
+    answer:
+      "Lighthouse gives you one slice. LoopNode combines performance, accessibility, SEO, security, and link crawling in one place, keeps history across runs, and formats findings as an actionable report — not a JSON dump.",
+  },
+];
+
+interface MarketingSectionsProps {
+  isLoggedIn: boolean;
 }
 
-function ScoreRing({ score, color }: { score: number; color: string }) {
-  const r = 28, circ = 2 * Math.PI * r;
-  const dash = (score / 100) * circ;
+export function MarketingSections({ isLoggedIn }: MarketingSectionsProps) {
   return (
-    <svg width="72" height="72" viewBox="0 0 72 72" className="-rotate-90">
-      <circle cx="36" cy="36" r={r} stroke="rgba(255,255,255,0.06)" strokeWidth="6" fill="none" />
-      <circle cx="36" cy="36" r={r} stroke={color} strokeWidth="6" fill="none"
-        strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round" />
-    </svg>
-  );
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export function MarketingSections({ isLoggedIn }: { isLoggedIn: boolean }) {
-  return (
-    <div>
-      {/* ── SIX ENGINES ────────────────────────────────────────────────────── */}
-      <section className="relative w-full max-w-[88rem] mx-auto px-6 py-20 md:py-24">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[300px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
-
-        {/* Section header — clip-path wipe from bottom */}
-        <motion.div
-          variants={fadeUp(0)}
-          initial="hidden"
-          whileInView="visible"
-          viewport={VIEWPORT}
-          className="text-center max-w-2xl mx-auto mb-16 space-y-4"
-        >
-          <motion.div variants={scaleIn(0.05)} initial="hidden" whileInView="visible" viewport={VIEWPORT}
-            className="inline-block bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest shadow-[0_0_20px_-5px_rgba(var(--primary-rgb,100,120,255),0.4)]">
-            Audit Engines
-          </motion.div>
-          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-[1.1]">
-            Six engines.{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-violet-400 to-cyan-400">
-              One unified dashboard.
-            </span>
-          </h2>
-          <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-            Industry-standard tools automated and stitched into a single audit pipeline —
-            each engine with its own deep-dive report page.
-          </p>
-        </motion.div>
-
-        {/* Bento grid — staggered cascade */}
-        <motion.div
-          variants={stagger(0.07)}
-          initial="hidden"
-          whileInView="visible"
-          viewport={VIEWPORT}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-auto gap-4"
-        >
-          {features.map((feature, idx) => {
-            const Icon = feature.icon;
-            const isLarge = feature.size === "lg";
-            return (
-              <motion.div
-                key={idx}
-                variants={staggerChild}
-                className={`group relative overflow-hidden rounded-3xl border ${feature.borderClass} ${feature.bgClass} backdrop-blur-sm transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl`}
-                whileHover={{ boxShadow: `0 0 60px -10px rgba(${feature.accentRgb},0.28)` }}
-              >
-                <div className={`absolute -top-10 -left-10 w-40 h-40 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-gradient-to-br ${feature.glowClass} to-transparent`} />
-                <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-                  style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-
-                <div className={`relative z-10 p-7 flex flex-col gap-5 ${isLarge ? "min-h-[220px]" : "min-h-[180px]"}`}>
-                  <div className="flex items-start justify-between">
-                    <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 ${feature.borderClass} transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3`}
-                      style={{ background: `rgba(${feature.accentRgb},0.12)` }}>
-                      <Icon className={`w-5 h-5 ${feature.accentClass}`} />
-                    </div>
-                    {feature.title === "Performance" && (
-                      <div className="relative">
-                        <ScoreRing score={96} color={feature.accent} />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className={`text-sm font-black ${feature.accentClass}`}>96</span>
-                        </div>
-                      </div>
-                    )}
-                    {feature.title === "Score Trends" && <SparklineSVG color={feature.accent} />}
-                    {feature.title === "Accessibility" && (
-                      <div className="flex flex-col gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                        {["AA ✓", "AA ✓", "A ✓"].map((l, i) => (
-                          <div key={i} className={`text-[10px] font-bold ${feature.accentClass} bg-violet-400/10 px-2 py-0.5 rounded-full border border-violet-400/20`}>{l}</div>
-                        ))}
-                      </div>
-                    )}
-                    {feature.title === "SEO Health" && (
-                      <div className="flex flex-col gap-1 opacity-60 group-hover:opacity-100 transition-opacity text-right">
-                        {[["Meta", "✓"], ["OG", "✓"], ["Sitemap", "!"]].map(([k, v], i) => (
-                          <div key={i} className="flex items-center gap-1.5 text-[10px] font-bold">
-                            <span className="text-muted-foreground">{k}</span>
-                            <span className={v === "✓" ? "text-emerald-400" : "text-amber-400"}>{v}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {feature.title === "Security & CSP" && (
-                      <div className={`text-3xl font-black ${feature.accentClass} opacity-70 group-hover:opacity-100 transition-opacity tabular-nums`}>
-                        A<span className="text-lg text-muted-foreground">+</span>
-                      </div>
-                    )}
-                    {feature.title === "Broken Links" && (
-                      <div className="flex flex-col items-end gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                        <span className="text-[10px] text-emerald-400 font-bold">1,204 OK</span>
-                        <span className="text-[10px] text-rose-400 font-bold">3 broken</span>
-                        <div className="w-16 h-1.5 rounded-full bg-white/10 mt-1 overflow-hidden">
-                          <div className="h-full rounded-full bg-emerald-400" style={{ width: "97%" }} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-auto">
-                    <h3 className={`text-base font-bold tracking-tight mb-1.5 ${feature.accentClass}`}>{feature.title}</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </motion.div>
-
-        {/* CTA button — fade up after grid */}
-        <motion.div
-          variants={fadeUp(0.1)}
-          initial="hidden"
-          whileInView="visible"
-          viewport={VIEWPORT}
-          className="text-center mt-12"
-        >
-          <ButtonLink href="/features" variant="outline"
-            className="bg-transparent border-white/15 hover:border-white/30 hover:bg-white/5 rounded-full px-7 h-11 text-xs font-bold uppercase tracking-widest transition-all">
-            Explore all capabilities
-            <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-          </ButtonLink>
-        </motion.div>
-      </section>
-
-      {/* ── HOW IT WORKS ───────────────────────────────────────────────────── */}
-      <section className="w-full border-t border-white/5 bg-[#050505]">
-        <div className="max-w-[88rem] mx-auto px-6 py-20 md:py-24">
-          {/* Label + headline — slide up with blur */}
+    <div className="w-full">
+      {/* Value strip */}
+      <section className="border-t border-border/20">
+        <div className="mx-auto max-w-[88rem] px-6 py-8 md:py-10">
           <motion.div
             variants={fadeUp(0)}
             initial="hidden"
             whileInView="visible"
             viewport={VIEWPORT}
-            className="text-center max-w-xl mx-auto mb-14 space-y-3"
+            className="flex flex-col items-center justify-center gap-3 text-center sm:flex-row sm:gap-0"
           >
-            <motion.div variants={scaleIn(0.05)} initial="hidden" whileInView="visible" viewport={VIEWPORT}
-              className="inline-block bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest">
-              Workflow
-            </motion.div>
-            <h2 className="text-2xl md:text-4xl font-extrabold tracking-tight">Zero config. Maximum insight.</h2>
+            {valueStrip.map((line, index) => (
+              <React.Fragment key={line}>
+                {index > 0 ? (
+                  <span
+                    className="hidden text-muted-foreground/40 sm:mx-6 sm:inline md:mx-8"
+                    aria-hidden
+                  >
+                    ·
+                  </span>
+                ) : null}
+                <p className="text-sm text-muted-foreground md:text-base">{line}</p>
+              </React.Fragment>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Hook */}
+      <section className="relative border-t border-border/20 bg-[#050505]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(var(--primary-rgb,100,120,255),0.07),transparent)]" />
+        <div className="relative mx-auto grid max-w-[88rem] gap-12 px-6 py-16 md:py-24 lg:grid-cols-2 lg:items-center lg:gap-16">
+          <motion.div
+            variants={fadeUp(0)}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+            className="space-y-6"
+          >
+            <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl md:leading-[1.12]">
+              Your website health command center.
+            </h2>
+            <p className="text-base leading-relaxed text-muted-foreground md:text-lg">
+              LoopNode is for developers who are tired of stitching together half a dozen audit
+              tools every time a site ships. One URL, one dashboard, one report your team can
+              actually work from.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <ButtonLink href="/features" className="h-11 rounded-xl px-7">
+                Explore features
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </ButtonLink>
+              <ButtonLink
+                href={isLoggedIn ? "/dashboard" : "/register"}
+                variant="outline"
+                className="h-11 rounded-xl px-7"
+              >
+                {isLoggedIn ? "Open dashboard" : "Try it free"}
+              </ButtonLink>
+            </div>
           </motion.div>
 
-          {/* Steps — each slides from alternating directions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {steps.map((item, idx) => {
+          {/* Terminal preview */}
+          <motion.div
+            variants={fadeUp(0.08)}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+            className="overflow-hidden rounded-2xl border border-border/30 bg-[#0a0a0a] font-mono text-sm shadow-2xl"
+          >
+            <div className="flex items-center gap-2 border-b border-border/25 px-4 py-3">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
+              <span className="ml-2 text-xs text-muted-foreground">loopnode audit</span>
+            </div>
+            <div className="space-y-1.5 p-5 text-xs leading-relaxed md:text-sm md:leading-relaxed">
+              <p>
+                <span className="text-emerald-400">$</span>{" "}
+                <span className="text-foreground">loopnode scan https://yoursite.com</span>
+              </p>
+              <p className="text-muted-foreground">→ Launching Chrome audit...</p>
+              <p className="text-muted-foreground">→ Scanning performance & vitals</p>
+              <p className="text-muted-foreground">→ Checking accessibility</p>
+              <p className="text-muted-foreground">→ Checking SEO + security headers</p>
+              <p className="text-muted-foreground">→ Crawling broken links</p>
+              <p className="pt-2 text-foreground">
+                <span className="text-primary">✓</span> Overall score:{" "}
+                <span className="font-semibold text-emerald-400">84</span>
+              </p>
+              <p className="text-foreground">
+                <span className="text-amber-400">!</span> 7 findings need attention
+              </p>
+              <p className="text-muted-foreground">
+                → View report at loopnode.app/dashboard
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Pain points */}
+      <section className="border-t border-border/20">
+        <div className="mx-auto max-w-[88rem] px-6 py-16 md:py-24">
+          <motion.div
+            variants={fadeUp(0)}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+            className="mb-12 max-w-xl"
+          >
+            <p className="text-sm font-medium text-primary">The problem</p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+              Website QA should not eat your Friday afternoon.
+            </h2>
+          </motion.div>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            {painPoints.map((item, index) => {
               const Icon = item.icon;
-              // Alternate: left, up, right
-              const variants = idx === 0 ? fadeLeft(0) : idx === 1 ? fadeUp(0.1) : fadeRight(0.2);
               return (
                 <motion.div
-                  key={idx}
-                  variants={variants}
+                  key={item.title}
+                  variants={fadeUp(index * 0.07)}
                   initial="hidden"
                   whileInView="visible"
                   viewport={VIEWPORT}
-                  whileHover={{ y: -6, transition: { type: "spring", stiffness: 300, damping: 20 } }}
-                  className="group bg-card/30 hover:bg-card/60 border border-white/8 hover:border-white/20 rounded-2xl p-7 transition-colors"
+                  className="space-y-4 border-l-2 border-primary/30 pl-5"
                 >
-                  <div className="flex items-center justify-between mb-5">
-                    <div className="text-4xl font-black text-white/8 select-none">{item.step}</div>
-                    <motion.div
-                      whileHover={{ rotate: 10, scale: 1.1 }}
-                      className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Icon className="w-5 h-5" />
-                    </motion.div>
-                  </div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider mb-2">{item.title}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+                  <Icon className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{item.body}</p>
                 </motion.div>
               );
             })}
@@ -338,52 +281,239 @@ export function MarketingSections({ isLoggedIn }: { isLoggedIn: boolean }) {
         </div>
       </section>
 
-      {/* ── FINAL CTA ──────────────────────────────────────────────────────── */}
-      <section className="w-full border-t border-white/5 max-w-[88rem] mx-auto px-6 py-20 md:py-24">
-        <motion.div
-          variants={scaleIn(0)}
-          initial="hidden"
-          whileInView="visible"
-          viewport={VIEWPORT}
-          className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] p-8 md:p-20 text-center"
-        >
-          <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/15 rounded-full blur-[120px] pointer-events-none" />
-
+      {/* Who it's for */}
+      <section className="border-t border-border/20 bg-[#050505]">
+        <div className="mx-auto max-w-[88rem] px-6 py-16 md:py-24">
           <motion.div
-            variants={stagger(0.1)}
+            variants={fadeUp(0)}
             initial="hidden"
             whileInView="visible"
             viewport={VIEWPORT}
-            className="relative z-10 max-w-2xl mx-auto space-y-7"
+            className="mb-12 max-w-xl"
           >
-            <motion.h2 variants={fadeUp(0)} className="text-3xl md:text-5xl font-extrabold tracking-tight leading-[1.15]">
-              Ship healthier sites,<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400">
-                starting today.
-              </span>
-            </motion.h2>
-            <motion.p variants={fadeUp(0.05)} className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-lg mx-auto">
-              Thousands of developers rely on LoopNode to catch performance regressions,
-              accessibility failures, and broken links before their users do.
-            </motion.p>
-            <motion.div variants={fadeUp(0.1)} className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+            <p className="text-sm font-medium text-primary">Who it&apos;s for</p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+              If you ship websites, this is for you.
+            </h2>
+          </motion.div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {personas.map((persona, index) => {
+              const Icon = persona.icon;
+              return (
+                <motion.article
+                  key={persona.title}
+                  variants={fadeUp(index * 0.06)}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={VIEWPORT}
+                  className="flex flex-col rounded-2xl border border-border/25 bg-card/20 p-6 md:p-7"
+                >
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-border/30 bg-background/60">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">{persona.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                    {persona.scenario}
+                  </p>
+                  <p className="mt-4 flex-1 border-t border-border/20 pt-4 text-sm leading-relaxed text-foreground/90">
+                    <Check className="mr-2 inline h-4 w-4 text-emerald-400" />
+                    {persona.outcome}
+                  </p>
+                </motion.article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Differentiators */}
+      <section className="border-t border-border/20">
+        <div className="mx-auto max-w-[88rem] px-6 py-16 md:py-24">
+          <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
+            <motion.div
+              variants={fadeUp(0)}
+              initial="hidden"
+              whileInView="visible"
+              viewport={VIEWPORT}
+              className="space-y-6"
+            >
+              <p className="text-sm font-medium text-primary">Why developers switch</p>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+                Reports built for fixing — not just scoring.
+              </h2>
+              <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+                A number on a dashboard is not enough. LoopNode tells you what broke, where it
+                lives, and how severe it is — so you can open the right file and ship the fix.
+              </p>
+              <ul className="space-y-3">
+                {differentiators.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.title} className="flex gap-3">
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/25 bg-card/30">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">{item.body}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </motion.div>
+
+            <motion.div
+              variants={fadeUp(0.08)}
+              initial="hidden"
+              whileInView="visible"
+              viewport={VIEWPORT}
+              className="rounded-2xl border border-border/30 bg-card/30 p-5 md:p-6"
+            >
+              <p className="mb-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Sample findings
+              </p>
+              <div className="space-y-2">
+                {[
+                  {
+                    severity: "High",
+                    tone: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+                    title: "LCP element loads late",
+                    meta: "img.hero-banner — 3.8s",
+                  },
+                  {
+                    severity: "Critical",
+                    tone: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+                    title: "Button missing accessible name",
+                    meta: "button.checkout-cta",
+                  },
+                  {
+                    severity: "Medium",
+                    tone: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+                    title: "Missing Content-Security-Policy",
+                    meta: "security headers",
+                  },
+                  {
+                    severity: "Low",
+                    tone: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+                    title: "Broken external link",
+                    meta: "/blog/old-post → 404",
+                  },
+                ].map((finding) => (
+                  <div
+                    key={finding.title}
+                    className="flex items-start gap-3 rounded-xl border border-border/20 bg-background/50 px-4 py-3"
+                  >
+                    <span
+                      className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase ${finding.tone}`}
+                    >
+                      {finding.severity}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{finding.title}</p>
+                      <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                        {finding.meta}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="border-t border-border/20 bg-[#050505]">
+        <div className="mx-auto max-w-[88rem] px-6 py-16 md:py-24">
+          <motion.div
+            variants={fadeUp(0)}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+            className="mb-12 md:mb-16"
+          >
+            <p className="text-sm font-medium text-primary">How it works</p>
+            <h2 className="mt-2 max-w-md text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+              Three steps. No yak shaving.
+            </h2>
+          </motion.div>
+
+          <div className="grid gap-px overflow-hidden rounded-2xl border border-border/25 bg-border/25 md:grid-cols-3">
+            {steps.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <motion.div
+                  key={step.title}
+                  variants={fadeUp(index * 0.06)}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={VIEWPORT}
+                  className="flex flex-col bg-[#050505] p-6 md:p-8"
+                >
+                  <div className="mb-5 flex items-center gap-3">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <Icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground">{step.title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+                    {step.body}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="border-t border-border/20">
+        <div className="mx-auto max-w-[88rem] px-6 py-16 md:py-24">
+          <MarketingFaq
+            title="Questions developers ask first"
+            description="Straight answers — no sales fluff. Pricing and plan details live on the pricing page."
+            items={homepageFaq}
+          />
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="border-t border-border/20 bg-[#050505]">
+        <div className="mx-auto max-w-[88rem] px-6 py-20 md:py-28">
+          <motion.div
+            variants={fadeUp(0)}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+            className="mx-auto max-w-2xl text-center"
+          >
+            <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+              {isLoggedIn
+                ? "Your next audit is one click away."
+                : "Paste a URL. Know where you stand."}
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+              {isLoggedIn
+                ? "Jump back into your dashboard and run a scan — or review what changed since your last deploy."
+                : "Free 14-day trial. Full audits in minutes. Built for developers who ship real websites."}
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <ButtonLink
                 href={isLoggedIn ? "/dashboard" : "/register"}
-                className="w-full sm:w-auto h-12 px-8 text-sm font-bold rounded-xl uppercase tracking-widest shadow-[0_0_40px_-10px_rgba(var(--primary-rgb,100,120,255),0.5)] hover:shadow-[0_0_60px_-10px_rgba(var(--primary-rgb,100,120,255),0.7)] transition-shadow"
+                className="h-12 rounded-xl px-8 text-sm font-semibold"
               >
-                {isLoggedIn ? "Go to Dashboard" : "Start Free Trial"}
-                <ArrowRight className="ml-2 w-4 h-4" />
+                {isLoggedIn ? "Go to dashboard" : "Start free trial"}
+                <ArrowRight className="ml-2 h-4 w-4" />
               </ButtonLink>
-              <ButtonLink
-                href="/pricing"
-                variant="outline"
-                className="w-full sm:w-auto h-12 px-8 text-sm font-bold bg-transparent border-white/10 hover:bg-white/5 hover:border-white/20 rounded-xl uppercase tracking-widest"
-              >
-                View Pricing
+              <ButtonLink href="/features" variant="outline" className="h-12 rounded-xl px-8">
+                See what&apos;s included
               </ButtonLink>
-            </motion.div>
+            </div>
           </motion.div>
-        </motion.div>
+        </div>
       </section>
     </div>
   );

@@ -120,7 +120,14 @@ export async function runBrokenLinkEngine(
 
     await Promise.all(
       batch.map(async (pageUrl) => {
+        if (options.shouldCancel && (await options.shouldCancel())) {
+          throw new ScanCancelledError();
+        }
+
         const html = await fetchPageHtml(pageUrl, budgets.fetchTimeoutMs);
+        if (options.shouldCancel && (await options.shouldCancel())) {
+          throw new ScanCancelledError();
+        }
         if (!html) return;
 
         const { pageLinks, internalPageUrls } = extractLinksFromHtml(
@@ -191,6 +198,10 @@ export async function runBrokenLinkEngine(
         const occurrences = uniqueByHref.get(targetHref);
         if (!occurrences?.length) return;
 
+        if (options.shouldCancel && (await options.shouldCancel())) {
+          throw new ScanCancelledError();
+        }
+
         linksChecked += 1;
         const checkProgress =
           42 + Math.round((linksChecked / Math.max(uniqueHrefs.length, 1)) * 56);
@@ -208,11 +219,18 @@ export async function runBrokenLinkEngine(
         });
 
         const result = await checkLink(targetHref, budgets.fetchTimeoutMs);
+        if (options.shouldCancel && (await options.shouldCancel())) {
+          throw new ScanCancelledError();
+        }
         if (!result.ok) {
           const fallbackHref = buildWwwFallbackUrl(targetHref);
           const fallbackResult = fallbackHref
             ? await checkLink(fallbackHref, budgets.fetchTimeoutMs)
             : null;
+
+          if (options.shouldCancel && (await options.shouldCancel())) {
+            throw new ScanCancelledError();
+          }
 
           if (fallbackHref && fallbackResult?.ok) {
             wwwFallbacks.push({

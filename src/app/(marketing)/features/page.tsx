@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { motion, AnimatePresence, Variants } from "framer-motion";
+import React from "react";
+import { motion, Variants } from "framer-motion";
 import {
   Zap,
   Eye,
@@ -17,9 +17,10 @@ import {
   Terminal,
   Network,
   FileDown,
-  Target
+  Target,
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button-link";
+import { MarketingFaq } from "@/components/marketing/marketing-faq";
 
 // ─── Animation presets ────────────────────────────────────────────────────────
 const VP = { once: true, margin: "-80px" };
@@ -437,19 +438,7 @@ const modules = [
   },
 ];
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 28, filter: "blur(4px)" },
-  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { type: "spring", stiffness: 240, damping: 22 } },
-};
-
 export default function FeaturesPage() {
-  const [active, setActive] = useState<string | null>(null);
-
   return (
     <div className="flex-1 flex flex-col">
       {/* ── HERO ── */}
@@ -581,72 +570,38 @@ export default function FeaturesPage() {
 
       {/* ── FAQ ── */}
       <section className="w-full border-t border-white/5 bg-[#050505]">
-        <div className="max-w-3xl mx-auto px-6 py-24 md:py-32">
-          <motion.div
-            variants={fadeUp(0)}
-            initial="hidden"
-            whileInView="visible"
-            viewport={VP}
-            className="text-center mb-16 space-y-4"
-          >
-            <motion.div variants={scaleIn(0.05)} initial="hidden" whileInView="visible" viewport={VP}
-              className="inline-block bg-primary/10 text-primary border border-primary/20 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest">
-              FAQ
-            </motion.div>
-            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">Common questions</h2>
-          </motion.div>
-
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="space-y-3"
-          >
-            {[
+        <div className="mx-auto max-w-[88rem] px-6 py-24 md:py-32">
+          <MarketingFaq
+            title="Common questions"
+            description="Quick answers about how LoopNode audits, schedules, and reports."
+            items={[
               {
-                q: "Do you run real Lighthouse or simulate scores?",
-                a: "Real. Every audit spins up a headless Chrome instance and runs the official Lighthouse library against your URL. There is no score simulation.",
+                question: "Do you run real Lighthouse or simulate scores?",
+                answer:
+                  "Real. Every audit spins up a headless Chrome instance and runs the official Lighthouse library against your URL. There is no score simulation.",
               },
               {
-                q: "How long does a full audit take?",
-                a: "Typically 30–90 seconds for a standard page. Performance (Lighthouse) is the slowest component; accessibility, SEO, and security checks run in parallel and complete in seconds.",
+                question: "How long does a full audit take?",
+                answer:
+                  "Typically 30–90 seconds for a standard page. Performance (Lighthouse) is the slowest component; accessibility, SEO, and security checks run in parallel and complete in seconds.",
               },
               {
-                q: "Can I audit pages behind a login?",
-                a: "Not yet — LoopNode currently audits publicly accessible URLs. Authenticated page support is on the roadmap for a future release.",
+                question: "Which plans include automated scan scheduling?",
+                answer:
+                  "Starter includes manual scans only. Pro and Agency unlock automated scheduling per website with daily, weekly, or monthly frequency and timezone-aware run times.",
               },
               {
-                q: "Is the broken link checker part of the main audit?",
-                a: "No — it runs separately so you can trigger it independently and control crawl depth. This prevents the main audit from timing out on large sites.",
+                question: "Can I audit pages behind a login?",
+                answer:
+                  "Not yet — LoopNode currently audits publicly accessible URLs. Authenticated page support is on the roadmap for a future release.",
               },
-            ].map((faq, i) => (
-              <motion.div key={i} variants={itemVariants}>
-                <button
-                  onClick={() => setActive(active === String(i) ? null : String(i))}
-                  className="w-full flex items-center justify-between text-left gap-4 p-6 bg-card/40 border border-white/8 rounded-2xl hover:border-white/20 hover:bg-card/60 transition-all group"
-                >
-                  <span className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">{faq.q}</span>
-                  <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${active === String(i) ? "rotate-180" : ""}`} />
-                </button>
-                <AnimatePresence>
-                  {active === String(i) && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-6 pb-6 pt-2 text-base text-muted-foreground leading-relaxed border-x border-b border-white/8 rounded-b-2xl -mt-2 bg-card/20">
-                        {faq.a}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            ))}
-          </motion.div>
+              {
+                question: "Is the broken link checker part of the main audit?",
+                answer:
+                  "No — it runs separately so you can trigger it independently and control crawl depth. This prevents the main audit from timing out on large sites.",
+              },
+            ]}
+          />
         </div>
       </section>
 

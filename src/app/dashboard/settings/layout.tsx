@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { getAccountSettingsAction } from "@/actions/settings";
+import { getCachedAccountSettings } from "@/lib/settings/get-cached-account-settings";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { SettingsNav } from "@/components/settings/settings-nav";
 
@@ -16,7 +16,7 @@ export default async function SettingsLayout({
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const result = await getAccountSettingsAction();
+  const result = await getCachedAccountSettings();
   if (!result.success || !result.data) redirect("/login");
 
   return (

@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { BrokenLinksClient } from "@/components/websites/broken-links-client";
 import { ALL_LINK_RESOURCE_TYPES } from "@/lib/scanner/link-resource-types";
-import { estimateSitemapSize } from "@/broken-links/sitemap-estimate";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -97,12 +96,6 @@ export default async function BrokenLinksPage({ params }: Props) {
       ? serializeResults(latestScan.results)
       : [];
 
-  const sitemapEstimate = await estimateSitemapSize(website.url).catch(() => ({
-    approxUrlCount: null as number | null,
-    sitemapUrl: null as string | null,
-    source: "unreachable" as const,
-  }));
-
   return (
     <BrokenLinksClient
       websiteId={website.id}
@@ -110,7 +103,7 @@ export default async function BrokenLinksPage({ params }: Props) {
       websiteUrl={website.url}
       initialScan={serializedScan}
       initialResults={initialResults}
-      sitemapApproxUrls={sitemapEstimate.approxUrlCount}
+      deferSitemapEstimate
     />
   );
 }

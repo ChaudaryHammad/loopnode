@@ -64,6 +64,21 @@ export const scheduledScansTask = schedules.task({
       });
       if (running) {
         skipped += 1;
+        await prisma.website.update({
+          where: { id: website.id },
+          data: {
+            nextScanAt: computeNextScanAt(
+              {
+                frequency: website.scanFrequency,
+                timezone: website.scanTimezone,
+                timeOfDay: website.scanTimeOfDay,
+                dayOfWeek: website.scanDayOfWeek,
+                dayOfMonth: website.scanDayOfMonth,
+              },
+              now
+            ),
+          },
+        });
         continue;
       }
 
@@ -108,10 +123,16 @@ export const scheduledScansTask = schedules.task({
           },
         });
       } catch (error) {
+        const { failAuditScan } = await import("@/lib/scanner/fail-audit-scan");
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Scheduled scan failed to queue on the audit worker.";
+        await failAuditScan(scan.id, message);
         logger.error("Failed to dispatch scheduled scan", {
           websiteId: website.id,
           scanId: scan.id,
-          error: error instanceof Error ? error.message : "unknown",
+          error: message,
         });
         skipped += 1;
       }

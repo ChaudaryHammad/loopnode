@@ -1,16 +1,6 @@
 import { AuditPageLoader } from "@/components/websites/audit-page-loader";
+import { SeoSnapshotSkeleton } from "@/components/layout/page-loaders";
 
 export default function SeoLoading() {
-  return (
-    <AuditPageLoader
-      categoryLabel="SEO"
-      accentClass="text-amber-400"
-      steps={[
-        "Loading audit history…",
-        "Fetching your page HTML…",
-        "Checking title, meta tags, and headings…",
-        "Verifying robots.txt and sitemap…",
-      ]}
-    />
-  );
+  return <AuditPageLoader categoryLabel="SEO" insightSkeleton={<SeoSnapshotSkeleton />} />;
 }

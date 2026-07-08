@@ -13,6 +13,7 @@ import {
   Filter,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
+import { ScoreGauge } from "./score-gauge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
@@ -34,6 +35,7 @@ export interface AuditIssue {
   selector?: string | null;
   url?: string | null;
   recommendation?: string | null;
+  metadata?: unknown;
 }
 
 export function getScoreColor(score: number | null): string {
@@ -224,6 +226,8 @@ export function AuditPageShell({
     }
   }, []);
 
+  const normalizedUrl = websiteUrl.replace(/^https?:\/\//, "");
+
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -244,45 +248,84 @@ export function AuditPageShell({
         <span className="text-foreground">{categoryLabel}</span>
       </div>
 
-      <Card className="rounded-2xl border-border/30 bg-gradient-to-br from-card via-card to-secondary/10">
-        <CardContent className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 p-6 md:p-8">
-          <div className="flex items-start gap-4">
-            <div className={`flex items-center justify-center w-12 h-12 rounded-2xl border shrink-0 ${accentClass}`}>
-              {icon}
-            </div>
-            <div>
-              <CardTitle className="text-xl md:text-2xl">{categoryLabel} audit</CardTitle>
-              <a
-                href={websiteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors mt-1"
-              >
-                <Globe className="w-3.5 h-3.5" />
-                {websiteUrl.replace(/^https?:\/\//, "")}
-              </a>
-              {lastScanned && (
-                <CardDescription className="mt-2">
-                  Last audit: {formatDateTime(lastScanned)}
-                </CardDescription>
-              )}
-            </div>
-          </div>
+      <Card className="rounded-[28px] border-border/30 bg-card/95 shadow-sm">
+        <CardContent className="p-6 md:p-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
+            <div className="min-w-0 space-y-5">
+              <div className="flex items-start gap-4">
+                <div
+                  className={`mt-0.5 flex h-14 w-14 items-center justify-center rounded-2xl border shrink-0 ${accentClass}`}
+                >
+                  {icon}
+                </div>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <CardTitle className="text-2xl font-semibold tracking-tight md:text-[2rem]">
+                    {categoryLabel} audit
+                  </CardTitle>
+                  <CardDescription className="text-sm md:text-[15px]">
+                    Focused detail view for your latest {categoryLabel.toLowerCase()} scan.
+                  </CardDescription>
+                </div>
+              </div>
 
-          <div className="flex items-center gap-4">
-            <Card className="text-center px-5 py-3 border-border/30 bg-card/60 shadow-none">
-              <CardDescription className="text-xs">Score</CardDescription>
-              <p className={`text-4xl font-bold tabular-nums leading-none mt-1 ${getScoreColor(score)}`}>
-                {score ?? "—"}
-              </p>
-              {score !== null && (
-                <CardDescription className="text-[10px] mt-1">out of 100</CardDescription>
-              )}
-            </Card>
-            <ButtonLink href={`/dashboard/websites/${websiteId}`} variant="outline" size="sm">
-              <ArrowLeft />
-              Overview
-            </ButtonLink>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-2xl border border-border/30 bg-secondary/10 px-4 py-3 transition-colors hover:border-border/50 hover:bg-secondary/20"
+                >
+                  <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                    <Globe className="h-3.5 w-3.5" />
+                    Website
+                  </div>
+                  <p className="mt-2 truncate text-sm font-medium text-foreground">
+                    {normalizedUrl}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">Open live site</p>
+                </a>
+
+                <div className="rounded-2xl border border-border/30 bg-secondary/10 px-4 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                    Last audit
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-foreground">
+                    {lastScanned ? formatDateTime(lastScanned) : "Not available yet"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {lastScanned
+                      ? "Based on the most recent completed scan"
+                      : "Run a scan to populate this page"}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-border/30 bg-secondary/10 px-4 py-3 sm:col-span-2 xl:col-span-1">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                    Category
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-foreground">{categoryLabel}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Live evidence and recorded findings
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 rounded-[24px] border border-border/30 bg-secondary/10 p-4">
+              <div className="flex items-center justify-center rounded-2xl border border-border/20 bg-card/80 py-4">
+                <ScoreGauge score={score} label="Audit score" size="md" />
+              </div>
+
+              <ButtonLink
+                href={`/dashboard/websites/${websiteId}`}
+                variant="outline"
+                size="sm"
+                className="w-full justify-center"
+              >
+                <ArrowLeft />
+                Back to overview
+              </ButtonLink>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -305,5 +348,17 @@ export function AuditSection({ title, description, children }: {
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
+  );
+}
+
+export const AUDIT_FINDINGS_TITLE = "Audit findings";
+export const AUDIT_FINDINGS_DESCRIPTION =
+  "Issues recorded during your most recent audit in this category";
+
+export function AuditFindingsSection({ issues }: { issues: AuditIssue[] }) {
+  return (
+    <AuditSection title={AUDIT_FINDINGS_TITLE} description={AUDIT_FINDINGS_DESCRIPTION}>
+      <AuditIssueList issues={issues} />
+    </AuditSection>
   );
 }

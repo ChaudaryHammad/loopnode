@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { BrokenLinkScanMode } from "@prisma/client";
 import type { LinkResourceType } from "@/lib/scanner/link-resource-types";
+import { estimateSitemapSize } from "@/broken-links/sitemap-estimate";
 
 const STALE_SCAN_MS = 5 * 60 * 1000;
 
@@ -180,4 +181,25 @@ export async function cancelBrokenLinkScanAction(scanId: string) {
   revalidatePath(`/dashboard/websites/${scan.websiteId}`);
 
   return { success: true };
+}
+
+export async function getSitemapEstimateAction(url: string) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false as const, error: "Unauthorized." };
+  }
+
+  try {
+    const estimate = await estimateSitemapSize(url);
+    return { success: true as const, estimate };
+  } catch {
+    return {
+      success: true as const,
+      estimate: {
+        approxUrlCount: null,
+        sitemapUrl: null,
+        source: "unreachable" as const,
+      },
+    };
+  }
 }

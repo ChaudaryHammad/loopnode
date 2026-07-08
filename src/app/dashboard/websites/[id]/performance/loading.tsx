@@ -1,15 +1,11 @@
 import { AuditPageLoader } from "@/components/websites/audit-page-loader";
+import { PerformanceInsightSkeleton } from "@/components/layout/page-loaders";
 
 export default function PerformanceLoading() {
   return (
     <AuditPageLoader
       categoryLabel="Performance"
-      accentClass="text-emerald-400"
-      steps={[
-        "Loading your latest audit results…",
-        "Fetching Core Web Vitals data…",
-        "Preparing Lighthouse findings…",
-      ]}
+      insightSkeleton={<PerformanceInsightSkeleton />}
     />
   );
 }

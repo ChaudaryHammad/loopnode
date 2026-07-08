@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Eye, Users, Keyboard, Monitor } from "lucide-react";
-import { AuditPageShell, AuditSection, AuditIssueList, type AuditIssue } from "./audit-shared";
+import { Eye } from "lucide-react";
+import { AuditPageShell, AuditSection, AuditFindingsSection, type AuditIssue } from "./audit-shared";
 
 interface AccessibilityAuditClientProps {
   websiteId: string;
@@ -12,29 +12,6 @@ interface AccessibilityAuditClientProps {
   issues: AuditIssue[];
   lastScanned: string | null;
 }
-
-const WCAG_GUIDES = [
-  {
-    icon: <Users className="w-4 h-4" />,
-    title: "Perceivable",
-    description: "Provide text alternatives, captions, and sufficient color contrast for all users.",
-  },
-  {
-    icon: <Keyboard className="w-4 h-4" />,
-    title: "Operable",
-    description: "Ensure keyboard navigation, visible focus states, and no keyboard traps.",
-  },
-  {
-    icon: <Monitor className="w-4 h-4" />,
-    title: "Understandable",
-    description: "Use clear labels, predictable navigation, and helpful error messages.",
-  },
-  {
-    icon: <Eye className="w-4 h-4" />,
-    title: "Robust",
-    description: "Use valid HTML, ARIA roles correctly, and test with assistive technologies.",
-  },
-];
 
 export function AccessibilityAuditClient({
   websiteId,
@@ -64,13 +41,6 @@ export function AccessibilityAuditClient({
     });
   }, [issues]);
 
-  const counts = {
-    CRITICAL: issues.filter((i) => i.severity === "CRITICAL").length,
-    MAJOR: issues.filter((i) => i.severity === "MAJOR").length,
-    MINOR: issues.filter((i) => i.severity === "MINOR").length,
-    INFO: issues.filter((i) => i.severity === "INFO").length,
-  };
-
   return (
     <AuditPageShell
       websiteId={websiteId}
@@ -82,30 +52,6 @@ export function AccessibilityAuditClient({
       accentClass="text-violet-400 bg-violet-500/10 border-violet-500/20"
       lastScanned={lastScanned}
     >
-      <AuditSection
-        title="Violation summary"
-        description="axe-core WCAG 2.x findings grouped by impact level"
-      >
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4 text-center">
-            <p className="text-2xl font-bold text-rose-400">{counts.CRITICAL}</p>
-            <p className="text-xs text-muted-foreground mt-1">Critical</p>
-          </div>
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-center">
-            <p className="text-2xl font-bold text-amber-400">{counts.MAJOR}</p>
-            <p className="text-xs text-muted-foreground mt-1">Serious</p>
-          </div>
-          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-center">
-            <p className="text-2xl font-bold text-blue-400">{counts.MINOR}</p>
-            <p className="text-xs text-muted-foreground mt-1">Moderate</p>
-          </div>
-          <div className="rounded-xl border border-border/30 bg-secondary/10 p-4 text-center">
-            <p className="text-2xl font-bold text-foreground">{counts.INFO}</p>
-            <p className="text-xs text-muted-foreground mt-1">Minor</p>
-          </div>
-        </div>
-      </AuditSection>
-
       {grouped.length > 0 && (
         <AuditSection
           title="Rules affected"
@@ -140,28 +86,7 @@ export function AccessibilityAuditClient({
         </AuditSection>
       )}
 
-      <AuditSection title="WCAG principles" description="Framework for making your site accessible to everyone">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {WCAG_GUIDES.map((guide) => (
-            <div
-              key={guide.title}
-              className="flex gap-3 p-4 rounded-xl border border-border/30 bg-secondary/5"
-            >
-              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 shrink-0">
-                {guide.icon}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{guide.title}</p>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{guide.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </AuditSection>
-
-      <AuditSection title="All violations" description="Every accessibility issue found in your last audit">
-        <AuditIssueList issues={issues} />
-      </AuditSection>
+      <AuditFindingsSection issues={issues} />
     </AuditPageShell>
   );
 }

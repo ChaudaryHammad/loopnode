@@ -1,5 +1,10 @@
 import type { Browser, Page } from "puppeteer";
-import type { ScanIssueInput } from "./types";
+import type {
+  PerformanceIssueKind,
+  PerformanceIssueMetadata,
+  PerformanceIssueOffender,
+  ScanIssueInput,
+} from "./types";
 import { lighthouseSubstepMessage } from "./audit-phases";
 import { ensureLighthouseLocales } from "./lighthouse-locales";
 
@@ -23,10 +28,91 @@ type LighthouseAudit = {
   scoreDisplayMode?: string;
   displayValue?: string;
   numericValue?: number;
+  explanation?: string;
   details?: {
+    type?: string;
     overallSavingsMs?: number;
     overallSavingsBytes?: number;
+    headings?: Array<{ key?: string; text?: string; valueType?: string }>;
+    items?: Array<Record<string, unknown>>;
   };
+};
+
+const PERFORMANCE_AUDIT_COPY: Record<
+  string,
+  {
+    kind: PerformanceIssueKind;
+    headline: string;
+    impact: string;
+    primaryAction: string;
+  }
+> = {
+  "unused-css-rules": {
+    kind: "resource-waste",
+    headline: "Unused CSS is increasing download cost before the page becomes useful.",
+    impact: "Extra stylesheet bytes delay render work and can slow down the first meaningful paint.",
+    primaryAction: "Start with the largest stylesheet offenders and remove or defer rules not needed above the fold.",
+  },
+  "unused-javascript": {
+    kind: "resource-waste",
+    headline: "Unused JavaScript is being downloaded and parsed before users benefit from it.",
+    impact: "Heavy scripts slow down interactivity and can worsen both LCP and Total Blocking Time.",
+    primaryAction: "Prioritize the biggest unused script bundles and defer or split code until it is actually needed.",
+  },
+  "unminified-javascript": {
+    kind: "resource-waste",
+    headline: "JavaScript payloads are larger than they need to be.",
+    impact: "Larger scripts take longer to download, parse, and execute on slower devices.",
+    primaryAction: "Minify the listed scripts in production builds and confirm third-party assets are also optimized.",
+  },
+  "uses-optimized-images": {
+    kind: "image-delivery",
+    headline: "Large image payloads are slowing down the page.",
+    impact: "Oversized images hurt perceived load speed and often directly increase LCP time.",
+    primaryAction: "Compress or resize the largest image offenders first, especially those above the fold.",
+  },
+  "uses-webp-images": {
+    kind: "image-delivery",
+    headline: "Legacy image formats are wasting bandwidth.",
+    impact: "PNG and JPEG assets can cost users megabytes more than modern formats like WebP or AVIF.",
+    primaryAction: "Convert the biggest image offenders to modern formats and keep responsive sizes in place.",
+  },
+  "largest-contentful-paint": {
+    kind: "metric",
+    headline: "The page's largest visible element is appearing too late.",
+    impact: "A slow LCP makes the page feel sluggish even when other assets have started loading.",
+    primaryAction: "Identify the hero element and reduce the work required before it can render.",
+  },
+  "largest-contentful-paint-element": {
+    kind: "metric",
+    headline: "The element responsible for LCP needs targeted optimization.",
+    impact: "When the main hero element is late, the entire page feels slow to users.",
+    primaryAction: "Inspect the identified LCP element and optimize its asset size, preload strategy, and render path.",
+  },
+  "speed-index": {
+    kind: "metric",
+    headline: "Visible content is populating too slowly across the page.",
+    impact: "A weak Speed Index means users wait longer before the page looks complete enough to use.",
+    primaryAction: "Focus first on large render-blocking resources and the biggest above-the-fold media assets.",
+  },
+  "font-display": {
+    kind: "font",
+    headline: "Web fonts are delaying visible text.",
+    impact: "Slow font rendering can leave users staring at blank text or cause visible layout changes later.",
+    primaryAction: "Use font-display swap or optional on the listed fonts so text appears immediately.",
+  },
+  "forced-reflow": {
+    kind: "layout",
+    headline: "JavaScript-triggered layout recalculations are blocking smooth rendering.",
+    impact: "Forced reflows can stall the main thread and make the page feel janky or slow to respond.",
+    primaryAction: "Audit the listed scripts and reduce layout-thrashing reads after DOM writes.",
+  },
+  "uses-long-cache-ttl": {
+    kind: "cache",
+    headline: "Static assets are not cached long enough.",
+    impact: "Short cache lifetimes force repeat visitors to re-download expensive resources.",
+    primaryAction: "Increase cache lifetimes on the largest static assets, especially scripts, styles, fonts, and images.",
+  },
 };
 
 function roundMetric(value: number | null | undefined): number | null {
@@ -106,6 +192,126 @@ function buildIssueDescription(audit: LighthouseAudit): string {
   return audit.description ?? audit.title ?? "Lighthouse flagged this item.";
 }
 
+function stripMarkdownLinks(text: string | null | undefined): string {
+  if (!text) return "";
+  return text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\s+/g, " ").trim();
+}
+
+function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function getPerformanceIssueKind(auditId: string | undefined): PerformanceIssueKind {
+  if (!auditId) return "general";
+  return PERFORMANCE_AUDIT_COPY[auditId]?.kind ?? "general";
+}
+
+function toNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function toStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function pickOffenderLabel(item: Record<string, unknown>): string {
+  return (
+    toStringValue(item.label) ??
+    toStringValue(item.url) ??
+    toStringValue(item.sourceURL) ??
+    toStringValue(item.source) ??
+    toStringValue(item.name) ??
+    toStringValue(item.nodeLabel) ??
+    toStringValue(item.selector) ??
+    "Affected resource"
+  );
+}
+
+function pickOffenderUrl(item: Record<string, unknown>): string | null {
+  return (
+    toStringValue(item.url) ??
+    toStringValue(item.sourceURL) ??
+    toStringValue(item.source) ??
+    null
+  );
+}
+
+function extractTopOffenders(audit: LighthouseAudit): PerformanceIssueOffender[] {
+  const items = audit.details?.items ?? [];
+  return items
+    .map((item) => {
+      const node = item.node;
+      const nodeRecord = typeof node === "object" && node !== null ? (node as Record<string, unknown>) : null;
+
+      return {
+        label: pickOffenderLabel(item),
+        url: pickOffenderUrl(item),
+        wastedBytes:
+          toNumber(item.wastedBytes) ??
+          toNumber(item.totalBytes) ??
+          toNumber(item.wastedKb) ??
+          null,
+        wastedMs:
+          toNumber(item.wastedMs) ??
+          toNumber(item.duration) ??
+          toNumber(item.latency) ??
+          null,
+        transferSize: toNumber(item.transferSize),
+        totalBytes: toNumber(item.totalBytes),
+        snippet:
+          toStringValue(nodeRecord?.snippet) ??
+          toStringValue(item.nodeLabel) ??
+          toStringValue(item.selector) ??
+          null,
+      };
+    })
+    .sort((a, b) => {
+      const aWeight = (a.wastedBytes ?? 0) + (a.wastedMs ?? 0) * 1024;
+      const bWeight = (b.wastedBytes ?? 0) + (b.wastedMs ?? 0) * 1024;
+      return bWeight - aWeight;
+    })
+    .slice(0, 5);
+}
+
+function buildPerformanceMetadata(audit: LighthouseAudit, url: string): PerformanceIssueMetadata {
+  const auditId = audit.id ?? null;
+  const customCopy = auditId ? PERFORMANCE_AUDIT_COPY[auditId] : null;
+  const summary = firstNonEmpty(
+    customCopy?.headline,
+    stripMarkdownLinks(audit.description),
+    stripMarkdownLinks(audit.title),
+    "Lighthouse flagged a performance issue that needs review."
+  )!;
+  const headings = (audit.details?.headings ?? [])
+    .map((heading) => stripMarkdownLinks(heading.text))
+    .filter(Boolean);
+
+  return {
+    version: 1,
+    source: "lighthouse",
+    lighthouseAuditId: auditId,
+    lighthouseCategory: "performance",
+    kind: getPerformanceIssueKind(audit.id),
+    score: audit.score ?? null,
+    scoreDisplayMode: audit.scoreDisplayMode ?? null,
+    displayValue: stripMarkdownLinks(audit.displayValue) || null,
+    numericValue: audit.numericValue ?? null,
+    estimatedSavingsMs: audit.details?.overallSavingsMs ?? null,
+    estimatedSavingsBytes: audit.details?.overallSavingsBytes ?? null,
+    summary,
+    impact: firstNonEmpty(customCopy?.impact, stripMarkdownLinks(audit.explanation)),
+    primaryAction: firstNonEmpty(customCopy?.primaryAction, stripMarkdownLinks(audit.description)),
+    headings,
+    topOffenders: extractTopOffenders(audit),
+    url,
+  };
+}
+
 function issuesFromLighthouseAudits(
   audits: Record<string, LighthouseAudit>,
   auditIds: string[],
@@ -117,6 +323,7 @@ function issuesFromLighthouseAudits(
   for (const auditId of auditIds) {
     const audit = audits[auditId];
     if (!audit || !shouldIncludeAudit(audit)) continue;
+    const performanceMetadata = buildPerformanceMetadata(audit, url);
 
     let severity: ScanIssueInput["severity"] = "INFO";
 
@@ -133,17 +340,9 @@ function issuesFromLighthouseAudits(
       severity,
       title: audit.title ?? audit.id ?? "Lighthouse audit",
       description: buildIssueDescription(audit),
-      recommendation:
-        audit.description ??
-        "Review this item in Chrome DevTools Lighthouse report for remediation steps.",
-      metadata: {
-        lighthouseAuditId: audit.id,
-        score: audit.score ?? null,
-        scoreDisplayMode: audit.scoreDisplayMode ?? null,
-        displayValue: audit.displayValue ?? null,
-        numericValue: audit.numericValue ?? null,
-        url,
-      },
+      recommendation: performanceMetadata.primaryAction ??
+        "Review the main offenders and address the highest-impact resources first.",
+      metadata: performanceMetadata as unknown as Record<string, unknown>,
     });
   }
 
@@ -281,7 +480,10 @@ export async function runLighthousePerformanceAudit(
     ? issuesFromLighthouseAudits(audits, bestPracticesAuditIds, "SECURITY", url).map(
         (issue) => ({
           ...issue,
-          metadata: { ...issue.metadata, lighthouseCategory: "best-practices" },
+          metadata: {
+            ...(issue.metadata ?? {}),
+            lighthouseCategory: "best-practices",
+          },
         })
       )
     : [];
@@ -299,7 +501,26 @@ export async function runLighthousePerformanceAudit(
         lcp > 4000 ? "CRITICAL" : "MAJOR",
         `LCP was ${lcp} ms under mobile throttling.`,
         "Optimize the largest above-the-fold element — compress images, preload hero assets, reduce server latency.",
-        { metric: "lcp", value: lcp, url, source: "lighthouse" }
+        ({
+          version: 1,
+          source: "lighthouse",
+          kind: "metric",
+          lighthouseAuditId: "largest-contentful-paint",
+          lighthouseCategory: "performance",
+          score: null,
+          scoreDisplayMode: "numeric",
+          displayValue: `${lcp} ms`,
+          numericValue: lcp,
+          estimatedSavingsMs: null,
+          estimatedSavingsBytes: null,
+          summary: "The page's largest visible element is appearing too late.",
+          impact: "A slow LCP makes the page feel sluggish even when some assets are already visible.",
+          primaryAction:
+            "Optimize the largest above-the-fold element first — compress images, preload hero assets, and reduce server latency.",
+          headings: [],
+          topOffenders: [],
+          url,
+        } satisfies PerformanceIssueMetadata) as unknown as Record<string, unknown>
       );
     }
   }
@@ -353,7 +574,27 @@ export async function runFallbackPerformanceAudit(
       "MAJOR",
       `Estimated LCP was ${lcp} ms. Lighthouse could not complete; this is a simplified reading.`,
       "Retry the audit. If it keeps failing, the page may block headless browsers or heavy media.",
-      { metric: "lcp", value: lcp, url, source: "fallback" }
+      ({
+        version: 1,
+        source: "fallback",
+        kind: "metric",
+        lighthouseAuditId: "largest-contentful-paint",
+        lighthouseCategory: "performance",
+        score: null,
+        scoreDisplayMode: "numeric",
+        displayValue: `${lcp} ms`,
+        numericValue: lcp,
+        estimatedSavingsMs: null,
+        estimatedSavingsBytes: null,
+        summary: "The page appears to load slowly based on fallback performance measurements.",
+        impact:
+          "Fallback mode is less precise than Lighthouse, but a high LCP still suggests users are waiting too long for the page to become useful.",
+        primaryAction:
+          "Retry the audit for full Lighthouse detail. If it still fails, inspect the largest above-the-fold assets and heavy third-party content.",
+        headings: [],
+        topOffenders: [],
+        url,
+      } satisfies PerformanceIssueMetadata) as unknown as Record<string, unknown>
     );
   }
 

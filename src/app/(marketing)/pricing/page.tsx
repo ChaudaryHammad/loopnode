@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Check,
   CreditCard,
-  HelpCircle,
   Sparkles,
   Wallet,
 } from "lucide-react";
@@ -12,6 +11,7 @@ import { auth } from "@/lib/auth";
 import {
   PLAN_LABELS,
   PLAN_PRICES_USD,
+  PLAN_SCAN_SCHEDULING,
   PLAN_SITE_LIMITS,
 } from "@/lib/plans";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { MarketingFaq } from "@/components/marketing/marketing-faq";
 
 export const metadata = {
   title: "Pricing",
@@ -66,7 +67,8 @@ export default async function PricingPage() {
       description: "For freelancers and solo developers monitoring a handful of sites.",
       features: [
         `Up to ${PLAN_SITE_LIMITS.STARTER} websites`,
-        "Manual audits on demand",
+        PLAN_SCAN_SCHEDULING.STARTER,
+        "No automated scheduling on Starter",
         "Performance, accessibility, SEO & security",
         "Broken link checker (internal)",
         "30-day scan history",
@@ -81,7 +83,7 @@ export default async function PricingPage() {
       description: "For growing businesses that need automated monitoring and deeper crawls.",
       features: [
         `Up to ${PLAN_SITE_LIMITS.PRO} websites`,
-        "Daily automated scans",
+        PLAN_SCAN_SCHEDULING.PRO,
         "Full performance & accessibility audits",
         "Internal + external link crawls",
         "CSP grading & live header checks",
@@ -97,7 +99,7 @@ export default async function PricingPage() {
       description: "For agencies and teams managing many client domains.",
       features: [
         `Up to ${PLAN_SITE_LIMITS.AGENCY} websites`,
-        "Hourly automated scans",
+        PLAN_SCAN_SCHEDULING.AGENCY,
         "Unlimited broken link crawl depth",
         "All Pro audit features",
         "1-year historical data",
@@ -111,6 +113,11 @@ export default async function PricingPage() {
   ];
 
   const faqs = [
+    {
+      question: "Which plans include automated scan scheduling?",
+      answer:
+        "Starter includes manual scans only — you run audits when you need them. Pro and Agency unlock automated scheduling with daily, weekly, or monthly frequency per website.",
+    },
     {
       question: "Is there a free trial?",
       answer:
@@ -263,24 +270,15 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      <section className="max-w-3xl mx-auto border-t border-border/20 pt-16">
-        <div className="text-center mb-12 space-y-2">
-          <HelpCircle className="w-8 h-8 text-primary mx-auto mb-2" />
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Frequently asked questions
-          </h2>
-        </div>
-
-        <div className="space-y-4">
-          {faqs.map((faq) => (
-            <Card key={faq.question} className="border-border/30">
-              <CardHeader>
-                <CardTitle className="text-base">{faq.question}</CardTitle>
-                <CardDescription className="leading-relaxed">{faq.answer}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
+      <section className="mx-auto max-w-[88rem] border-t border-border/20 px-6 pt-16 pb-8">
+        <MarketingFaq
+          title="Frequently asked questions"
+          collapsible={false}
+          items={faqs.map((faq) => ({
+            question: faq.question,
+            answer: faq.answer,
+          }))}
+        />
       </section>
     </div>
   );

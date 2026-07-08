@@ -57,7 +57,7 @@ export function HeroSection({ isLoggedIn }: HeroSectionProps) {
             variants={itemVariants}
             className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-lg"
           >
-            The all-in-one dashboard for Lighthouse performance, axe-core accessibility, SEO checks, and broken link crawling.
+            The all-in-one dashboard for Lighthouse performance, axe-core accessibility, SEO checks, and broken link crawling. Starter includes manual scans; Pro and Agency add automated scheduling.
           </motion.p>
 
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 pt-4">

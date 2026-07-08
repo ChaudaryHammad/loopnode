@@ -1,11 +1,13 @@
-import React from "react";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { redirect, notFound } from "next/navigation";
+import React, { Suspense } from "react";
 import { SecurityAuditClient } from "@/components/websites/security-audit-client";
-import { fetchSecurityHeaderAudit } from "@/lib/security/fetch-security-headers";
-import { Shield } from "lucide-react";
-import type { AuditIssue } from "@/components/websites/audit-shared";
+import { SecurityLiveAudit } from "@/components/websites/security-live-audit";
+import { SecurityHeadersSkeleton } from "@/components/layout/page-loaders";
+import {
+  generateAuditPageMetadata,
+  getAuditPageWebsite,
+  getLatestCompletedScanWithIssues,
+  mapScanIssuesToAuditIssues,
+} from "@/lib/audit/get-audit-page-data";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -13,45 +15,14 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
-  const w = await prisma.website.findUnique({ where: { id }, select: { name: true } });
-  return { title: `${w?.name ?? "Website"} — Security Audit` };
+  return generateAuditPageMetadata(id, "Security");
 }
 
 export default async function SecurityPage({ params }: Props) {
   const { id } = await params;
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  const website = await prisma.website.findFirst({
-    where: { id, userId: session.user.id, deletedAt: null },
-    select: { id: true, name: true, url: true },
-  });
-  if (!website) notFound();
-
-  const [latestScan, headerAudit] = await Promise.all([
-    prisma.scan.findFirst({
-      where: { websiteId: id, status: "COMPLETED" },
-      orderBy: { createdAt: "desc" },
-      include: {
-        issues: {
-          where: { category: "SECURITY" },
-          orderBy: [{ severity: "asc" }, { createdAt: "desc" }],
-        },
-      },
-    }),
-    fetchSecurityHeaderAudit(website.url),
-  ]);
-
-  const issues: AuditIssue[] =
-    latestScan?.issues.map((i) => ({
-      id: i.id,
-      severity: i.severity as AuditIssue["severity"],
-      title: i.title,
-      description: i.description,
-      selector: i.selector,
-      url: i.url,
-      recommendation: i.recommendation,
-    })) ?? [];
+  const { website } = await getAuditPageWebsite(id);
+  const latestScan = await getLatestCompletedScanWithIssues(id, "SECURITY");
+  const issues = mapScanIssuesToAuditIssues(latestScan?.issues ?? []);
 
   return (
     <SecurityAuditClient
@@ -61,7 +32,10 @@ export default async function SecurityPage({ params }: Props) {
       score={latestScan?.securityScore ?? null}
       issues={issues}
       lastScanned={latestScan?.completedAt?.toISOString() ?? null}
-      headerAudit={headerAudit}
-    />
+    >
+      <Suspense fallback={<SecurityHeadersSkeleton />}>
+        <SecurityLiveAudit url={website.url} />
+      </Suspense>
+    </SecurityAuditClient>
   );
 }

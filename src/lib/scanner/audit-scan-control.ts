@@ -62,3 +62,34 @@ export async function markScanCancelled(scanId: string) {
     },
   });
 }
+
+export async function markScanStoppedExternally(
+  scanId: string,
+  options: { cancelled: boolean; message: string }
+) {
+  if (options.cancelled) {
+    await prisma.scan.updateMany({
+      where: { id: scanId, status: "RUNNING" },
+      data: {
+        status: "FAILED",
+        phase: "cancelled",
+        statusMessage: "Audit stopped",
+        errorMessage: options.message,
+        completedAt: new Date(),
+        progressPercent: 0,
+      },
+    });
+    return;
+  }
+
+  await prisma.scan.updateMany({
+    where: { id: scanId, status: "RUNNING" },
+    data: {
+      status: "FAILED",
+      phase: "failed",
+      statusMessage: options.message,
+      errorMessage: options.message,
+      completedAt: new Date(),
+    },
+  });
+}

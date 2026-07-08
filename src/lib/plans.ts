@@ -20,6 +20,14 @@ export const PLAN_LABELS: Record<PlanTier, string> = {
 
 export const TRIAL_SITE_LIMIT = PLAN_SITE_LIMITS.STARTER;
 
+export const PLAN_SCAN_SCHEDULING = {
+  STARTER: "Manual scans only — run audits on demand from your dashboard",
+  PRO: "Automated daily, weekly, or monthly scans per site",
+  AGENCY: "Automated daily, weekly, or monthly scans per site",
+} as const;
+
+export const PLAN_SCAN_FREQUENCIES = ["Daily", "Weekly", "Monthly"] as const;
+
 export function formatPlanTier(plan: PlanTier | null | undefined) {
   if (!plan) return "No plan";
   return PLAN_LABELS[plan];

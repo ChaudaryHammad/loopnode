@@ -104,13 +104,159 @@ export function WebsiteOverviewLoader() {
 export function BrokenLinksPageLoader() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto" aria-busy="true">
-      <Skeleton className="h-3 w-48" />
       <Skeleton className="h-36 rounded-2xl" />
-      <Skeleton className="h-64 rounded-2xl" />
+      <div className="grid gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-72 rounded-2xl" />
+      <div className="space-y-3">
+        <Skeleton className="h-16 rounded-xl" />
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-28 rounded-xl" />
+      </div>
     </div>
   );
 }
 
 export function AdminPageLoader() {
   return <DashboardOverviewLoader />;
+}
+
+export function AdminTablePageLoader() {
+  return <DataTablePageLoader />;
+}
+
+export function AuthCardLoader() {
+  return (
+    <div className="space-y-6" aria-busy="true">
+      <div className="space-y-2 text-center">
+        <Skeleton className="mx-auto h-8 w-40" />
+        <Skeleton className="mx-auto h-4 w-56" />
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+      </div>
+      <Skeleton className="h-10 w-full rounded-lg" />
+      <Skeleton className="mx-auto h-3 w-48" />
+    </div>
+  );
+}
+
+export function ShareReportLoader() {
+  return (
+    <div className="min-h-screen bg-background" aria-busy="true">
+      <div className="mx-auto max-w-4xl space-y-6 px-4 py-10 sm:px-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+        </div>
+        <Skeleton className="h-12 w-full rounded-xl" />
+        <Skeleton className="h-[70vh] w-full rounded-2xl" />
+      </div>
+    </div>
+  );
+}
+
+export function UpgradePageLoader() {
+  return (
+    <div className="space-y-6" aria-busy="true">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-80 max-w-full" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-80 rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SeoSnapshotSkeleton() {
+  return (
+    <div className="rounded-2xl border border-border/30 bg-card p-6 md:p-8 space-y-5" aria-busy="true">
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-4 w-80 max-w-full" />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <Skeleton className="h-20 rounded-xl" />
+        <Skeleton className="h-20 rounded-xl" />
+        <Skeleton className="h-20 rounded-xl" />
+      </div>
+      <div className="space-y-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SecurityHeadersSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true">
+      <div className="rounded-2xl border border-border/30 bg-card p-6 md:p-8 space-y-5">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+        </div>
+        <Skeleton className="h-20 rounded-2xl" />
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+      </div>
+      <div className="rounded-2xl border border-border/30 bg-card p-6 md:p-8 space-y-5">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-52" />
+          <Skeleton className="h-4 w-80 max-w-full" />
+        </div>
+        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-48 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+export function PerformanceInsightSkeleton() {
+  return (
+    <div className="rounded-2xl border border-border/30 bg-card p-6 md:p-8 space-y-6" aria-busy="true">
+      <div className="flex items-end justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-44" />
+          <Skeleton className="h-4 w-72 max-w-full" />
+        </div>
+        <Skeleton className="h-14 w-16" />
+      </div>
+      <Skeleton className="h-4 w-full rounded-full" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-20 rounded-xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function WebsiteFormSkeleton() {
+  return (
+    <div className="space-y-4 p-6" aria-busy="true">
+      <Skeleton className="h-6 w-40" />
+      <Skeleton className="h-10 w-full rounded-lg" />
+      <Skeleton className="h-10 w-full rounded-lg" />
+      <Skeleton className="h-10 w-32 rounded-lg" />
+    </div>
+  );
 }

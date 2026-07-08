@@ -9,6 +9,7 @@ import {
   markScanCancelled,
 } from "@/lib/scanner/audit-scan-control";
 import { reaperStaleRunningScans } from "@/lib/scanner/fail-audit-scan";
+import { syncTriggerRunForScan } from "@/lib/scanner/sync-trigger-run";
 import { useTriggerDev } from "@/lib/env";
 
 const STALE_SCAN_MS = 10 * 60 * 1000;
@@ -119,7 +120,46 @@ export async function getScanStatusAction(scanId: string) {
 
   if (!scan) return { success: false, error: "Scan not found." };
 
-  const { _count, issues, ...rest } = scan;
+  if (scan.status === "RUNNING") {
+    await syncTriggerRunForScan(scanId);
+  }
+
+  const latest = await prisma.scan.findFirst({
+    where: {
+      id: scanId,
+      website: { userId: session.user.id, deletedAt: null },
+    },
+    select: {
+      id: true,
+      status: true,
+      phase: true,
+      statusMessage: true,
+      progressPercent: true,
+      overallScore: true,
+      performanceScore: true,
+      accessibilityScore: true,
+      seoScore: true,
+      securityScore: true,
+      fcp: true,
+      lcp: true,
+      cls: true,
+      inp: true,
+      tbt: true,
+      errorMessage: true,
+      startedAt: true,
+      completedAt: true,
+      createdAt: true,
+      _count: { select: { issues: true } },
+      issues: {
+        where: { severity: "CRITICAL" },
+        select: { id: true },
+      },
+    },
+  });
+
+  if (!latest) return { success: false, error: "Scan not found." };
+
+  const { _count, issues, ...rest } = latest;
 
   return {
     success: true,

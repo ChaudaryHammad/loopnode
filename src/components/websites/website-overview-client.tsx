@@ -224,18 +224,51 @@ function VitalPill({
 }) {
   const rating = getVitalRating(vitalKey, value);
   const styles = vitalRatingClasses(rating);
+  const metricName =
+    VITAL_DEFINITIONS.find((definition) => definition.key === vitalKey)?.name ?? abbr;
+  const metricDescriptions: Record<string, string> = {
+    fcp: "Time until the first text or image is painted on the page.",
+    lcp: "Time until the largest visible content element finishes rendering.",
+    cls: "How much visible content shifts unexpectedly during load.",
+    inp: "How quickly the page responds after a user interaction.",
+    tbt: "Total time the main thread stayed blocked during load.",
+  };
+  const metricDescription = metricDescriptions[vitalKey] ?? "Measured during the latest audit.";
+
+  const statusIcon =
+    rating === "good" ? (
+      <span className="h-3.5 w-3.5 rounded-full bg-emerald-400" />
+    ) : rating === "needs-improvement" ? (
+      <AlertTriangle className="h-3.5 w-3.5 fill-current text-amber-400" />
+    ) : rating === "poor" ? (
+      <AlertTriangle className="h-3.5 w-3.5 fill-current text-rose-400" />
+    ) : (
+      <span className="h-3.5 w-3.5 rounded-full bg-muted-foreground/60" />
+    );
 
   return (
-    <div className={cn("rounded-xl border px-3 py-2.5 bg-secondary/10", styles.border)}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-foreground">{abbr}</span>
-        <Badge variant="outline" className={cn("text-[10px] h-5", styles.badge)}>
-          {vitalRatingLabel(rating)}
-        </Badge>
+    <div
+      className={cn(
+        "border-t border-border/20 pt-5 first:border-t-0 first:pt-0"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className="pt-1">{statusIcon}</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="text-base font-medium text-foreground">{metricName}</p>
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              {abbr}
+            </span>
+          </div>
+          <p className={cn("mt-2 text-[2rem] font-semibold tabular-nums leading-none", styles.text)}>
+            {formatVitalValue(vitalKey, value)}
+          </p>
+          <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">
+            {metricDescription}
+          </p>
+        </div>
       </div>
-      <p className={cn("text-lg font-bold tabular-nums mt-1", styles.text)}>
-        {formatVitalValue(vitalKey, value)}
-      </p>
     </div>
   );
 }
@@ -247,6 +280,16 @@ export function WebsiteOverviewClient({
 }: WebsiteOverviewClientProps) {
   const serverRunningScan = scans.find((scan) => scan.status === "RUNNING") ?? null;
   const latestCompleted = scans.find((scan) => scan.status === "COMPLETED") ?? null;
+  const visibleCoreVitals = latestCompleted
+    ? VITAL_DEFINITIONS.filter(
+        (v) => v.isCoreWebVital && latestCompleted[v.key as keyof SerializedScan] !== null
+      )
+    : [];
+  const visibleLabVitals = latestCompleted
+    ? VITAL_DEFINITIONS.filter(
+        (v) => !v.isCoreWebVital && latestCompleted[v.key as keyof SerializedScan] !== null
+      )
+    : [];
 
   const initialProgress = serverRunningScan
     ? {
@@ -413,8 +456,39 @@ export function WebsiteOverviewClient({
                   title="Core Web Vitals"
                   description="Lighthouse lab metrics from your target URL audit"
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-                  {VITAL_DEFINITIONS.filter((v) => v.isCoreWebVital).map(({ key, abbr }) => (
+              <div className="rounded-2xl border border-border/25 bg-secondary/5 px-5 py-5 md:px-6">
+                <div className="mb-5 flex items-center justify-between gap-3 border-b border-border/20 pb-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Metric summary</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Key rendering and responsiveness signals from the latest run
+                    </p>
+                  </div>
+                  <div className="hidden items-center gap-3 text-[11px] text-muted-foreground sm:flex">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                      Good
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                      Needs work
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
+                      Poor
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
+                  {visibleCoreVitals.map(({ key, abbr }) => (
+                    <VitalPill
+                      key={key}
+                      vitalKey={key}
+                      abbr={abbr}
+                      value={displayScan[key as keyof SerializedScan] as number | null}
+                    />
+                  ))}
+                  {visibleLabVitals.map(({ key, abbr }) => (
                     <VitalPill
                       key={key}
                       vitalKey={key}
@@ -423,16 +497,7 @@ export function WebsiteOverviewClient({
                     />
                   ))}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {VITAL_DEFINITIONS.filter((v) => !v.isCoreWebVital).map(({ key, abbr }) => (
-                    <VitalPill
-                      key={key}
-                      vitalKey={key}
-                      abbr={abbr}
-                      value={displayScan[key as keyof SerializedScan] as number | null}
-                    />
-                  ))}
-                </div>
+              </div>
               </div>
             </section>
           ) : !isRunning ? (
@@ -504,12 +569,12 @@ export function WebsiteOverviewClient({
           {scans.filter((s) => s.status === "COMPLETED").length > 1 ? (
             <section className={cn(SURFACE, "p-6 md:p-8")}>
               <SectionHeader
-                title="Score trends"
-                description="How your audit scores changed over recent runs"
+                title="Audit momentum"
+                description="Overall score trend and category movement across recent runs"
                 action={<TrendingUp className="w-4 h-4 text-muted-foreground" />}
               />
-              <div className="mt-6">
-                <ScoreChart scans={scans} />
+              <div className="mt-5">
+                <ScoreChart scans={scans.filter((s) => s.status === "COMPLETED")} />
               </div>
             </section>
           ) : null}

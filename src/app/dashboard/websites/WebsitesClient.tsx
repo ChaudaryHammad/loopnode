@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import dynamic from "next/dynamic";
 import { WebsiteCard } from "@/components/websites/website-card";
 import { WebsiteTable } from "@/components/websites/website-table";
-import { WebsiteForm } from "@/components/websites/website-form";
 import { Plus, Search, Grid3x3, List, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WebsiteFormSkeleton } from "@/components/layout/page-loaders";
 import {
   Card,
   CardContent,
@@ -18,6 +19,11 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+
+const WebsiteForm = dynamic(
+  () => import("@/components/websites/website-form").then((m) => m.WebsiteForm),
+  { loading: () => <WebsiteFormSkeleton /> }
+);
 
 interface Scan {
   id: string;
