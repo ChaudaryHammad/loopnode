@@ -1,14 +1,17 @@
 export const AUDIT_PHASE_ORDER = [
   "queued",
   "initializing",
-  "security",
+  "collecting",
+  "analyzing",
   "browser",
-  "navigation",
   "performance",
   "accessibility",
-  "seo",
   "finalizing",
   "completed",
+  // Legacy ids kept for in-flight / historical rows
+  "security",
+  "navigation",
+  "seo",
 ] as const;
 
 export type AuditPhase = (typeof AUDIT_PHASE_ORDER)[number];
@@ -18,6 +21,8 @@ export interface AuditPhaseDefinition {
   label: string;
   progress: number;
   hint: string;
+  /** Maps to UI stepper bucket */
+  step?: "collect" | "analyze" | "lab" | "report";
 }
 
 export const AUDIT_PHASES: Record<AuditPhase, AuditPhaseDefinition> = {
@@ -25,61 +30,86 @@ export const AUDIT_PHASES: Record<AuditPhase, AuditPhaseDefinition> = {
     id: "queued",
     label: "Queued",
     progress: 3,
-    hint: "Waiting for an audit worker to pick up this job.",
+    hint: "Waiting for an audit worker…",
+    step: "collect",
   },
   initializing: {
     id: "initializing",
     label: "Preparing",
     progress: 8,
-    hint: "Setting up the audit environment and validating the scan.",
+    hint: "Setting up the audit engine…",
+    step: "collect",
   },
-  security: {
-    id: "security",
-    label: "Security",
-    progress: 18,
-    hint: "Checking HTTPS, response headers, and transport security.",
+  collecting: {
+    id: "collecting",
+    label: "Collecting",
+    progress: 22,
+    hint: "Fetching your page and headers…",
+    step: "collect",
+  },
+  analyzing: {
+    id: "analyzing",
+    label: "Analyzing",
+    progress: 40,
+    hint: "Running SEO, security, HTML and more…",
+    step: "analyze",
   },
   browser: {
     id: "browser",
-    label: "Browser",
-    progress: 24,
-    hint: "Launching headless Chrome for lab testing.",
-  },
-  navigation: {
-    id: "navigation",
-    label: "Loading page",
-    progress: 34,
-    hint: "Opening the URL and capturing the DOM snapshot.",
+    label: "Lab browser",
+    progress: 48,
+    hint: "Launching headless Chrome for lab testing…",
+    step: "lab",
   },
   performance: {
     id: "performance",
     label: "Performance",
-    progress: 58,
-    hint: "Running Lighthouse with mobile throttling — this is usually the longest step.",
+    progress: 62,
+    hint: "Measuring Core Web Vitals with Lighthouse…",
+    step: "lab",
   },
   accessibility: {
     id: "accessibility",
     label: "Accessibility",
-    progress: 76,
-    hint: "Scanning the page with axe-core for WCAG issues.",
-  },
-  seo: {
-    id: "seo",
-    label: "SEO",
-    progress: 90,
-    hint: "Analyzing metadata, headings, robots.txt, and sitemap signals.",
+    progress: 82,
+    hint: "Running accessibility checks…",
+    step: "lab",
   },
   finalizing: {
     id: "finalizing",
     label: "Finalizing",
-    progress: 97,
-    hint: "Saving scores, issues, and updating your dashboard.",
+    progress: 96,
+    hint: "Saving scores and findings…",
+    step: "report",
   },
   completed: {
     id: "completed",
     label: "Complete",
     progress: 100,
     hint: "Audit finished successfully.",
+    step: "report",
+  },
+  // Legacy
+  security: {
+    id: "security",
+    label: "Security",
+    progress: 18,
+    hint: "Checking security headers…",
+    step: "analyze",
+  },
+  navigation: {
+    id: "navigation",
+    label: "Loading page",
+    progress: 34,
+    hint: "Opening the URL…",
+    step: "collect",
+  },
+  seo: {
+    id: "seo",
+    label: "SEO",
+    progress: 90,
+    hint: "Analyzing SEO signals…",
+    step: "analyze",
   },
 };
 
@@ -92,56 +122,52 @@ export function buildAuditStatusMessage(
   phase: AuditPhase,
   context: { host?: string; url?: string; substep?: string }
 ): string {
+  if (context.substep) return context.substep;
+
   const host = context.host ?? context.url?.replace(/^https?:\/\//, "").split("/")[0];
+  const def = AUDIT_PHASES[phase];
 
   switch (phase) {
     case "queued":
       return "Queued — waiting for an available audit worker…";
     case "initializing":
-      return "Preparing audit engine and validating scan request…";
-    case "security":
+      return "Preparing audit engine and validating your target URL…";
+    case "collecting":
       return host
-        ? `Checking security headers and HTTPS configuration for ${host}…`
-        : "Checking security headers and HTTPS configuration…";
+        ? `Fetching ${host} and capturing page structure…`
+        : "Fetching the target page and capturing structure…";
+    case "analyzing":
+      return "Analyzing SEO, security, cookies, HTML, technology & assets…";
     case "browser":
-      return "Launching headless Chrome with mobile audit profile…";
-    case "navigation":
-      return host
-        ? `Loading ${host} and capturing page structure…`
-        : "Loading page and capturing DOM snapshot…";
+      return "Launching lab browser for Lighthouse and accessibility…";
     case "performance":
-      if (context.substep) return context.substep;
       return host
-        ? `Running Lighthouse performance audit on ${host} (mobile, throttled)…`
-        : "Running Lighthouse performance audit (mobile, throttled)…";
+        ? `Measuring Core Web Vitals for ${host}…`
+        : "Measuring Core Web Vitals with Lighthouse…";
     case "accessibility":
-      return "Running axe-core accessibility scan for WCAG violations…";
-    case "seo":
-      return host
-        ? `Analyzing SEO signals, meta tags, and crawlability for ${host}…`
-        : "Analyzing SEO metadata and crawlability…";
+      return "Scanning accessibility with axe-core…";
     case "finalizing":
       return "Saving scores, findings, and updating your report…";
     case "completed":
-      return "Audit complete — results are ready.";
+      return "Audit complete — your report is ready.";
     default:
-      return "Audit in progress…";
+      return def?.hint ?? "Audit in progress…";
   }
 }
 
 export function lighthouseSubstepMessage(step: string): string {
   const normalized = step.toLowerCase();
   if (normalized.includes("load") || normalized.includes("navig")) {
-    return "Lighthouse: loading page under mobile network conditions…";
+    return "Lighthouse: loading your page in the lab…";
   }
   if (normalized.includes("trace") || normalized.includes("record")) {
-    return "Lighthouse: recording browser trace and network activity…";
+    return "Lighthouse: recording performance trace…";
   }
   if (normalized.includes("metric") || normalized.includes("analyz")) {
-    return "Lighthouse: analyzing Core Web Vitals and performance metrics…";
+    return "Lighthouse: analyzing Core Web Vitals…";
   }
   if (normalized.includes("audit") || normalized.includes("gather")) {
-    return "Lighthouse: gathering performance audits and opportunities…";
+    return "Lighthouse: gathering opportunities…";
   }
   return `Lighthouse: ${step}…`;
 }

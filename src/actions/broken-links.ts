@@ -4,10 +4,8 @@ import { unstable_noStore as noStore } from "next/cache";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateBrokenLinksPdf } from "@/lib/reports/generate-broken-links-pdf";
 import type { BrokenLinkScanMode } from "@prisma/client";
 import type { LinkResourceType } from "@/lib/scanner/link-resource-types";
-import { z } from "zod";
 
 const STALE_SCAN_MS = 5 * 60 * 1000;
 
@@ -70,7 +68,7 @@ export async function startBrokenLinkScanAction(
       mode,
       status: "RUNNING",
       phase: "initializing",
-      statusMessage: "Preparing scan…",
+      statusMessage: "Preparing link check…",
       progressPercent: 0,
       startedAt: new Date(),
     },
@@ -91,6 +89,12 @@ export async function getBrokenLinkScanStatusAction(scanId: string) {
       id: scanId,
       website: { userId: session.user.id, deletedAt: null },
     },
+    include: {
+      results: {
+        orderBy: [{ severity: "asc" }, { createdAt: "asc" }],
+        take: 200,
+      },
+    },
   });
 
   if (!scan) {
@@ -98,6 +102,33 @@ export async function getBrokenLinkScanStatusAction(scanId: string) {
   }
 
   return { success: true, data: scan };
+}
+
+export async function getBrokenLinkResultsAction(scanId: string) {
+  noStore();
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized." };
+  }
+
+  const scan = await prisma.brokenLinkScan.findFirst({
+    where: {
+      id: scanId,
+      website: { userId: session.user.id, deletedAt: null },
+    },
+    select: { id: true },
+  });
+
+  if (!scan) {
+    return { success: false, error: "Scan not found." };
+  }
+
+  const results = await prisma.brokenLinkResult.findMany({
+    where: { scanId },
+    orderBy: [{ severity: "asc" }, { createdAt: "asc" }],
+  });
+
+  return { success: true, data: results };
 }
 
 export async function getLatestBrokenLinkScanAction(websiteId: string) {
@@ -149,88 +180,4 @@ export async function cancelBrokenLinkScanAction(scanId: string) {
   revalidatePath(`/dashboard/websites/${scan.websiteId}`);
 
   return { success: true };
-}
-
-const brokenLinkFindingSchema = z.object({
-  href: z.string(),
-  sourcePageUrl: z.string(),
-  statusCode: z.number().nullable(),
-  errorMessage: z.string().nullable(),
-  elementTag: z.string().nullable(),
-  elementId: z.string().nullable(),
-  elementClass: z.string().nullable(),
-  elementText: z.string().nullable(),
-  selector: z.string().nullable(),
-  attribute: z.string().nullable(),
-  severity: z.string(),
-});
-
-const generateBrokenLinksPdfSchema = z.object({
-  websiteId: z.string().min(1),
-  websiteName: z.string().min(1),
-  websiteUrl: z.string().url(),
-  mode: z.enum(["INTERNAL", "EXTERNAL"]),
-  resourceTypes: z.array(z.string()).min(1),
-  completedAt: z.string().nullable(),
-  pagesCrawled: z.number().int().min(0),
-  linksChecked: z.number().int().min(0),
-  brokenCount: z.number().int().min(0),
-  findings: z.array(brokenLinkFindingSchema),
-});
-
-export async function generateBrokenLinksPdfAction(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false as const, error: "Unauthorized." };
-  }
-
-  const parsed = generateBrokenLinksPdfSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      success: false as const,
-      error: parsed.error.issues[0]?.message ?? "Invalid report data.",
-    };
-  }
-
-  const website = await prisma.website.findFirst({
-    where: {
-      id: parsed.data.websiteId,
-      userId: session.user.id,
-      deletedAt: null,
-    },
-    select: { id: true },
-  });
-
-  if (!website) {
-    return { success: false as const, error: "Website not found." };
-  }
-
-  try {
-    const buffer = await generateBrokenLinksPdf({
-      websiteName: parsed.data.websiteName,
-      websiteUrl: parsed.data.websiteUrl,
-      mode: parsed.data.mode,
-      resourceTypes: parsed.data.resourceTypes as LinkResourceType[],
-      completedAt: parsed.data.completedAt,
-      pagesCrawled: parsed.data.pagesCrawled,
-      linksChecked: parsed.data.linksChecked,
-      brokenCount: parsed.data.brokenCount,
-      findings: parsed.data.findings,
-    });
-
-    const dateLabel = (parsed.data.completedAt ?? new Date().toISOString()).slice(0, 10);
-    const safeName = parsed.data.websiteName.replace(/[<>:"/\\|?*]/g, "-").slice(0, 60);
-    const filename = `broken-links-${safeName}-${dateLabel}.pdf`;
-
-    return {
-      success: true as const,
-      data: {
-        fileBase64: buffer.toString("base64"),
-        filename,
-      },
-    };
-  } catch (error) {
-    console.error("Broken links PDF error:", error);
-    return { success: false as const, error: "Failed to generate PDF." };
-  }
 }

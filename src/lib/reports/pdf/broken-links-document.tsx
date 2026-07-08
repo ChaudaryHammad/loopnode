@@ -3,7 +3,7 @@ import type { BrokenLinksReportInput } from "@/lib/reports/generate-broken-links
 import { formatResourceTypes } from "@/lib/scanner/link-resource-types";
 import { LOOPNODE_BRAND } from "@/lib/reports/report-html-shared";
 import {
-  BrokenLinksFindingTable,
+  GroupedBrokenLinksFindingTable,
   PdfFooter,
   PdfHeadlineBox,
   PdfPageHeader,
@@ -17,27 +17,24 @@ function formatCompletedDate(completedAt: string | null) {
   return date.toLocaleString("en-US", { dateStyle: "long", timeStyle: "short" });
 }
 
-function formatElement(finding: BrokenLinksReportInput["findings"][number]) {
-  const parts = [
-    finding.elementTag ? `<${finding.elementTag}>` : null,
-    finding.attribute ? `[${finding.attribute}]` : null,
-    finding.elementId ? `#${finding.elementId}` : null,
-    finding.elementClass ? `.${finding.elementClass.split(/\s+/)[0]}` : null,
-    finding.selector,
-    finding.elementText ? `"${finding.elementText.slice(0, 60)}"` : null,
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(" ") : "—";
-}
-
 function BrokenLinksDocument({ input }: { input: BrokenLinksReportInput }) {
   const scanDate = formatCompletedDate(input.completedAt);
   const modeLabel = input.mode === "EXTERNAL" ? "External links" : "Internal links";
+  const uniqueBroken = input.totalBrokenUnique ?? input.brokenCount;
+  const occurrenceCount = input.occurrenceCount;
 
   const headlineItems =
-    input.brokenCount > 0
+    uniqueBroken > 0
       ? [
-          `${input.brokenCount} broken link${input.brokenCount === 1 ? "" : "s"} across ${input.pagesCrawled} page${input.pagesCrawled === 1 ? "" : "s"}`,
-          `${input.linksChecked} links checked · ${modeLabel}`,
+          `${uniqueBroken} broken URL${uniqueBroken === 1 ? "" : "s"} across ${input.pagesCrawled} page${input.pagesCrawled === 1 ? "" : "s"}`,
+          occurrenceCount > uniqueBroken
+            ? `${occurrenceCount} page occurrence${occurrenceCount === 1 ? "" : "s"}`
+            : `${input.linksChecked} links checked · ${modeLabel}`,
+          ...(input.findingsTruncated
+            ? [
+                `Showing top ${input.groups.length} of ${uniqueBroken} broken URLs in this PDF`,
+              ]
+            : []),
         ]
       : ["No broken links found"];
 
@@ -46,20 +43,28 @@ function BrokenLinksDocument({ input }: { input: BrokenLinksReportInput }) {
     { setting: "Link types", value: formatResourceTypes(input.resourceTypes) },
     { setting: "Pages crawled", value: String(input.pagesCrawled) },
     { setting: "Links checked", value: String(input.linksChecked) },
-    { setting: "Broken links", value: String(input.brokenCount) },
+    { setting: "Broken URLs", value: String(uniqueBroken) },
+    {
+      setting: "Page occurrences",
+      value: String(occurrenceCount),
+    },
   ];
 
-  const findingRows = input.findings.map((finding, index) => ({
+  const groupRows = input.groups.map((group, index) => ({
     num: String(index + 1),
-    sev: finding.severity,
+    sev: group.severity,
     status:
-      finding.statusCode !== null
-        ? `HTTP ${finding.statusCode}`
-        : (finding.errorMessage ?? "Unreachable"),
-    url: finding.href,
-    page: finding.sourcePageUrl,
-    element: formatElement(finding),
+      group.statusCode !== null
+        ? `HTTP ${group.statusCode}`
+        : (group.errorMessage ?? "Unreachable"),
+    url: group.href,
+    pages: group.occurrences.map((o) => o.sourcePageUrl),
+    pageCount: group.occurrences.length,
   }));
+
+  const findingsHeading = input.findingsTruncated
+    ? `Findings (top ${input.groups.length} of ${uniqueBroken})`
+    : `Findings (${input.groups.length})`;
 
   return (
     <Document title={`Broken links — ${input.websiteName}`}>
@@ -75,7 +80,7 @@ function BrokenLinksDocument({ input }: { input: BrokenLinksReportInput }) {
         <PdfHeadlineBox
           title="Summary"
           items={headlineItems}
-          ok={input.brokenCount === 0}
+          ok={uniqueBroken === 0}
         />
 
         <PdfTable
@@ -86,8 +91,8 @@ function BrokenLinksDocument({ input }: { input: BrokenLinksReportInput }) {
           rows={summaryRows}
         />
 
-        <Text style={sharedStyles.h2}>Findings ({input.findings.length})</Text>
-        <BrokenLinksFindingTable rows={findingRows} />
+        <Text style={sharedStyles.h2}>{findingsHeading}</Text>
+        <GroupedBrokenLinksFindingTable rows={groupRows} />
 
         <PdfFooter
           left={`${LOOPNODE_BRAND} · loopnode.app`}

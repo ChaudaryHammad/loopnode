@@ -28,7 +28,16 @@ export async function dispatchAuditScan(scanId: string): Promise<{
     throw new AuditCancelledError("Scan was halted or is no longer running.");
   }
 
-  if (getAuditRunnerMode() === "trigger") {
+  // Never run Chrome/Lighthouse on Vercel serverless — control plane only.
+  const onVercel = Boolean(process.env.VERCEL);
+  const preferTrigger = getAuditRunnerMode() === "trigger" || onVercel;
+
+  if (preferTrigger) {
+    if (!useTriggerDev() && onVercel) {
+      throw new Error(
+        "Audits must run on Trigger.dev in production. Set USE_TRIGGER_DEV=true and TRIGGER_SECRET_KEY."
+      );
+    }
     const { tasks, runs } = await import("@trigger.dev/sdk");
     const handle = await tasks.trigger<typeof runAuditTask>("run-audit", { scanId });
 

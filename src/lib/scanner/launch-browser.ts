@@ -71,8 +71,15 @@ async function launchServerlessBrowser(): Promise<Browser> {
 
   chromium.default.setGraphicsMode = false;
 
+  const args = [
+    ...chromium.default.args,
+    "--remote-debugging-port=0",
+    "--mute-audio",
+    "--disable-extensions",
+  ];
+
   return (await puppeteerCore.default.launch({
-    args: chromium.default.args,
+    args,
     executablePath: await chromium.default.executablePath(),
     headless: true,
     timeout: 45000,

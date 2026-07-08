@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { BrokenLinksClient } from "@/components/websites/broken-links-client";
 import { ALL_LINK_RESOURCE_TYPES } from "@/lib/scanner/link-resource-types";
+import { estimateSitemapSize } from "@/broken-links/sitemap-estimate";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -13,6 +14,38 @@ export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const w = await prisma.website.findUnique({ where: { id }, select: { name: true } });
   return { title: `${w?.name ?? "Website"} — Broken Links` };
+}
+
+function serializeResults(
+  results: Array<{
+    id: string;
+    href: string;
+    sourcePageUrl: string;
+    statusCode: number | null;
+    errorMessage: string | null;
+    elementTag: string | null;
+    elementId: string | null;
+    elementClass: string | null;
+    elementText: string | null;
+    selector: string | null;
+    attribute: string | null;
+    severity: string;
+  }>
+) {
+  return results.map((r) => ({
+    id: r.id,
+    href: r.href,
+    sourcePageUrl: r.sourcePageUrl,
+    statusCode: r.statusCode,
+    errorMessage: r.errorMessage,
+    elementTag: r.elementTag,
+    elementId: r.elementId,
+    elementClass: r.elementClass,
+    elementText: r.elementText,
+    selector: r.selector,
+    attribute: r.attribute,
+    severity: r.severity as "CRITICAL" | "MAJOR" | "MINOR" | "INFO",
+  }));
 }
 
 export default async function BrokenLinksPage({ params }: Props) {
@@ -26,30 +59,49 @@ export default async function BrokenLinksPage({ params }: Props) {
   });
   if (!website) notFound();
 
-  const runningScan = await prisma.brokenLinkScan.findFirst({
-    where: { websiteId: id, status: "RUNNING" },
+  const latestScan = await prisma.brokenLinkScan.findFirst({
+    where: { websiteId: id },
     orderBy: { createdAt: "desc" },
+    include: {
+      results: {
+        orderBy: [{ severity: "asc" }, { createdAt: "asc" }],
+      },
+    },
   });
 
-  const serializedScan = runningScan
+  const serializedScan = latestScan
     ? {
-        id: runningScan.id,
-        status: runningScan.status,
-        mode: runningScan.mode,
+        id: latestScan.id,
+        status: latestScan.status,
+        mode: latestScan.mode,
         resourceTypes: [...ALL_LINK_RESOURCE_TYPES],
-        phase: runningScan.phase,
-        statusMessage: runningScan.statusMessage,
-        pagesDiscovered: runningScan.pagesDiscovered,
-        pagesCrawled: runningScan.pagesCrawled,
-        linksFound: runningScan.linksFound,
-        linksChecked: runningScan.linksChecked,
-        brokenCount: runningScan.brokenCount,
-        progressPercent: runningScan.progressPercent,
-        errorMessage: runningScan.errorMessage,
-        completedAt: runningScan.completedAt?.toISOString() ?? null,
-        createdAt: runningScan.createdAt.toISOString(),
+        phase: latestScan.phase,
+        statusMessage: latestScan.statusMessage,
+        pagesDiscovered: latestScan.pagesDiscovered,
+        pagesCrawled: latestScan.pagesCrawled,
+        linksFound: latestScan.linksFound,
+        linksChecked: latestScan.linksChecked,
+        brokenCount: latestScan.brokenCount,
+        progressPercent: latestScan.progressPercent,
+        errorMessage: latestScan.errorMessage,
+        completedAt: latestScan.completedAt?.toISOString() ?? null,
+        createdAt: latestScan.createdAt.toISOString(),
       }
     : null;
+
+  const initialResults =
+    latestScan &&
+    (latestScan.status === "COMPLETED" ||
+      latestScan.phase === "cancelled" ||
+      latestScan.status === "FAILED")
+      ? serializeResults(latestScan.results)
+      : [];
+
+  const sitemapEstimate = await estimateSitemapSize(website.url).catch(() => ({
+    approxUrlCount: null as number | null,
+    sitemapUrl: null as string | null,
+    source: "unreachable" as const,
+  }));
 
   return (
     <BrokenLinksClient
@@ -57,6 +109,8 @@ export default async function BrokenLinksPage({ params }: Props) {
       websiteName={website.name}
       websiteUrl={website.url}
       initialScan={serializedScan}
+      initialResults={initialResults}
+      sitemapApproxUrls={sitemapEstimate.approxUrlCount}
     />
   );
 }

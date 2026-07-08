@@ -1,38 +1,20 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateBrokenLinksPdf } from "@/lib/reports/generate-broken-links-pdf";
-import type { LinkResourceType } from "@/lib/scanner/link-resource-types";
+import {
+  generateBrokenLinksPdf,
+  prepareBrokenLinksPdfGroups,
+  type BrokenLinkFinding,
+} from "@/lib/reports/generate-broken-links-pdf";
+import { ALL_LINK_RESOURCE_TYPES } from "@/lib/scanner/link-resource-types";
 import { z } from "zod";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-const brokenLinkFindingSchema = z.object({
-  href: z.string(),
-  sourcePageUrl: z.string(),
-  statusCode: z.number().nullable(),
-  errorMessage: z.string().nullable(),
-  elementTag: z.string().nullable(),
-  elementId: z.string().nullable(),
-  elementClass: z.string().nullable(),
-  elementText: z.string().nullable(),
-  selector: z.string().nullable(),
-  attribute: z.string().nullable(),
-  severity: z.string(),
-});
-
 const bodySchema = z.object({
+  scanId: z.string().min(1),
   websiteId: z.string().min(1),
-  websiteName: z.string().min(1),
-  websiteUrl: z.string().url(),
-  mode: z.enum(["INTERNAL", "EXTERNAL"]),
-  resourceTypes: z.array(z.string()).min(1),
-  completedAt: z.string().nullable(),
-  pagesCrawled: z.number().int().min(0),
-  linksChecked: z.number().int().min(0),
-  brokenCount: z.number().int().min(0),
-  findings: z.array(brokenLinkFindingSchema),
 });
 
 export async function POST(request: Request) {
@@ -56,34 +38,66 @@ export async function POST(request: Request) {
     );
   }
 
-  const website = await prisma.website.findFirst({
+  const scan = await prisma.brokenLinkScan.findFirst({
     where: {
-      id: parsed.data.websiteId,
-      userId: session.user.id,
-      deletedAt: null,
+      id: parsed.data.scanId,
+      websiteId: parsed.data.websiteId,
+      website: { userId: session.user.id, deletedAt: null },
     },
-    select: { id: true },
+    include: {
+      website: { select: { id: true, name: true, url: true } },
+      results: {
+        orderBy: [{ severity: "asc" }, { createdAt: "asc" }],
+      },
+    },
   });
 
-  if (!website) {
-    return NextResponse.json({ error: "Website not found." }, { status: 404 });
+  if (!scan) {
+    return NextResponse.json({ error: "Scan not found." }, { status: 404 });
   }
+
+  if (scan.status !== "COMPLETED" && scan.phase !== "cancelled") {
+    return NextResponse.json(
+      { error: "Finish a check before generating a report." },
+      { status: 409 }
+    );
+  }
+
+  const rawFindings: BrokenLinkFinding[] = scan.results.map((r) => ({
+    href: r.href,
+    sourcePageUrl: r.sourcePageUrl,
+    statusCode: r.statusCode,
+    errorMessage: r.errorMessage,
+    elementTag: r.elementTag,
+    elementId: r.elementId,
+    elementClass: r.elementClass,
+    elementText: r.elementText,
+    selector: r.selector,
+    attribute: r.attribute,
+    severity: r.severity,
+  }));
+
+  const prepared = prepareBrokenLinksPdfGroups(rawFindings);
+  const uniqueBroken = Math.max(scan.brokenCount, prepared.totalUnique);
 
   try {
     const buffer = await generateBrokenLinksPdf({
-      websiteName: parsed.data.websiteName,
-      websiteUrl: parsed.data.websiteUrl,
-      mode: parsed.data.mode,
-      resourceTypes: parsed.data.resourceTypes as LinkResourceType[],
-      completedAt: parsed.data.completedAt,
-      pagesCrawled: parsed.data.pagesCrawled,
-      linksChecked: parsed.data.linksChecked,
-      brokenCount: parsed.data.brokenCount,
-      findings: parsed.data.findings,
+      websiteName: scan.website.name,
+      websiteUrl: scan.website.url,
+      mode: scan.mode,
+      resourceTypes: [...ALL_LINK_RESOURCE_TYPES],
+      completedAt: scan.completedAt?.toISOString() ?? null,
+      pagesCrawled: scan.pagesCrawled,
+      linksChecked: scan.linksChecked,
+      brokenCount: uniqueBroken,
+      occurrenceCount: prepared.totalOccurrences,
+      groups: prepared.groups,
+      findingsTruncated: prepared.truncated,
+      totalBrokenUnique: uniqueBroken,
     });
 
-    const dateLabel = (parsed.data.completedAt ?? new Date().toISOString()).slice(0, 10);
-    const safeName = parsed.data.websiteName.replace(/[<>:"/\\|?*]/g, "-").slice(0, 60);
+    const dateLabel = (scan.completedAt ?? new Date()).toISOString().slice(0, 10);
+    const safeName = scan.website.name.replace(/[<>:"/\\|?*]/g, "-").slice(0, 60);
     const filename = `broken-links-${safeName}-${dateLabel}.pdf`;
 
     return new NextResponse(new Uint8Array(buffer), {

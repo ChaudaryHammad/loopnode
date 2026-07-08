@@ -337,9 +337,9 @@ export function WebsiteOverviewClient({
                   {isCancelling ? "Stopping…" : "Stop audit"}
                 </Button>
               ) : (
-                <Button size="lg" onClick={() => void startScan()} className="gap-2">
+                <Button size="lg" onClick={() => void startScan()} className="gap-2 shadow-none">
                   <Zap className="w-4 h-4" />
-                  Run full audit
+                  Run URL audit
                 </Button>
               )}
             </div>
@@ -411,7 +411,7 @@ export function WebsiteOverviewClient({
               <div className="pt-6 border-t border-border/30 space-y-4">
                 <SectionHeader
                   title="Core Web Vitals"
-                  description="Lighthouse lab metrics under mobile throttling"
+                  description="Lighthouse lab metrics from your target URL audit"
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                   {VITAL_DEFINITIONS.filter((v) => v.isCoreWebVital).map(({ key, abbr }) => (

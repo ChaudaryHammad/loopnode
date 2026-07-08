@@ -192,7 +192,7 @@ export function PdfPageHeader({
       </View>
       <View style={sharedStyles.headerMeta}>
         <Text style={[sharedStyles.meta, sharedStyles.metaStrong]}>{websiteName}</Text>
-        <Text style={sharedStyles.meta}>{websiteUrl}</Text>
+        <Text style={[sharedStyles.meta, sharedStyles.tdWrap]}>{pdfBreakableText(websiteUrl)}</Text>
         <Text style={[sharedStyles.meta, { marginBottom: 0 }]}>{scanDate}</Text>
       </View>
     </View>
@@ -261,10 +261,18 @@ export type TableColumn = {
   wrap?: boolean;
 };
 
-/** Insert soft break points so long URLs/paths wrap in react-pdf cells. */
+/**
+ * Soft wrap helpers for react-pdf. Do not insert soft-hyphen (U+00AD).
+ * Prefer natural URL boundaries; ZWSP (U+200B) for overflow-only wraps.
+ */
 export function pdfBreakableText(text: string): string {
   if (!text) return "—";
-  return text.replace(/([/.:?=&_%-])/g, "$1\u200b");
+  // Break AFTER separators that already look like natural wrap points.
+  // Never break on "-" — that produces alvahcon-tracting / www.- artifacts.
+  return text
+    .replace(/(https?:\/\/)/gi, "$1\u200b")
+    .replace(/([/?&#=_%])/g, "$1\u200b")
+    .replace(/(\.)(?=[A-Za-z0-9])/g, "$1\u200b");
 }
 
 export function PdfTable({
@@ -328,34 +336,153 @@ export function BrokenLinksFindingTable({
     return <Text style={sharedStyles.empty}>No broken links found in this scan.</Text>;
   }
 
+  // Full-width stacked findings — narrow table columns force hyphenation and unreadable URLs.
   return (
-    <View style={sharedStyles.table}>
-      <View style={sharedStyles.tableHeader}>
-        <Text style={[sharedStyles.th, { flex: 0.4 }]}>#</Text>
-        <Text style={[sharedStyles.th, { flex: 0.7 }]}>Sev</Text>
-        <Text style={[sharedStyles.th, { flex: 1 }]}>Status</Text>
-        <Text style={[sharedStyles.th, { flex: 2.2 }]}>Broken URL</Text>
-        <Text style={[sharedStyles.th, { flex: 2 }]}>Found on page</Text>
-        <Text style={[sharedStyles.th, { flex: 1.6 }]}>Element</Text>
-      </View>
+    <View style={{ marginTop: 8, marginBottom: 18 }}>
       {rows.map((row) => (
-        <View key={row.num} style={sharedStyles.tableRow}>
-          <Text style={[sharedStyles.td, { flex: 0.4 }]}>{row.num}</Text>
-          <View style={{ flex: 0.7 }}>
-            <SeverityText severity={row.sev} />
+        <View
+          key={row.num}
+          style={{
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 6,
+            padding: 10,
+            marginBottom: 8,
+            backgroundColor: colors.headerBg,
+          }}
+          wrap={false}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={[sharedStyles.tdStrong, { fontSize: 9 }]}>#{row.num}</Text>
+              <SeverityText severity={row.sev} />
+              <Text style={[sharedStyles.tdStrong, { fontSize: 9 }]}>{row.status}</Text>
+            </View>
           </View>
-          <Text style={[sharedStyles.td, sharedStyles.tdStrong, sharedStyles.tdWrap, { flex: 1 }]}>
-            {pdfBreakableText(row.status)}
-          </Text>
-          <Text style={[sharedStyles.td, sharedStyles.mono, sharedStyles.tdWrap, { flex: 2.2 }]}>
+
+          <Text style={[sharedStyles.th, { marginBottom: 2 }]}>Broken URL</Text>
+          <Text
+            style={[
+              sharedStyles.td,
+              sharedStyles.tdWrap,
+              { fontFamily: fonts.mono, fontSize: 8, color: colors.text, marginBottom: 8 },
+            ]}
+          >
             {pdfBreakableText(row.url)}
           </Text>
-          <Text style={[sharedStyles.td, sharedStyles.mono, sharedStyles.tdWrap, { flex: 2 }]}>
+
+          <Text style={[sharedStyles.th, { marginBottom: 2 }]}>Found on page</Text>
+          <Text
+            style={[
+              sharedStyles.td,
+              sharedStyles.tdWrap,
+              { fontFamily: fonts.mono, fontSize: 8, color: colors.muted, marginBottom: 8 },
+            ]}
+          >
             {pdfBreakableText(row.page)}
           </Text>
-          <Text style={[sharedStyles.td, sharedStyles.mono, sharedStyles.tdWrap, { flex: 1.6 }]}>
+
+          <Text style={[sharedStyles.th, { marginBottom: 2 }]}>Element</Text>
+          <Text
+            style={[
+              sharedStyles.td,
+              sharedStyles.tdWrap,
+              { fontFamily: fonts.mono, fontSize: 7.5, color: colors.muted },
+            ]}
+          >
             {pdfBreakableText(row.element)}
           </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export function GroupedBrokenLinksFindingTable({
+  rows,
+}: {
+  rows: Array<{
+    num: string;
+    sev: string;
+    status: string;
+    url: string;
+    pages: string[];
+    pageCount: number;
+  }>;
+}) {
+  if (rows.length === 0) {
+    return <Text style={sharedStyles.empty}>No broken links found in this scan.</Text>;
+  }
+
+  return (
+    <View style={{ marginTop: 8, marginBottom: 18 }}>
+      {rows.map((row) => (
+        <View
+          key={row.num}
+          style={{
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 6,
+            padding: 10,
+            marginBottom: 8,
+            backgroundColor: colors.headerBg,
+          }}
+          wrap={false}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={[sharedStyles.tdStrong, { fontSize: 9 }]}>#{row.num}</Text>
+              <SeverityText severity={row.sev} />
+              <Text style={[sharedStyles.tdStrong, { fontSize: 9 }]}>{row.status}</Text>
+            </View>
+            <Text style={[sharedStyles.td, { fontSize: 8, color: colors.muted }]}>
+              {row.pageCount} page{row.pageCount === 1 ? "" : "s"}
+            </Text>
+          </View>
+
+          <Text style={[sharedStyles.th, { marginBottom: 2 }]}>Broken URL</Text>
+          <Text
+            style={[
+              sharedStyles.td,
+              sharedStyles.tdWrap,
+              { fontFamily: fonts.mono, fontSize: 8, color: colors.text, marginBottom: 8 },
+            ]}
+          >
+            {pdfBreakableText(row.url)}
+          </Text>
+
+          <Text style={[sharedStyles.th, { marginBottom: 2 }]}>Found on pages</Text>
+          {row.pages.map((page, index) => (
+            <Text
+              key={`${row.num}-${index}`}
+              style={[
+                sharedStyles.td,
+                sharedStyles.tdWrap,
+                {
+                  fontFamily: fonts.mono,
+                  fontSize: 7.5,
+                  color: colors.muted,
+                  marginBottom: index < row.pages.length - 1 ? 4 : 0,
+                },
+              ]}
+            >
+              {pdfBreakableText(page)}
+            </Text>
+          ))}
         </View>
       ))}
     </View>

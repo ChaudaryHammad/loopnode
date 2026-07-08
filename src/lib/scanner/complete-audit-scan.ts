@@ -14,11 +14,16 @@ export async function completeAuditScan(
   await assertScanRunnable(scanId);
   await updateScanProgress(scanId, "queued", { url: website.url });
 
-  const { runFullAudit } = await import("./audit-runner");
+  const { runAuditEngine } = await import("@/audit-engine");
 
   let result;
   try {
-    result = await runFullAudit(website.url, { scanId });
+    result = await runAuditEngine({
+      auditId: scanId,
+      websiteId: website.id,
+      targetUrl: website.url,
+      profile: "standard",
+    });
   } catch (error) {
     if (error instanceof AuditCancelledError) {
       throw error;
@@ -47,7 +52,7 @@ export async function completeAuditScan(
       tbt: result.tbt,
       completedAt: new Date(),
       issues: {
-        create: result.issues.map((issue) => ({
+        create: result.issues.map((issue: (typeof result.issues)[number]) => ({
           category: issue.category,
           severity: issue.severity,
           title: issue.title,

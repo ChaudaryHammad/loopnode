@@ -1,50 +1,49 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { runBrokenLinkScan } from "@/lib/scanner/broken-link-runner";
+import { runBrokenLinkEngine } from "@/broken-links";
+import { countUniqueBrokenHrefs } from "@/broken-links/group-results";
+import {
+  createProgressWriter,
+  createResultPersister,
+} from "@/broken-links/persist";
 import { ScanCancelledError } from "@/lib/scanner/scan-errors";
 import { parseResourceTypes } from "@/lib/scanner/link-resource-types";
-import type { BrokenLinkFinding, WwwFallbackResolution } from "@/lib/scanner/types";
+import type { BrokenLinkFinding, WwwFallbackResolution } from "@/broken-links/types";
 
 export const maxDuration = 300;
 
-function mapFindings(findings: BrokenLinkFinding[]) {
-  return findings.map((f) => ({
-    href: f.href,
-    sourcePageUrl: f.sourcePageUrl,
-    statusCode: f.statusCode,
-    errorMessage: f.errorMessage,
-    elementTag: f.elementTag,
-    elementId: f.elementId ?? null,
-    elementClass: f.elementClass ?? null,
-    elementText: f.elementText ?? null,
-    selector: f.selector,
-    attribute: f.attribute,
-    severity: f.severity,
-  }));
-}
-
 function scanResponse(
-  findings: BrokenLinkFinding[],
+  uniqueBrokenCount: number,
+  occurrenceCount: number,
   wwwFallbacks: WwwFallbackResolution[] = [],
   extra?: Record<string, unknown>
 ) {
   return NextResponse.json({
     success: true,
-    brokenCount: findings.length,
-    findings: mapFindings(findings),
+    brokenCount: uniqueBrokenCount,
+    occurrenceCount,
     wwwFallbacks,
     ...extra,
   });
 }
 
 function finalStatusMessage(
-  brokenCount: number,
-  wwwFallbacks: WwwFallbackResolution[]
+  uniqueBrokenCount: number,
+  occurrenceCount: number,
+  wwwFallbacks: WwwFallbackResolution[],
+  capped: boolean
 ) {
   const fallbackCount = wwwFallbacks.length;
-  if (fallbackCount === 0) return `Found ${brokenCount} broken link(s)`;
-  return `Found ${brokenCount} broken link(s); ${fallbackCount} worked on www. instead`;
+  const capNote = capped ? " (scan may be partial — server time limit)" : "";
+  const occurrenceNote =
+    occurrenceCount > uniqueBrokenCount
+      ? ` (${occurrenceCount} page occurrence${occurrenceCount === 1 ? "" : "s"})`
+      : "";
+  if (fallbackCount === 0) {
+    return `Found ${uniqueBrokenCount} broken URL(s)${occurrenceNote}${capNote}`;
+  }
+  return `Found ${uniqueBrokenCount} broken URL(s)${occurrenceNote}; ${fallbackCount} worked on www. instead${capNote}`;
 }
 
 export async function POST(
@@ -81,6 +80,11 @@ export async function POST(
     return NextResponse.json({ error: "Scan is not runnable" }, { status: 409 });
   }
 
+  await prisma.brokenLinkResult.deleteMany({ where: { scanId } });
+
+  const progressWriter = createProgressWriter(scanId);
+  const resultPersister = createResultPersister(scanId);
+
   const shouldCancel = async () => {
     const current = await prisma.brokenLinkScan.findUnique({
       where: { id: scanId },
@@ -92,36 +96,31 @@ export async function POST(
   try {
     const resourceTypes = parseResourceTypes(body.resourceTypes);
 
-    const result = await runBrokenLinkScan(
-      scan.website.url,
-      scan.mode,
+    const result = await runBrokenLinkEngine({
+      startUrl: scan.website.url,
+      mode: scan.mode,
       resourceTypes,
-      async (progress) => {
-        const cancelled = await shouldCancel();
-        if (cancelled) return;
-
-        await prisma.brokenLinkScan.update({
-          where: { id: scanId },
-          data: {
-            status: "RUNNING",
-            phase: progress.phase,
-            statusMessage: progress.statusMessage,
-            pagesDiscovered: progress.pagesDiscovered,
-            pagesCrawled: progress.pagesCrawled,
-            linksFound: progress.linksFound,
-            linksChecked: progress.linksChecked,
-            brokenCount: progress.brokenCount,
-            progressPercent: progress.progressPercent,
-          },
-        });
+      shouldCancel,
+      onProgress: async (progress) => {
+        if (await shouldCancel()) return;
+        await progressWriter.update(progress);
       },
-      shouldCancel
-    );
-    const { findings, wwwFallbacks } = result;
+      onFindings: (batch) => {
+        resultPersister.push(batch);
+      },
+    });
+
+    await progressWriter.flush();
+    await resultPersister.flush();
+
+    const { findings, wwwFallbacks, capped, uniqueBrokenCount, occurrenceCount } = result;
 
     const alreadyCancelled = await shouldCancel();
     if (alreadyCancelled) {
-      return scanResponse(findings, wwwFallbacks, { cancelled: true });
+      return scanResponse(uniqueBrokenCount, occurrenceCount, wwwFallbacks, {
+        cancelled: true,
+        capped,
+      });
     }
 
     await prisma.brokenLinkScan.update({
@@ -129,8 +128,16 @@ export async function POST(
       data: {
         status: "COMPLETED",
         phase: "completed",
-        statusMessage: finalStatusMessage(findings.length, wwwFallbacks),
-        brokenCount: findings.length,
+        statusMessage: finalStatusMessage(
+          uniqueBrokenCount,
+          occurrenceCount,
+          wwwFallbacks,
+          capped
+        ),
+        pagesCrawled: result.pagesCrawled,
+        linksChecked: result.linksChecked,
+        linksFound: Math.max(result.linksChecked, uniqueHrefsCount(findings)),
+        brokenCount: uniqueBrokenCount,
         progressPercent: 100,
         completedAt: new Date(),
       },
@@ -140,20 +147,29 @@ export async function POST(
       data: {
         userId: scan.website.userId,
         action: "BROKEN_LINK_SCAN_COMPLETED",
-        description: `Broken link scan (${scan.mode.toLowerCase()}) for "${scan.website.name}" — ${findings.length} issue(s)`,
+        description: `Broken link scan (${scan.mode.toLowerCase()}) for "${scan.website.name}" — ${uniqueBrokenCount} broken URL(s), ${occurrenceCount} occurrence(s)`,
         metadata: {
           websiteId: scan.websiteId,
           scanId,
           mode: scan.mode,
-          brokenCount: findings.length,
+          brokenCount: uniqueBrokenCount,
+          occurrenceCount,
           wwwFallbackCount: wwwFallbacks.length,
+          capped,
         },
       },
     });
 
-    return scanResponse(findings, wwwFallbacks);
+    return scanResponse(uniqueBrokenCount, occurrenceCount, wwwFallbacks, { capped });
   } catch (error) {
+    await progressWriter.flush().catch(() => undefined);
+    await resultPersister.flush().catch(() => undefined);
+
     if (error instanceof ScanCancelledError) {
+      const findings = error.findings as BrokenLinkFinding[];
+      const uniqueBrokenCount = countUniqueBrokenHrefs(findings);
+      const occurrenceCount = findings.length;
+
       await prisma.brokenLinkScan.update({
         where: { id: scanId },
         data: {
@@ -161,12 +177,14 @@ export async function POST(
           phase: "cancelled",
           statusMessage: "Scan halted by user",
           errorMessage: "Halted by user",
-          brokenCount: error.findings.length,
+          brokenCount: uniqueBrokenCount,
           completedAt: new Date(),
         },
       });
 
-      return scanResponse(error.findings, error.wwwFallbacks, { cancelled: true });
+      return scanResponse(uniqueBrokenCount, occurrenceCount, error.wwwFallbacks, {
+        cancelled: true,
+      });
     }
 
     console.error("Broken link scan error:", error);
@@ -186,4 +204,8 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+function uniqueHrefsCount(findings: BrokenLinkFinding[]): number {
+  return countUniqueBrokenHrefs(findings);
 }

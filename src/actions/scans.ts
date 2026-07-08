@@ -67,7 +67,7 @@ export async function startScanAction(websiteId: string) {
       status: "RUNNING",
       startedAt: new Date(),
       phase: "queued",
-      statusMessage: "Preparing audit — waiting for runner…",
+      statusMessage: "Preparing your premium URL audit…",
       progressPercent: 2,
     },
   });

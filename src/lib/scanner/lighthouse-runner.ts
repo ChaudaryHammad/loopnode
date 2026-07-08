@@ -170,11 +170,14 @@ async function importLighthouseWithTimeout(timeoutMs: number) {
   return mod.default;
 }
 
+export type LighthousePreset = "fast" | "accurate";
+
 export async function runLighthousePerformanceAudit(
   browser: Browser,
   _page: Page,
   url: string,
-  onSubstep?: (message: string) => Promise<void>
+  onSubstep?: (message: string) => Promise<void>,
+  preset: LighthousePreset = "fast"
 ): Promise<PerformanceAuditResult> {
   const port = getBrowserPort(browser);
 
@@ -188,34 +191,54 @@ export async function runLighthousePerformanceAudit(
   ensureLighthouseLocales();
   const lighthouse = await importLighthouseWithTimeout(45000);
 
-  await logLighthouse("Running Lighthouse in a fresh tab (via CDP port)");
-  console.log(`[lighthouse] Starting audit for ${url} on port ${port}`);
+  await logLighthouse(
+    preset === "accurate"
+      ? "Running accurate mobile Lighthouse lab…"
+      : "Running fast Lighthouse lab…"
+  );
+  console.log(`[lighthouse] Starting audit for ${url} on port ${port} (${preset})`);
 
-  // Do not pass our audit `page` — it has request interception enabled, which makes Lighthouse hang.
+  // Lighthouse opens its own tab via CDP — do not attach request interception.
+  const mobile = preset === "accurate";
   const runnerResult = await lighthouse(
     url,
     {
       port,
       output: "json",
       logLevel: "error",
-      onlyCategories: ["performance", "best-practices"],
-      maxWaitForLoad: 45000,
-      maxWaitForFcp: 30000,
-      networkQuietThresholdMs: 3000,
-      cpuQuietThresholdMs: 3000,
-      formFactor: "mobile",
-      screenEmulation: {
-        mobile: true,
-        width: 412,
-        height: 823,
-        deviceScaleFactor: 2.625,
-        disabled: false,
-      },
-      throttling: {
-        rttMs: 150,
-        throughputKbps: 1638.4,
-        cpuSlowdownMultiplier: 4,
-      },
+      // Performance only — security/HTML modules cover best-practices overlap (saves time).
+      onlyCategories: ["performance"],
+      maxWaitForLoad: mobile ? 45000 : 30000,
+      maxWaitForFcp: mobile ? 30000 : 20000,
+      networkQuietThresholdMs: mobile ? 3000 : 1000,
+      cpuQuietThresholdMs: mobile ? 3000 : 1000,
+      formFactor: mobile ? "mobile" : "desktop",
+      screenEmulation: mobile
+        ? {
+            mobile: true,
+            width: 412,
+            height: 823,
+            deviceScaleFactor: 2.625,
+            disabled: false,
+          }
+        : {
+            mobile: false,
+            width: 1350,
+            height: 940,
+            deviceScaleFactor: 1,
+            disabled: false,
+          },
+      throttling: mobile
+        ? {
+            rttMs: 150,
+            throughputKbps: 1638.4,
+            cpuSlowdownMultiplier: 4,
+          }
+        : {
+            rttMs: 40,
+            throughputKbps: 10_240,
+            cpuSlowdownMultiplier: 1,
+          },
     },
     undefined
   );
@@ -236,7 +259,7 @@ export async function runLighthousePerformanceAudit(
 
   const score = clampScore((lhr.categories.performance.score ?? 0) * 100);
   const bestPracticesScore = clampScore(
-    (lhr.categories["best-practices"]?.score ?? 1) * 100
+    (lhr.categories["best-practices"]?.score ?? 0) * 100
   );
 
   const fcp = auditNumericValue(audits, "first-contentful-paint");
@@ -254,15 +277,14 @@ export async function runLighthousePerformanceAudit(
     "PERFORMANCE",
     url
   );
-  const bestPracticesIssues = issuesFromLighthouseAudits(
-    audits,
-    bestPracticesAuditIds,
-    "SECURITY",
-    url
-  ).map((issue) => ({
-    ...issue,
-    metadata: { ...issue.metadata, lighthouseCategory: "best-practices" },
-  }));
+  const bestPracticesIssues = bestPracticesAuditIds.length
+    ? issuesFromLighthouseAudits(audits, bestPracticesAuditIds, "SECURITY", url).map(
+        (issue) => ({
+          ...issue,
+          metadata: { ...issue.metadata, lighthouseCategory: "best-practices" },
+        })
+      )
+    : [];
 
   const issues = [...performanceIssues, ...bestPracticesIssues];
 
@@ -352,10 +374,11 @@ export async function runPerformanceAuditWithFallback(
   browser: Browser,
   page: Page,
   url: string,
-  onSubstep?: (message: string) => Promise<void>
+  onSubstep?: (message: string) => Promise<void>,
+  preset: LighthousePreset = "fast"
 ): Promise<PerformanceAuditResult> {
   try {
-    return await runLighthousePerformanceAudit(browser, page, url, onSubstep);
+    return await runLighthousePerformanceAudit(browser, page, url, onSubstep, preset);
   } catch (error) {
     console.warn("[audit] Lighthouse failed, using fallback performance metrics:", error);
     await onSubstep?.("Lighthouse could not finish — collecting fallback Web Vitals…");
