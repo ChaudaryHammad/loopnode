@@ -19,7 +19,7 @@ export function SettingsNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="inline-flex w-full max-w-md rounded-xl border border-border/40 bg-muted/30 p-1">
+    <nav className="flex w-full max-w-lg rounded-xl border border-border/40 bg-muted/20 p-1">
       {tabs.map((tab) => {
         const isActive = tab.exact
           ? pathname === tab.href
@@ -31,10 +31,10 @@ export function SettingsNav() {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+              "inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
               isActive
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-background text-foreground shadow-sm ring-1 ring-border/40"
+                : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
             )}
           >
             <Icon className="size-4" />

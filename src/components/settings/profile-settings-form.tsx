@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { KeyRound, Loader2, ShieldCheck, ShieldOff, UserRound } from "lucide-react";
+import { KeyRound, Loader2, Trash2, UserRound } from "lucide-react";
 import {
   changePasswordSchema,
   deleteAccountSchema,
@@ -14,9 +14,8 @@ import {
   deleteAccountAction,
   updateProfileAction,
 } from "@/actions/settings";
-import { formatDate } from "@/lib/utils";
+import { useAutoDismiss } from "@/hooks/use-auto-dismiss";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,17 +26,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 
 interface ProfileSettingsFormProps {
   user: {
-    id: string;
     name: string | null;
     email: string;
-    emailVerified: Date | string | null;
-    role: string;
-    createdAt: Date | string;
-    image: string | null;
   };
 }
 
@@ -50,6 +43,24 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
   const [isProfilePending, startProfileTransition] = useTransition();
   const [isPasswordPending, startPasswordTransition] = useTransition();
   const [isDeletePending, startDeleteTransition] = useTransition();
+
+  const clearProfileFeedback = useCallback(() => {
+    setProfileMessage(null);
+    setProfileError(null);
+  }, []);
+  const clearPasswordFeedback = useCallback(() => {
+    setPasswordMessage(null);
+    setPasswordError(null);
+  }, []);
+  const clearDeleteFeedback = useCallback(() => {
+    setDeleteError(null);
+  }, []);
+
+  useAutoDismiss(profileMessage, clearProfileFeedback);
+  useAutoDismiss(profileError, clearProfileFeedback);
+  useAutoDismiss(passwordMessage, clearPasswordFeedback);
+  useAutoDismiss(passwordError, clearPasswordFeedback);
+  useAutoDismiss(deleteError, clearDeleteFeedback);
 
   const profileForm = useForm({
     resolver: zodResolver(updateProfileSchema),
@@ -116,8 +127,8 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-2">
+    <div className="space-y-6 max-w-4xl">
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card className="rounded-2xl border-border/30">
           <CardHeader>
             <div className="flex items-start gap-3">
@@ -125,42 +136,17 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
                 <UserRound className="size-5" />
               </div>
               <div className="space-y-1">
-                <CardTitle>Account details</CardTitle>
-                <CardDescription>Update your display name and view account info</CardDescription>
+                <CardTitle>Display name</CardTitle>
+                <CardDescription>
+                  Shown across your dashboard and audit reports
+                </CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-3 rounded-xl border border-border/40 bg-muted/30 p-4">
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Email</span>
-                <span className="font-medium text-foreground">{user.email}</span>
-                {user.emailVerified ? (
-                  <Badge variant="outline" className="border-emerald-500/30 text-emerald-600">
-                    <ShieldCheck className="size-3" />
-                    Verified
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="border-amber-500/30 text-amber-600">
-                    <ShieldOff className="size-3" />
-                    Not verified
-                  </Badge>
-                )}
-              </div>
-
-              <Separator />
-
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">Member since {formatDate(user.createdAt)}</Badge>
-                <Badge variant="outline" className="uppercase tracking-wide">
-                  {user.role}
-                </Badge>
-              </div>
-            </div>
-
+          <CardContent>
             <form onSubmit={onProfileSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Display name</Label>
+                <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
                   disabled={isProfilePending}
@@ -201,7 +187,7 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
               </div>
               <div className="space-y-1">
                 <CardTitle>Password</CardTitle>
-                <CardDescription>Change your login password</CardDescription>
+                <CardDescription>Update your login credentials</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -258,16 +244,23 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
         </Card>
       </div>
 
-      <Card className="rounded-2xl border-destructive/30">
+      <Card className="rounded-2xl border-destructive/25 bg-destructive/5">
         <CardHeader>
-          <CardTitle className="text-destructive">Danger zone</CardTitle>
-          <CardDescription>
-            Permanently delete your account, profile photo, and all connected websites
-          </CardDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+              <Trash2 className="size-5" />
+            </div>
+            <div className="space-y-1">
+              <CardTitle className="text-destructive">Delete account</CardTitle>
+              <CardDescription>
+                Permanently remove your profile, connected websites, and all audit history.
+                This action cannot be undone.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onDeleteSubmit} className="space-y-4">
-            <Separator />
+          <form onSubmit={onDeleteSubmit} className="max-w-md space-y-4">
             <div className="space-y-2">
               <Label htmlFor="confirmEmail">Type your email to confirm</Label>
               <Input
@@ -292,7 +285,7 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
 
             <Button type="submit" variant="destructive" disabled={isDeletePending}>
               {isDeletePending && <Loader2 className="animate-spin" />}
-              Delete account
+              Delete account permanently
             </Button>
           </form>
         </CardContent>

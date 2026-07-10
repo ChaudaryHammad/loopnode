@@ -21,12 +21,14 @@ export default async function SettingsBillingPage() {
   return (
     <BillingSettingsClient
       entitlements={{
+        plan: entitlements.plan,
         planLabel: entitlements.planLabel,
         status: entitlements.status,
         websiteLimit: entitlements.websiteLimit,
         websiteCount: entitlements.websiteCount,
         websitesRemaining: entitlements.websitesRemaining,
         canAddWebsite: entitlements.canAddWebsite,
+        canScheduleScans: entitlements.canScheduleScans,
         isTrial: entitlements.isTrial,
         isReadOnly: entitlements.isReadOnly,
         trialEndsAt: entitlements.trialEndsAt?.toISOString() ?? null,

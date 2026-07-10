@@ -2,6 +2,7 @@
 
 import { auth, signOut } from "@/lib/auth";
 import { deleteProfileImage, uploadProfileImage } from "@/lib/cloudinary";
+import { getEntitlements } from "@/lib/entitlements";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
@@ -240,7 +241,7 @@ export async function getAccountSettingsAction() {
     return { success: false, error: "Unauthorized." };
   }
 
-  const [user, websiteCount] = await Promise.all([
+  const [user, entitlements] = await Promise.all([
     prisma.user.findFirst({
       where: { id: session.user.id, deletedAt: null },
       select: {
@@ -253,9 +254,7 @@ export async function getAccountSettingsAction() {
         image: true,
       },
     }),
-    prisma.website.count({
-      where: { userId: session.user.id, deletedAt: null },
-    }),
+    getEntitlements(session.user.id),
   ]);
 
   if (!user) {
@@ -272,7 +271,16 @@ export async function getAccountSettingsAction() {
       role: user.role,
       createdAt: user.createdAt,
       image: user.image,
-      websiteCount,
+      websiteCount: entitlements.websiteCount,
+      websiteLimit: entitlements.websiteLimit,
+      plan: entitlements.plan,
+      planLabel: entitlements.planLabel,
+      status: entitlements.status,
+      isTrial: entitlements.isTrial,
+      isReadOnly: entitlements.isReadOnly,
+      trialEndsAt: entitlements.trialEndsAt,
+      canScheduleScans: entitlements.canScheduleScans,
+      websitesRemaining: entitlements.websitesRemaining,
     },
   };
 }

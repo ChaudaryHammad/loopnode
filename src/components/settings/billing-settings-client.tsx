@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Bell,
+  CalendarClock,
   Check,
   Clock,
   MessageSquare,
@@ -25,16 +26,18 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatDateTime } from "@/lib/utils";
-import { PLAN_PRICES_USD, PLAN_LABELS } from "@/lib/plans";
-import type { PlanTier } from "@prisma/client";
+import { PLAN_PRICES_USD, PLAN_LABELS, PLAN_SCAN_SCHEDULING } from "@/lib/plans";
+import type { PlanTier, SubscriptionStatus } from "@prisma/client";
 
 interface Entitlements {
+  plan: PlanTier | null;
   planLabel: string;
-  status: string;
+  status: SubscriptionStatus;
   websiteLimit: number;
   websiteCount: number;
   websitesRemaining: number;
   canAddWebsite: boolean;
+  canScheduleScans: boolean;
   isTrial: boolean;
   isReadOnly: boolean;
   trialEndsAt: string | null;
@@ -73,6 +76,9 @@ export function BillingSettingsClient({
     100,
     Math.round((entitlements.websiteCount / entitlements.websiteLimit) * 100)
   );
+  const scanSchedulingCopy = entitlements.plan
+    ? PLAN_SCAN_SCHEDULING[entitlements.plan]
+    : "Manual scans only";
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -96,18 +102,13 @@ export function BillingSettingsClient({
 
       <Card className="rounded-2xl border-border/30">
         <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <CardTitle>Current plan</CardTitle>
-              <CardDescription>
-                {entitlements.isTrial && entitlements.trialEndsAt
-                  ? `Trial ends ${formatDateTime(entitlements.trialEndsAt)} — upgrade to keep full access`
-                  : "Monthly subscription · renew by completing payment when upgrading"}
-              </CardDescription>
-            </div>
-            <Badge variant="secondary" className="text-sm uppercase tracking-wide">
-              {entitlements.planLabel}
-            </Badge>
+          <div className="space-y-1">
+            <CardTitle>Current plan</CardTitle>
+            <CardDescription>
+              {entitlements.isTrial && entitlements.trialEndsAt
+                ? `Trial ends ${formatDateTime(entitlements.trialEndsAt)} — upgrade to keep full access`
+                : "Monthly subscription · renew by completing payment when upgrading"}
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -126,6 +127,16 @@ export function BillingSettingsClient({
               {entitlements.websitesRemaining} slot{entitlements.websitesRemaining === 1 ? "" : "s"}{" "}
               remaining · Each domain can be reconnected once after removal
             </p>
+          </div>
+
+          <div className="rounded-xl border border-border/30 bg-muted/20 p-4">
+            <div className="flex items-start gap-2">
+              <CalendarClock className="mt-0.5 size-4 shrink-0 text-primary" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Automated scans</p>
+                <p className="text-sm text-muted-foreground">{scanSchedulingCopy}</p>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-3">

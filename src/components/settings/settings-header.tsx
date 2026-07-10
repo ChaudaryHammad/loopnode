@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Pencil, ShieldCheck, ShieldOff, Trash2 } from "lucide-react";
+import {
+  Calendar,
+  Camera,
+  Loader2,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+} from "lucide-react";
 import {
   removeProfileImageAction,
   uploadProfileImageAction,
@@ -10,20 +17,21 @@ import {
 import { cn, formatDate } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user-display";
 import { UserAvatar } from "@/components/user-avatar";
+import { PlanBadge } from "@/components/settings/plan-badge";
+import { useAutoDismiss } from "@/hooks/use-auto-dismiss";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import type { PlanTier } from "@prisma/client";
 
 interface SettingsHeaderProps {
   user: {
     name: string | null;
     email: string;
     emailVerified: Date | string | null;
-    role: string;
     createdAt: Date | string;
     image: string | null;
-    websiteCount: number;
+    plan: PlanTier | null;
+    planLabel: string;
   };
 }
 
@@ -38,6 +46,14 @@ export function SettingsHeader({ user }: SettingsHeaderProps) {
 
   const isPending = isUploadPending || isRemovePending;
   const displayName = getUserDisplayName(user.name, user.email);
+
+  const clearFeedback = useCallback(() => {
+    setMessage(null);
+    setError(null);
+  }, []);
+
+  useAutoDismiss(message, clearFeedback);
+  useAutoDismiss(error, clearFeedback);
 
   useEffect(() => {
     setImage(user.image);
@@ -86,116 +102,108 @@ export function SettingsHeader({ user }: SettingsHeaderProps) {
   };
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-border/40">
-      <div className="h-24 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent" />
-      <CardContent className="relative space-y-4 px-6 pb-6">
-        <div className="-mt-14 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div className="group relative size-24 shrink-0">
-              <UserAvatar
-                name={user.name}
-                email={user.email}
-                image={image}
-                size="xl"
-                className="ring-4 ring-background shadow-md"
-              />
+    <section className="rounded-2xl border border-border/40 bg-card/80 p-5 sm:p-6">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-4 sm:gap-5">
+          <div className="relative shrink-0">
+            <UserAvatar
+              name={user.name}
+              email={user.email}
+              image={image}
+              size="xl"
+              className="ring-2 ring-border/50"
+            />
 
-              <div
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="secondary"
+              className="absolute -bottom-1 -right-1 size-8 rounded-full border border-border/50 shadow-sm"
+              title={image ? "Change photo" : "Upload photo"}
+              disabled={isPending}
+              onClick={() => fileInputRef.current?.click()}
+              aria-label={image ? "Change profile photo" : "Upload profile photo"}
+            >
+              {isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Camera className="size-3.5" />
+              )}
+            </Button>
+
+            {image && !isPending ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                className="absolute -top-1 -right-1 size-7 rounded-full border border-border/50 bg-background/90 text-muted-foreground hover:text-destructive"
+                title="Remove photo"
+                onClick={handleRemove}
+                aria-label="Remove profile photo"
+              >
+                <Trash2 className="size-3" />
+              </Button>
+            ) : null}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              disabled={isPending}
+              onChange={handleFileChange}
+            />
+          </div>
+
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h1 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                {displayName}
+              </h1>
+              <PlanBadge plan={user.plan} planLabel={user.planLabel} />
+            </div>
+
+            <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span
                 className={cn(
-                  "absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-full bg-background/80 opacity-0 backdrop-blur-[1px] transition-opacity",
-                  "group-hover:opacity-100 group-focus-within:opacity-100",
-                  isPending && "opacity-100"
+                  "inline-flex items-center gap-1",
+                  user.emailVerified ? "text-emerald-500" : "text-amber-500"
                 )}
               >
-                {isPending ? (
-                  <Loader2 className="size-6 animate-spin text-primary" />
+                {user.emailVerified ? (
+                  <>
+                    <ShieldCheck className="size-3.5" />
+                    Verified
+                  </>
                 ) : (
                   <>
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      className="size-8 rounded-full shadow-md"
-                      title={image ? "Change photo" : "Upload photo"}
-                      onClick={() => fileInputRef.current?.click()}
-                      aria-label={image ? "Change profile photo" : "Upload profile photo"}
-                    >
-                      <Pencil className="size-3.5" />
-                    </Button>
-
-                    {image && (
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="destructive"
-                        className="size-8 rounded-full shadow-md"
-                        title="Remove photo"
-                        onClick={handleRemove}
-                        aria-label="Remove profile photo"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    )}
+                    <ShieldOff className="size-3.5" />
+                    Not verified
                   </>
                 )}
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                disabled={isPending}
-                onChange={handleFileChange}
-              />
+              </span>
+              <span className="hidden text-border sm:inline">·</span>
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="size-3.5" />
+                Member since {formatDate(user.createdAt)}
+              </span>
             </div>
-
-            <div className="space-y-2 pb-1">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                  {displayName}
-                </h1>
-                <p className="text-sm text-muted-foreground">{user.email}</p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {user.emailVerified ? (
-                  <Badge variant="outline" className="border-emerald-500/30 text-emerald-600">
-                    <ShieldCheck className="size-3" />
-                    Verified
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="border-amber-500/30 text-amber-600">
-                    <ShieldOff className="size-3" />
-                    Not verified
-                  </Badge>
-                )}
-                <Badge variant="secondary" className="uppercase tracking-wide">
-                  {user.role}
-                </Badge>
-                <Badge variant="outline">Member since {formatDate(user.createdAt)}</Badge>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-sm">
-            <p className="text-muted-foreground">Connected websites</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground">
-              {user.websiteCount}
-            </p>
           </div>
         </div>
+      </div>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        {message && (
-          <Alert>
-            <AlertDescription>{message}</AlertDescription>
-          </Alert>
-        )}
-      </CardContent>
-    </Card>
+      {error ? (
+        <Alert variant="destructive" className="mt-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert className="mt-4">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
+    </section>
   );
 }

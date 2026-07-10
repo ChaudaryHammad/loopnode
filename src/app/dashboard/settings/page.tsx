@@ -21,13 +21,8 @@ export default async function SettingsProfilePage() {
   return (
     <ProfileSettingsForm
       user={{
-        id: user.id,
         name: user.name,
         email: user.email,
-        emailVerified: user.emailVerified,
-        role: user.role,
-        createdAt: user.createdAt,
-        image: user.image,
       }}
     />
   );
