@@ -113,7 +113,11 @@ export function WebsiteForm({
   const scanDayOfMonth = watch("scanDayOfMonth");
 
   const nextScanAt = useMemo(() => {
-    if (scanFrequency === ScanFrequency.MANUAL || !canScheduleScans) {
+    if (
+      !scanFrequency ||
+      scanFrequency === ScanFrequency.MANUAL ||
+      !canScheduleScans
+    ) {
       return null;
     }
 
