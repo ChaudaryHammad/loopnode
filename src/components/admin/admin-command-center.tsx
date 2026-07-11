@@ -228,13 +228,7 @@ export function AdminCommandCenter({ data }: { data: CommandCenterData }) {
           </Badge>
         }
       >
-        <AdminUserLocationMap
-          points={data.userLocations.map((user) => ({
-            ...user,
-            signupLat: user.signupLat!,
-            signupLng: user.signupLng!,
-          }))}
-        />
+        <AdminUserLocationMap users={data.userLocations} />
       </Panel>
 
       <Panel

@@ -36,8 +36,19 @@ export async function captureLoginLocation(userId: string): Promise<void> {
   const location = await resolveClientLocation();
   if (!location) return;
 
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { signupLat: true, signupLng: true },
+  });
+
+  const backfillSignup =
+    user != null && (user.signupLat == null || user.signupLng == null);
+
   await prisma.user.update({
     where: { id: userId },
-    data: lastLoginFields(location),
+    data: {
+      ...lastLoginFields(location),
+      ...(backfillSignup ? signupFields(location) : {}),
+    },
   });
 }

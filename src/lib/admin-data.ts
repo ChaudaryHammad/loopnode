@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { PLAN_PRICES_USD } from "@/lib/plans";
+import { getAdminUserLocations } from "@/lib/user-locations-data";
 import type { ContactMessageStatus, PlanTier, SubscriptionStatus } from "@prisma/client";
 
 function startOfToday() {
@@ -230,24 +231,7 @@ export async function getAdminCommandCenter() {
   const attentionCount =
     pendingUpgrades.length + unreadContacts.length + expiringTrials.length;
 
-  const userLocations = await prisma.user.findMany({
-    where: {
-      deletedAt: null,
-      signupLat: { not: null },
-      signupLng: { not: null },
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      signupCountry: true,
-      signupCity: true,
-      signupLat: true,
-      signupLng: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const userLocations = await getAdminUserLocations();
 
   return {
     ...overview,

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button-link";
 import { MarketingFaq } from "@/components/marketing/marketing-faq";
+import { TrustedWorldwideSection } from "@/components/marketing/trusted-worldwide-section";
 
 const VIEWPORT = { once: true, margin: "-50px" };
 
@@ -468,6 +469,8 @@ export function MarketingSections({ isLoggedIn }: MarketingSectionsProps) {
           </div>
         </div>
       </section>
+
+      <TrustedWorldwideSection />
 
       {/* FAQ */}
       <section className="border-t border-border/20">
