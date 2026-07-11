@@ -181,6 +181,18 @@ function RegisterForm() {
               )}
             </div>
 
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+              By creating an account, you agree to our{" "}
+              <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+
             <Button type="submit" disabled={isPending} className="w-full" size="lg">
               {isPending ? (
                 <>

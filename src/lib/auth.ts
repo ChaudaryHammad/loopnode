@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
 import { loginSchema } from "./validations/auth";
+import { captureLoginLocation } from "@/lib/user-location";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -70,6 +71,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const passwordsMatch = await bcrypt.compare(password, user.hashedPassword);
 
           if (passwordsMatch) {
+            void captureLoginLocation(user.id).catch((error) => {
+              console.error("Failed to capture login location:", error);
+            });
+
             return {
               id: user.id,
               name: user.name,

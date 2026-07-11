@@ -1,0 +1,12 @@
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN "signupIp" TEXT,
+ADD COLUMN "signupCountry" TEXT,
+ADD COLUMN "signupCity" TEXT,
+ADD COLUMN "signupLat" DOUBLE PRECISION,
+ADD COLUMN "signupLng" DOUBLE PRECISION,
+ADD COLUMN "lastLoginIp" TEXT,
+ADD COLUMN "lastLoginCountry" TEXT,
+ADD COLUMN "lastLoginCity" TEXT,
+ADD COLUMN "lastLoginLat" DOUBLE PRECISION,
+ADD COLUMN "lastLoginLng" DOUBLE PRECISION,
+ADD COLUMN "lastLoginAt" TIMESTAMP(3);

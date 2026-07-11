@@ -126,6 +126,18 @@ model User {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime? // Soft delete
 
+  signupIp          String?
+  signupCountry     String?
+  signupCity        String?
+  signupLat         Float?
+  signupLng         Float?
+  lastLoginIp       String?
+  lastLoginCountry  String?
+  lastLoginCity     String?
+  lastLoginLat      Float?
+  lastLoginLng      Float?
+  lastLoginAt       DateTime?
+
   websites        Website[]
   accounts        Account[]
   sessions        Session[]

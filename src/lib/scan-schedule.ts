@@ -192,6 +192,144 @@ export function formatNextScanCountdown(
   return `in ${parts.slice(0, 2).join(" ")}`;
 }
 
+export type NextScanScheduleState =
+  | "running"
+  | "overdue"
+  | "starting_soon"
+  | "within_hour"
+  | "scheduled";
+
+const STARTING_SOON_MS = 2 * 60_000;
+const OVERDUE_GRACE_MS = 2 * 60_000;
+const WITHIN_HOUR_MS = 60 * 60_000;
+
+export function getNextScanScheduleState(
+  target: Date,
+  now: Date = new Date(),
+  options: { isAuditRunning?: boolean } = {}
+): NextScanScheduleState {
+  if (options.isAuditRunning) {
+    return "running";
+  }
+
+  const diffMs = target.getTime() - now.getTime();
+
+  if (diffMs <= -OVERDUE_GRACE_MS) {
+    return "overdue";
+  }
+
+  if (diffMs <= STARTING_SOON_MS) {
+    return "starting_soon";
+  }
+
+  if (diffMs <= WITHIN_HOUR_MS) {
+    return "within_hour";
+  }
+
+  return "scheduled";
+}
+
+export function getNextScanTickIntervalMs(state: NextScanScheduleState): number {
+  if (state === "running") {
+    return 30_000;
+  }
+  if (state === "starting_soon" || state === "within_hour") {
+    return 1_000;
+  }
+  return 60_000;
+}
+
+function formatCountdownWithSeconds(diffMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1_000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+  }
+
+  return `${seconds}s`;
+}
+
+function formatNextScanShortTime(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: timezone,
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
+export interface NextScanScheduleDisplay {
+  state: NextScanScheduleState;
+  primary: string;
+  secondary: string | null;
+  title: string;
+  pulse: boolean;
+}
+
+export function getNextScanScheduleDisplay(
+  target: Date,
+  timezone: string,
+  now: Date = new Date(),
+  options: { isAuditRunning?: boolean } = {}
+): NextScanScheduleDisplay {
+  const state = getNextScanScheduleState(target, now, options);
+  const formatted = formatNextScanAt(target, timezone);
+  const shortTime = formatNextScanShortTime(target, timezone);
+  const diffMs = target.getTime() - now.getTime();
+  const title = formatted ?? shortTime;
+
+  if (state === "running") {
+    return {
+      state,
+      primary: "Audit in progress",
+      secondary: "Scheduled run paused until this audit finishes",
+      title,
+      pulse: false,
+    };
+  }
+
+  if (state === "overdue") {
+    return {
+      state,
+      primary: "Queued — starting shortly",
+      secondary: shortTime,
+      title,
+      pulse: true,
+    };
+  }
+
+  if (state === "starting_soon") {
+    return {
+      state,
+      primary: "Starting soon…",
+      secondary: diffMs > 0 ? `Starts in ${formatCountdownWithSeconds(diffMs)}` : "Worker should pick this up momentarily",
+      title,
+      pulse: true,
+    };
+  }
+
+  if (state === "within_hour") {
+    return {
+      state,
+      primary: `Starts in ${formatCountdownWithSeconds(diffMs)}`,
+      secondary: shortTime,
+      title,
+      pulse: false,
+    };
+  }
+
+  return {
+    state,
+    primary: `Next audit · ${shortTime}`,
+    secondary: formatNextScanCountdown(target, now, { compact: true }),
+    title,
+    pulse: false,
+  };
+}
+
 export function canUseAutomatedScans(frequency: ScanFrequency): boolean {
   return frequency !== ScanFrequency.MANUAL;
 }

@@ -416,12 +416,12 @@ export function WebsiteOverviewClient({
               {website.scanFrequency.toLowerCase()} schedule
             </Badge>
             {website.nextScanAt && website.scanFrequency !== "MANUAL" ? (
-              <Badge variant="outline" className="font-normal gap-1">
-                <CalendarClock className="w-3 h-3" />
+              <Badge variant="outline" className="font-normal gap-1 max-w-full">
                 <NextScanSchedule
                   nextScanAt={website.nextScanAt}
                   timezone={website.scanTimezone ?? "UTC"}
-                  variant="compact"
+                  variant="chip"
+                  isAuditRunning={isRunning}
                 />
               </Badge>
             ) : null}
@@ -677,6 +677,7 @@ export function WebsiteOverviewClient({
                     nextScanAt={website.nextScanAt}
                     timezone={website.scanTimezone ?? "UTC"}
                     variant="block"
+                    isAuditRunning={isRunning}
                     className="text-right"
                   />
                 </div>

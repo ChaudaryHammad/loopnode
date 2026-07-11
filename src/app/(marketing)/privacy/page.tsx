@@ -18,6 +18,9 @@ export default function PrivacyPage() {
         <p>
           We collect information you provide directly to us, such as when you create or modify your account, request on-demand services, contact customer support, or otherwise communicate with us. This information may include: name, email, phone number, postal address, profile picture, payment method, and other information you choose to provide.
         </p>
+        <p>
+          When you sign up or sign in, we automatically collect your IP address and derive an approximate location (such as country and city) from it. We use this information for analytics, fraud prevention, security monitoring, and to understand where our users are located. We do not collect precise GPS location from your device unless you explicitly grant permission in your browser.
+        </p>
 
         <h2 className="text-xl font-bold text-foreground">2. Use of Information</h2>
         <p>

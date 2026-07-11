@@ -20,6 +20,7 @@ import {
   renderPasswordResetSuccessEmail,
 } from "@/lib/email/templates";
 import { verifyRecaptcha } from "@/lib/recaptcha";
+import { captureSignupLocation } from "@/lib/user-location";
 
 export async function loginAction(values: any) {
   const parsed = loginSchema.safeParse(values);
@@ -98,6 +99,10 @@ export async function registerAction(values: any) {
     });
 
     await createTrialSubscription(user.id);
+
+    await captureSignupLocation(user.id).catch((error) => {
+      console.error("Failed to capture signup location:", error);
+    });
 
     const token = generateSecureToken();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
