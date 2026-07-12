@@ -20,23 +20,20 @@ export interface ProbeResult {
   errorMessage: string | null;
   finalUrl: string | null;
   keywordMatched: boolean | null;
+  usedMethod?: MonitorHttpMethod;
   bodySnippet?: string;
 }
 
-export async function probeUrl(input: ProbeInput): Promise<ProbeResult> {
+async function executeProbe(
+  input: ProbeInput,
+  method: MonitorHttpMethod
+): Promise<ProbeResult> {
   const timeoutMs = input.timeoutMs ?? UPTIME_CHECK_TIMEOUT_MS;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const started = Date.now();
 
   try {
-    const needsBody =
-      input.keywordMode &&
-      input.keywordMode !== "NONE" &&
-      Boolean(input.keyword?.trim());
-
-    const method = needsBody ? "GET" : input.method;
-
     const response = await fetch(input.url, {
       method,
       redirect: input.followRedirects === false ? "manual" : "follow",
@@ -54,19 +51,21 @@ export async function probeUrl(input: ProbeInput): Promise<ProbeResult> {
       httpStatus >= input.expectedStatusMin && httpStatus <= input.expectedStatusMax;
 
     let keywordMatched: boolean | null = null;
-    if (needsBody && input.keyword) {
+    const needsBody =
+      input.keywordMode &&
+      input.keywordMode !== "NONE" &&
+      Boolean(input.keyword?.trim());
+
+    if (needsBody && input.keyword && method === "GET") {
       const text = await response.text();
       const haystack = text.slice(0, 500_000);
       const found = haystack.includes(input.keyword);
       keywordMatched = input.keywordMode === "CONTAINS" ? found : !found;
-    } else {
-      // Drain body for GET without keyword to free the connection
-      if (method === "GET") {
-        try {
-          await response.arrayBuffer();
-        } catch {
-          /* ignore */
-        }
+    } else if (method === "GET") {
+      try {
+        await response.arrayBuffer();
+      } catch {
+        /* ignore */
       }
     }
 
@@ -91,6 +90,7 @@ export async function probeUrl(input: ProbeInput): Promise<ProbeResult> {
       errorMessage,
       finalUrl: response.url || input.url,
       keywordMatched,
+      usedMethod: method,
     };
   } catch (err) {
     const latencyMs = Date.now() - started;
@@ -109,8 +109,33 @@ export async function probeUrl(input: ProbeInput): Promise<ProbeResult> {
       errorMessage: message,
       finalUrl: null,
       keywordMatched: null,
+      usedMethod: method,
     };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Probe a URL. Many CDNs/static hosts reject HEAD with 405 — automatically
+ * retry once with GET when that happens (UptimeRobot/Better Stack style).
+ */
+export async function probeUrl(input: ProbeInput): Promise<ProbeResult> {
+  const needsBody =
+    input.keywordMode &&
+    input.keywordMode !== "NONE" &&
+    Boolean(input.keyword?.trim());
+
+  const primary: MonitorHttpMethod = needsBody ? "GET" : input.method;
+  const first = await executeProbe(input, primary);
+
+  if (
+    primary === "HEAD" &&
+    first.httpStatus === 405 &&
+    !needsBody
+  ) {
+    return executeProbe(input, "GET");
+  }
+
+  return first;
 }

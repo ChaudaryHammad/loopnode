@@ -39,23 +39,24 @@ export function Topbar({ user, onMenuClick }: TopbarProps) {
     const segments = pathname.split("/").filter(Boolean);
     if (segments.length === 0) return [{ name: "Dashboard", href: "/dashboard" }];
 
-    return segments.map((segment, index) => {
-      const href = "/" + segments.slice(0, index + 1).join("/");
-      let name = segment.charAt(0).toUpperCase() + segment.slice(1);
+    const isIdSegment = (segment: string) =>
+      segment.length > 15 && (/^[a-z0-9]+$/i.test(segment) || segment.includes("-"));
 
-      if (name.length > 15 && (name.startsWith("Cl") || name.match(/[0-9]/))) {
-        name = "Details";
-      }
+    return segments
+      .map((segment, index) => {
+        const href = "/" + segments.slice(0, index + 1).join("/");
+        let name = segment.charAt(0).toUpperCase() + segment.slice(1);
 
-      if (name === "Dashboard") name = "Overview";
-      if (name === "Websites") name = "Websites";
-      if (name === "Reports") name = "Reports";
-      if (name === "Issues") name = "Issues";
-      if (name === "Settings") name = "Settings";
-      if (name === "Billing") name = "Billing";
+        // Skip opaque IDs (cuid/uuid) — avoid "Details" crumbs
+        if (isIdSegment(segment)) return null;
 
-      return { name, href };
-    });
+        if (name === "Dashboard") name = "Overview";
+        if (name === "Broken-links") name = "Broken links";
+        if (name === "Seo") name = "SEO";
+
+        return { name, href };
+      })
+      .filter((crumb): crumb is { name: string; href: string } => crumb != null);
   };
 
   const breadcrumbs = getBreadcrumbs();

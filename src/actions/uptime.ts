@@ -180,7 +180,7 @@ export async function runMonitorNowAction(websiteId: string) {
         websiteId: website.id,
         enabled: true,
         url: website.url,
-        method: MonitorHttpMethod.HEAD,
+        method: MonitorHttpMethod.GET,
         intervalSeconds: Math.max(
           DEFAULT_UPTIME_INTERVAL_SECONDS,
           entitlements.minUptimeIntervalSeconds

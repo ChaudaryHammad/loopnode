@@ -13,18 +13,56 @@ interface RecentActivityProps {
   logs: Log[];
 }
 
+/** User-facing labels for known actions (keeps older DB rows readable too). */
+function formatActivityLabel(action: string, description: string | null): string {
+  switch (action) {
+    case "USER_REGISTERED":
+      return "Welcome aboard — your LoopNode account is ready";
+    case "EMAIL_VERIFIED":
+      return "You're all set — email verified successfully";
+    case "PASSWORD_RESET":
+      return "Your password was updated successfully";
+    case "WEBSITE_CREATED":
+      return description?.replace(/^Connected website/, "Connected") ?? "Website connected";
+    case "WEBSITE_UPDATED":
+      return description?.replace(/^Updated website/, "Updated") ?? "Website updated";
+    case "WEBSITE_DELETED":
+      return description?.replace(/^Soft-deleted website/, "Removed") ?? "Website removed";
+    default:
+      break;
+  }
+
+  // Soften leftover system-style "… for email@…" strings from older logs
+  if (description) {
+    return description
+      .replace(/^User account created for\s+\S+/i, "Welcome aboard — your LoopNode account is ready")
+      .replace(/^Account created$/i, "Welcome aboard — your LoopNode account is ready")
+      .replace(/^Email verified for\s+\S+/i, "You're all set — email verified successfully")
+      .replace(/^Email verified$/i, "You're all set — email verified successfully")
+      .replace(/^Password reset completed for\s+\S+/i, "Your password was updated successfully")
+      .replace(/^Password updated$/i, "Your password was updated successfully");
+  }
+
+  return action
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export function RecentActivity({ logs }: RecentActivityProps) {
   const getActionIcon = (action: string) => {
     switch (action) {
       case "USER_REGISTERED":
       case "EMAIL_VERIFIED":
-        return <UserCheck className="w-4 h-4 text-green-500" />;
+      case "PASSWORD_RESET":
+        return <UserCheck className="w-4 h-4 text-emerald-400" />;
       case "WEBSITE_CREATED":
-        return <PlusCircle className="w-4 h-4 text-blue-500" />;
+        return <PlusCircle className="w-4 h-4 text-blue-400" />;
       case "WEBSITE_UPDATED":
-        return <RefreshCw className="w-4 h-4 text-amber-500" />;
+        return <RefreshCw className="w-4 h-4 text-amber-400" />;
       case "WEBSITE_DELETED":
-        return <Trash className="w-4 h-4 text-rose-500" />;
+        return <Trash className="w-4 h-4 text-rose-400" />;
       case "SCAN_STARTED":
       case "SCAN_COMPLETED":
         return <Activity className="w-4 h-4 text-primary" />;
@@ -73,7 +111,7 @@ export function RecentActivity({ logs }: RecentActivityProps) {
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-foreground leading-tight">
-                    {log.description || log.action.replace("_", " ")}
+                    {formatActivityLabel(log.action, log.description)}
                   </p>
                   <span className="block text-[10px] text-muted-foreground font-medium">
                     {formatRelativeTime(log.createdAt)}
@@ -85,7 +123,7 @@ export function RecentActivity({ logs }: RecentActivityProps) {
         ) : (
           <div className="flex flex-col items-center justify-center text-center h-full text-muted-foreground space-y-2 py-10">
             <Clock className="w-8 h-8 text-muted-foreground/40" />
-            <p className="text-xs">No activity logs recorded yet.</p>
+            <p className="text-xs">No recent activity yet.</p>
           </div>
         )}
       </CardContent>

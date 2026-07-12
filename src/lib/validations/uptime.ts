@@ -20,7 +20,7 @@ export const uptimeMonitorSchema = z
         }
       })
       .transform((val) => normalizeWebsiteUrl(val) as string),
-    method: z.nativeEnum(MonitorHttpMethod).default(MonitorHttpMethod.HEAD),
+    method: z.nativeEnum(MonitorHttpMethod).default(MonitorHttpMethod.GET),
     expectedStatusMin: z.number().int().min(100).max(599).default(200),
     expectedStatusMax: z.number().int().min(100).max(599).default(399),
     intervalSeconds: z.number().int().refine((v) => intervalValues.includes(v), {

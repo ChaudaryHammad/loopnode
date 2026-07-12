@@ -23,11 +23,9 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8 select-none">
       <div className="border-b border-border/20 pb-6">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          Overview Dashboard
-        </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-          Welcome back! Here is a summary of your connected websites&apos; compliance status.
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Overview</h1>
+        <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+          Uptime, audits, and issues across your connected websites.
         </p>
       </div>
 

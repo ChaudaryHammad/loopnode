@@ -438,7 +438,7 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="w-full max-w-6xl space-y-4">
       {(error || message) && (
         <Alert variant={error ? "destructive" : "default"} className="py-2.5">
           <AlertDescription className="flex items-center justify-between gap-3 text-sm">

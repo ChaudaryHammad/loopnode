@@ -103,7 +103,7 @@ export function WebsiteOverviewLoader() {
 
 export function BrokenLinksPageLoader() {
   return (
-    <div className="space-y-6 max-w-6xl mx-auto" aria-busy="true">
+    <div className="w-full max-w-6xl space-y-6" aria-busy="true">
       <Skeleton className="h-36 rounded-2xl" />
       <div className="grid gap-3 sm:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -115,6 +115,46 @@ export function BrokenLinksPageLoader() {
         <Skeleton className="h-16 rounded-xl" />
         <Skeleton className="h-28 rounded-xl" />
         <Skeleton className="h-28 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+export function MonitoringPageLoader() {
+  return (
+    <div className="w-full max-w-6xl space-y-8 pb-12" aria-busy="true">
+      <div className="space-y-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-2.5 w-2.5 rounded-full" />
+              <Skeleton className="h-5 w-14 rounded-full" />
+            </div>
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-4 w-72 max-w-full" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-24 rounded-lg" />
+            <Skeleton className="h-8 w-20 rounded-lg" />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-5">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+      </div>
+
+      <Skeleton className="h-[88px] w-full rounded-xl" />
+
+      <div className="space-y-6">
+        <div className="flex gap-4 border-b border-border/40 pb-3">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-14" />
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+        <Skeleton className="h-80 w-full rounded-xl" />
       </div>
     </div>
   );

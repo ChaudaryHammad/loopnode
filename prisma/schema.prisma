@@ -284,7 +284,7 @@ model WebsiteMonitor {
   enabled              Boolean           @default(false)
   paused               Boolean           @default(false)
   url                  String
-  method               MonitorHttpMethod @default(HEAD)
+  method               MonitorHttpMethod @default(GET)
   expectedStatusMin    Int               @default(200)
   expectedStatusMax    Int               @default(399)
   intervalSeconds      Int               @default(300)

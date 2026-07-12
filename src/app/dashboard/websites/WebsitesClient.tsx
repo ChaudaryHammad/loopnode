@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { WebsiteCard } from "@/components/websites/website-card";
 import { WebsiteTable } from "@/components/websites/website-table";
@@ -54,6 +54,13 @@ export default function WebsitesClient({
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [view, setView] = useState<"grid" | "table">("grid");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("connect") === "1") {
+      setModalOpen(true);
+    }
+  }, []);
 
   const filtered = initialWebsites.filter(
     (site) =>

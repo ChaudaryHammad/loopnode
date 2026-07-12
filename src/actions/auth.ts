@@ -119,7 +119,7 @@ export async function registerAction(values: any) {
       data: {
         userId: user.id,
         action: "USER_REGISTERED",
-        description: `User account created for ${normalizedEmail}`,
+        description: "Welcome aboard — your LoopNode account is ready",
       },
     });
 
@@ -258,7 +258,7 @@ export async function resetPasswordAction(token: string, values: any) {
       data: {
         userId: user.id,
         action: "PASSWORD_RESET",
-        description: `Password reset completed for ${dbToken.email}`,
+        description: "Your password was updated successfully",
       },
     });
 
@@ -312,7 +312,7 @@ export async function verifyEmailAction(token: string) {
       data: {
         userId: user.id,
         action: "EMAIL_VERIFIED",
-        description: `Email verified for ${dbToken.email}`,
+        description: "You're all set — email verified successfully",
       },
     });
 

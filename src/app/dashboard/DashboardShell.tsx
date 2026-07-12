@@ -47,9 +47,9 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
         <main
           ref={mainRef}
           tabIndex={-1}
-          className="flex-1 overflow-y-auto px-6 py-8 outline-none"
+          className="flex-1 overflow-y-auto px-6 py-8 outline-none lg:px-8"
         >
-          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-300">
+          <div className="w-full max-w-[1600px] space-y-8 animate-in fade-in duration-300">
             {children}
           </div>
         </main>
