@@ -44,6 +44,27 @@ export async function upsertMonitorAction(raw: unknown) {
   if (!website) return { success: false as const, error: "Website not found." };
 
   const now = new Date();
+  const existing = website.monitor;
+  const intervalChanged =
+    !!existing && existing.intervalSeconds !== data.intervalSeconds;
+
+  // Schedule rules (Trigger.dev reads these from DB each minute):
+  // - paused / disabled → null (never due)
+  // - interval changed → recompute from last check using the new cadence
+  // - otherwise keep a future nextCheckAt, or run ASAP if overdue/missing
+  let scheduledNext: Date | null = null;
+  if (data.enabled && !data.paused) {
+    if (intervalChanged) {
+      const base = existing?.lastCheckedAt ?? now;
+      const candidate = new Date(base.getTime() + data.intervalSeconds * 1000);
+      scheduledNext = candidate > now ? candidate : now;
+    } else if (existing?.nextCheckAt && existing.nextCheckAt > now) {
+      scheduledNext = existing.nextCheckAt;
+    } else {
+      scheduledNext = now;
+    }
+  }
+
   const monitor = await prisma.websiteMonitor.upsert({
     where: { websiteId: website.id },
     create: {
@@ -86,18 +107,13 @@ export async function upsertMonitorAction(raw: unknown) {
       slowThresholdMs: data.slowThresholdMs ?? null,
       checkSsl: data.checkSsl,
       sslWarnDays: data.sslWarnDays,
-      nextCheckAt:
-        data.enabled && !data.paused
-          ? website.monitor?.nextCheckAt && website.monitor.nextCheckAt > now
-            ? website.monitor.nextCheckAt
-            : now
-          : null,
+      nextCheckAt: scheduledNext,
       lastStatus: data.paused
         ? "PAUSED"
         : data.enabled
-          ? website.monitor?.lastStatus === "PAUSED"
+          ? existing?.lastStatus === "PAUSED"
             ? "UNKNOWN"
-            : website.monitor?.lastStatus ?? "UNKNOWN"
+            : existing?.lastStatus ?? "UNKNOWN"
           : "PAUSED",
     },
   });

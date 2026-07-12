@@ -20,12 +20,21 @@
 
   | Action | When it takes effect |
   |---|---|
-  | Click **Save settings** | Immediately stored. The **next** scheduled check (or **Run check**) uses the new values. |
-  | **Run check** | Uses whatever is already saved — unsaved form changes are ignored. |
-  | **Pause / Resume** | Immediate. Pause skips scheduled checks until resumed. **Run check** is disabled while paused — resume first. |
-  | **Disable monitor** | Immediate. Stops all checks until you enable + save again. |
+  | Click **Save settings** | Immediately stored in the DB. Trigger.dev reads these on its next minute tick. |
+  | Change **check interval** (1m / 15m / 1h) | Saved `intervalSeconds` is used for every future schedule. Next run is recalculated from the last check using the new interval (or ASAP if that time is already past). |
+  | **Pause / Resume** | Immediate. Pause sets `paused=true` and clears `nextCheckAt`. Trigger still wakes every minute, but **this monitor is skipped** — no probe, no emails. Resume schedules the next check immediately. |
+  | **Disable monitor** | Immediate. Clears schedule; no Trigger executions for that monitor until re-enabled. |
+  | **Run check** | Uses whatever is already saved — unsaved form changes are ignored. Blocked while paused/disabled. |
 
   Changing fields in the form does nothing until you save.
+
+  ### How Trigger.dev fits in
+
+  The Trigger task is a **1-minute heartbeat**, not a per-monitor job. Each tick only runs monitors where:
+
+  `enabled = true` AND `paused = false` AND (`nextCheckAt` is null or due)
+
+  So pausing never “cancels Trigger” globally — it correctly stops **your** monitor from being selected.
 
   ---
 

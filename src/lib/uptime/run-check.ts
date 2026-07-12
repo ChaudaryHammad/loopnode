@@ -35,7 +35,9 @@ export async function runMonitorCheck(monitorId: string): Promise<{
       where: { id: monitor.id },
       data: {
         lastStatus: "PAUSED",
-        nextCheckAt: monitor.enabled ? nextCheckAt(monitor.intervalSeconds) : null,
+        // Never leave a due timestamp while paused/disabled — Trigger would
+        // otherwise pick this up the moment the monitor is resumed incorrectly.
+        nextCheckAt: null,
       },
     });
     return { result: "ERROR", latencyMs: 0 };
