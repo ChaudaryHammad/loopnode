@@ -40,6 +40,20 @@ export default async function WebsiteOverviewPage({ params }: Props) {
         orderBy: { createdAt: "desc" },
         take: 1,
       },
+      monitor: {
+        select: {
+          enabled: true,
+          paused: true,
+          lastStatus: true,
+          lastLatencyMs: true,
+          uptimePercent24h: true,
+          sslDaysRemaining: true,
+          incidents: {
+            where: { resolvedAt: null },
+            select: { id: true },
+          },
+        },
+      },
     },
   });
 
@@ -99,11 +113,27 @@ export default async function WebsiteOverviewPage({ params }: Props) {
       }
     : null;
 
+  const serializedMonitor = website.monitor
+    ? {
+        enabled: website.monitor.enabled,
+        paused: website.monitor.paused,
+        lastStatus:
+          website.monitor.paused || !website.monitor.enabled
+            ? "PAUSED"
+            : website.monitor.lastStatus,
+        lastLatencyMs: website.monitor.lastLatencyMs,
+        uptimePercent24h: website.monitor.uptimePercent24h,
+        sslDaysRemaining: website.monitor.sslDaysRemaining,
+        openIncidents: website.monitor.incidents.length,
+      }
+    : null;
+
   return (
     <WebsiteOverviewClient
       website={serializedWebsite}
       scans={serializedScans}
       latestBrokenLinkScan={serializedBrokenLinkScan}
+      monitor={serializedMonitor}
     />
   );
 }

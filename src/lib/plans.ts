@@ -28,6 +28,12 @@ export const PLAN_SCAN_SCHEDULING = {
 
 export const PLAN_SCAN_FREQUENCIES = ["Daily", "Weekly", "Monthly"] as const;
 
+export const PLAN_UPTIME_INTERVALS = {
+  STARTER: "15-minute and hourly checks",
+  PRO: "5-minute checks (and slower)",
+  AGENCY: "1-minute checks (and slower)",
+} as const;
+
 export function formatPlanTier(plan: PlanTier | null | undefined) {
   if (!plan) return "No plan";
   return PLAN_LABELS[plan];

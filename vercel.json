@@ -2,6 +2,15 @@
   "functions": {
     "src/app/api/broken-links/pdf/route.ts": {
       "maxDuration": 30
+    },
+    "src/app/api/cron/uptime-checks/route.ts": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/uptime-checks",
+      "schedule": "* * * * *"
+    }
+  ]
 }

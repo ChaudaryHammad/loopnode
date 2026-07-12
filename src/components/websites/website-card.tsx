@@ -29,6 +29,8 @@ interface Website {
   latestScan: WebsiteListScan | null;
   runningScan: WebsiteListScan | null;
   displayScan: WebsiteListScan | null;
+  monitorStatus?: string | null;
+  monitorEnabled?: boolean;
 }
 
 interface WebsiteCardProps {
@@ -168,9 +170,34 @@ export function WebsiteCard({ website }: WebsiteCardProps) {
       </CardContent>
 
       <CardFooter className="flex items-center justify-between border-t border-border/30">
-        <Badge variant="secondary" className="uppercase text-[10px] tracking-wider">
-          {website.scanFrequency.toLowerCase()}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="uppercase text-[10px] tracking-wider">
+            {website.scanFrequency.toLowerCase()}
+          </Badge>
+          {website.monitorEnabled ? (
+            <Badge
+              variant="outline"
+              className={cn(
+                "uppercase text-[10px] tracking-wider",
+                website.monitorStatus === "UP"
+                  ? "text-emerald-400 border-emerald-500/25"
+                  : website.monitorStatus === "DOWN"
+                    ? "text-rose-400 border-rose-500/25"
+                    : website.monitorStatus === "DEGRADED"
+                      ? "text-amber-400 border-amber-500/25"
+                      : "text-muted-foreground"
+              )}
+            >
+              {website.monitorStatus === "UP"
+                ? "Up"
+                : website.monitorStatus === "DOWN"
+                  ? "Down"
+                  : website.monitorStatus === "DEGRADED"
+                    ? "Slow"
+                    : "Paused"}
+            </Badge>
+          ) : null}
+        </div>
 
         <div className="flex items-center gap-3">
           {isRunning ? (

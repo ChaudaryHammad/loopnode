@@ -1,21 +1,16 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  Activity, 
-  LayoutDashboard, 
-  Globe, 
-  FileText, 
-  AlertTriangle, 
-  Settings, 
-  X,
-  LogOut,
-  Shield,
-} from "lucide-react";
+import { Activity, X, LogOut, Shield, ChevronDown } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
+import {
+  DASHBOARD_NAV,
+  isChildNavActive,
+  isNavActive,
+} from "@/components/layout/dashboard-nav";
 
 interface MobileNavProps {
   isOpen: boolean;
@@ -25,41 +20,39 @@ interface MobileNavProps {
 
 export function MobileNav({ isOpen, onClose, isAdmin = false }: MobileNavProps) {
   const pathname = usePathname();
+  const websitesSectionActive =
+    isNavActive(pathname, "/dashboard/websites") ||
+    pathname.startsWith("/dashboard/monitoring") ||
+    pathname.startsWith("/dashboard/broken-links");
 
-  // Close mobile drawer on route change
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    Websites: true,
+  });
+
   useEffect(() => {
     onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- close only on route change
   }, [pathname]);
+
+  useEffect(() => {
+    if (websitesSectionActive) {
+      setOpenGroups((prev) => ({ ...prev, Websites: true }));
+    }
+  }, [websitesSectionActive]);
 
   if (!isOpen) return null;
 
-  const menuItems = [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Websites", href: "/dashboard/websites", icon: Globe },
-    { name: "Reports", href: "/dashboard/reports", icon: FileText },
-    { name: "Issue Center", href: "/dashboard/issues", icon: AlertTriangle },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  ];
-
   return (
     <div className="fixed inset-0 z-50 md:hidden animate-in fade-in duration-200 select-none">
-      {/* Backdrop */}
-      <div 
-        onClick={onClose}
-        className="fixed inset-0 bg-background/80 backdrop-blur-sm"
-      />
+      <div onClick={onClose} className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
 
-      {/* Drawer Content */}
       <div className="fixed inset-y-0 left-0 w-72 bg-card border-r border-border/40 flex flex-col h-full shadow-2xl animate-in slide-in-from-left duration-300">
-        {/* Header */}
         <div className="flex items-center h-16 px-6 border-b border-border/40 justify-between">
           <Link href="/dashboard" className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary">
               <Activity className="w-4 h-4" />
             </div>
-            <span className="font-bold text-sm tracking-tight">
-              LoopNode
-            </span>
+            <span className="font-bold text-sm tracking-tight">LoopNode</span>
           </Link>
           <button
             onClick={onClose}
@@ -69,18 +62,69 @@ export function MobileNav({ isOpen, onClose, isAdmin = false }: MobileNavProps) 
           </button>
         </div>
 
-        {/* Links */}
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-          {menuItems.map((item) => {
+        <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+          {DASHBOARD_NAV.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const active = isNavActive(pathname, item.href, item.exact);
+            const hasChildren = Boolean(item.children?.length);
+            const expanded = Boolean(openGroups[item.name]);
+
+            if (hasChildren) {
+              return (
+                <div key={item.name} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenGroups((prev) => ({
+                        ...prev,
+                        [item.name]: !expanded,
+                      }))
+                    }
+                    className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-foreground/90 hover:bg-secondary/20 transition-colors"
+                  >
+                    <Icon className="w-4 h-4 text-muted-foreground" />
+                    <span className="flex-1 text-left">{item.name}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${
+                        expanded ? "rotate-0" : "-rotate-90"
+                      }`}
+                    />
+                  </button>
+
+                  {expanded ? (
+                    <div className="relative ml-[1.35rem] pl-4 space-y-0.5">
+                      <span
+                        aria-hidden
+                        className="absolute left-0 top-1 bottom-1 w-px bg-border/70"
+                      />
+                      {item.children!.map((child) => {
+                        const childActive = isChildNavActive(pathname, child.href);
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={`relative block rounded-md px-2.5 py-2 text-[13px] transition-colors ${
+                              childActive
+                                ? "text-foreground font-medium bg-secondary/25"
+                                : "text-muted-foreground hover:text-foreground hover:bg-secondary/15"
+                            }`}
+                          >
+                            {child.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            }
 
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  isActive
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  active
                     ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/30"
                 }`}
@@ -90,6 +134,7 @@ export function MobileNav({ isOpen, onClose, isAdmin = false }: MobileNavProps) 
               </Link>
             );
           })}
+
           {isAdmin && (
             <Link
               href="/admin"
@@ -101,7 +146,6 @@ export function MobileNav({ isOpen, onClose, isAdmin = false }: MobileNavProps) 
           )}
         </nav>
 
-        {/* Logout button in drawer footer */}
         <div className="p-4 border-t border-border/40">
           <Button
             variant="ghost"

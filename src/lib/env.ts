@@ -31,6 +31,8 @@ const envSchema = z
     TRIGGER_PROJECT_REF: z.string().optional(),
 
     NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL"),
+    /** Bearer token for Vercel Cron uptime routes. Required in production. */
+    CRON_SECRET: z.string().optional(),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   })
   .superRefine((data, ctx) => {
@@ -72,6 +74,7 @@ const getEnvData = () => {
       TRIGGER_SECRET_KEY: process.env.TRIGGER_SECRET_KEY,
       TRIGGER_PROJECT_REF: process.env.TRIGGER_PROJECT_REF,
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+      CRON_SECRET: process.env.CRON_SECRET,
       NODE_ENV: process.env.NODE_ENV,
     };
   } else {

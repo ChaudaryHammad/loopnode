@@ -41,6 +41,13 @@ export default async function WebsitesPage() {
           createdAt: true,
         },
       },
+      monitor: {
+        select: {
+          enabled: true,
+          paused: true,
+          lastStatus: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   }),
@@ -74,6 +81,12 @@ export default async function WebsitesPage() {
       latestScan,
       runningScan,
       displayScan,
+      monitorEnabled: site.monitor?.enabled ?? false,
+      monitorStatus: site.monitor
+        ? site.monitor.paused || !site.monitor.enabled
+          ? "PAUSED"
+          : site.monitor.lastStatus
+        : null,
     };
   });
 

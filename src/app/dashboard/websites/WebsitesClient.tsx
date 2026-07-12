@@ -38,6 +38,8 @@ interface Website {
   latestScan: Scan | null;
   runningScan: Scan | null;
   displayScan: Scan | null;
+  monitorEnabled?: boolean;
+  monitorStatus?: string | null;
 }
 
 interface WebsitesClientProps {

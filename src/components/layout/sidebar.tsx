@@ -1,34 +1,41 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  Activity, 
-  LayoutDashboard, 
-  Globe, 
-  FileText, 
-  AlertTriangle, 
-  Settings, 
-  ChevronLeft, 
+import {
+  Activity,
+  ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Shield,
 } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
+import {
+  DASHBOARD_NAV,
+  isChildNavActive,
+  isNavActive,
+} from "@/components/layout/dashboard-nav";
 
 export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const websitesSectionActive =
+    isNavActive(pathname, "/dashboard/websites") ||
+    pathname.startsWith("/dashboard/monitoring") ||
+    pathname.startsWith("/dashboard/broken-links");
 
-  const menuItems = [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Websites", href: "/dashboard/websites", icon: Globe },
-    { name: "Reports", href: "/dashboard/reports", icon: FileText },
-    { name: "Issue Center", href: "/dashboard/issues", icon: AlertTriangle },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  ];
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    Websites: websitesSectionActive,
+  });
+
+  useEffect(() => {
+    if (websitesSectionActive) {
+      setOpenGroups((prev) => ({ ...prev, Websites: true }));
+    }
+  }, [websitesSectionActive]);
 
   return (
     <aside
@@ -36,7 +43,6 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
         collapsed ? "w-20" : "w-64"
       }`}
     >
-      {/* Sidebar Header Brand */}
       <div className="flex items-center h-16 px-6 border-b border-border/40 justify-between">
         <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden select-none">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary shrink-0">
@@ -56,27 +62,80 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
         </button>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-        {menuItems.map((item) => {
+      <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+        {DASHBOARD_NAV.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const active = isNavActive(pathname, item.href, item.exact);
+          const hasChildren = Boolean(item.children?.length);
+          const expanded = Boolean(openGroups[item.name]);
+
+          if (hasChildren && !collapsed) {
+            return (
+              <div key={item.name} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenGroups((prev) => ({
+                      ...prev,
+                      [item.name]: !expanded,
+                    }))
+                  }
+                  className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-foreground/90 hover:bg-secondary/20 transition-colors"
+                >
+                  <Icon className="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate flex-1 text-left">{item.name}</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${
+                      expanded ? "rotate-0" : "-rotate-90"
+                    }`}
+                  />
+                </button>
+
+                {expanded ? (
+                  <div className="relative ml-[1.35rem] pl-4 space-y-0.5">
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1 bottom-1 w-px bg-border/70"
+                    />
+                    {item.children!.map((child) => {
+                      const childActive = isChildNavActive(pathname, child.href);
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={`relative block rounded-md px-2.5 py-2 text-[13px] transition-colors ${
+                            childActive
+                              ? "text-foreground font-medium bg-secondary/25"
+                              : "text-muted-foreground hover:text-foreground hover:bg-secondary/15"
+                          }`}
+                        >
+                          {child.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            );
+          }
 
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
-                isActive
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group ${
+                active
                   ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/30"
               }`}
+              title={collapsed ? item.name : undefined}
             >
-              <Icon className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-105`} />
+              <Icon className="w-4 h-4 shrink-0" />
               {!collapsed && <span className="truncate">{item.name}</span>}
             </Link>
           );
         })}
+
         {isAdmin && (
           <Link
             href="/admin"
@@ -88,7 +147,6 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
         )}
       </nav>
 
-      {/* Logout Footer */}
       <div className="p-4 border-t border-border/40">
         <Button
           variant="ghost"

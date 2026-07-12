@@ -23,6 +23,7 @@ import {
   History,
   TrendingUp,
   Square,
+  Activity,
 } from "lucide-react";
 import { ScoreGauge } from "./score-gauge";
 import { ScoreChart } from "./score-chart";
@@ -90,10 +91,21 @@ interface SerializedBrokenLinkScan {
   createdAt: Date | string;
 }
 
+interface SerializedMonitor {
+  enabled: boolean;
+  paused: boolean;
+  lastStatus: string;
+  lastLatencyMs: number | null;
+  uptimePercent24h: number | null;
+  sslDaysRemaining: number | null;
+  openIncidents: number;
+}
+
 interface WebsiteOverviewClientProps {
   website: SerializedWebsite;
   scans: SerializedScan[];
   latestBrokenLinkScan: SerializedBrokenLinkScan | null;
+  monitor: SerializedMonitor | null;
 }
 
 const SURFACE = "rounded-2xl border border-border/40 bg-card";
@@ -194,7 +206,7 @@ function StatTile({
 }: {
   label: string;
   value: React.ReactNode;
-  tone?: "default" | "good" | "bad";
+  tone?: "default" | "good" | "bad" | "warn";
 }) {
   return (
     <div className="rounded-xl border border-border/30 bg-secondary/10 px-4 py-3">
@@ -203,6 +215,7 @@ function StatTile({
           "text-xl font-bold tabular-nums leading-none",
           tone === "good" && "text-emerald-400",
           tone === "bad" && "text-rose-400",
+          tone === "warn" && "text-amber-400",
           tone === "default" && "text-foreground"
         )}
       >
@@ -277,6 +290,7 @@ export function WebsiteOverviewClient({
   website,
   scans,
   latestBrokenLinkScan,
+  monitor,
 }: WebsiteOverviewClientProps) {
   const serverRunningScan = scans.find((scan) => scan.status === "RUNNING") ?? null;
   const latestCompleted = scans.find((scan) => scan.status === "COMPLETED") ?? null;
@@ -322,6 +336,7 @@ export function WebsiteOverviewClient({
   const host = website.url.replace(/^https?:\/\//, "").split("/")[0];
   const checkerHref = `/dashboard/websites/${website.id}/broken-links`;
   const settingsHref = `/dashboard/websites/${website.id}/settings`;
+  const monitoringHref = `/dashboard/websites/${website.id}/monitoring`;
   const linkScanRunning = latestBrokenLinkScan?.status === "RUNNING";
 
   return (
@@ -584,6 +599,93 @@ export function WebsiteOverviewClient({
         </div>
 
         <aside className="xl:col-span-4 space-y-6">
+          <section className={cn(SURFACE, "p-5 md:p-6 space-y-5")}>
+            <SectionHeader
+              title="Monitoring"
+              description="Uptime, latency, and SSL"
+              action={
+                <ButtonLink href={monitoringHref} variant="ghost" size="sm" className="h-8 px-2">
+                  Open
+                  <ChevronRight className="w-4 h-4" />
+                </ButtonLink>
+              }
+            />
+
+            {monitor?.enabled ? (
+              <div className="grid grid-cols-2 gap-3">
+                <StatTile
+                  label="Status"
+                  value={
+                    <span className="text-base capitalize">
+                      {monitor.lastStatus === "UP"
+                        ? "Up"
+                        : monitor.lastStatus === "DOWN"
+                          ? "Down"
+                          : monitor.lastStatus === "DEGRADED"
+                            ? "Degraded"
+                            : "Paused"}
+                    </span>
+                  }
+                  tone={
+                    monitor.lastStatus === "UP"
+                      ? "good"
+                      : monitor.lastStatus === "DOWN"
+                        ? "bad"
+                        : monitor.lastStatus === "DEGRADED"
+                          ? "warn"
+                          : undefined
+                  }
+                />
+                <StatTile
+                  label="Uptime 24h"
+                  value={
+                    <span className="text-base">
+                      {monitor.uptimePercent24h != null
+                        ? `${monitor.uptimePercent24h.toFixed(1)}%`
+                        : "—"}
+                    </span>
+                  }
+                />
+                <StatTile
+                  label="Latency"
+                  value={
+                    <span className="text-base">
+                      {monitor.lastLatencyMs != null ? `${monitor.lastLatencyMs} ms` : "—"}
+                    </span>
+                  }
+                />
+                <StatTile
+                  label="SSL"
+                  value={
+                    <span className="text-base">
+                      {monitor.sslDaysRemaining != null
+                        ? `${monitor.sslDaysRemaining}d`
+                        : "—"}
+                    </span>
+                  }
+                  tone={
+                    monitor.sslDaysRemaining != null && monitor.sslDaysRemaining <= 14
+                      ? "warn"
+                      : undefined
+                  }
+                />
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/40 bg-secondary/5 p-5 text-center">
+                <Activity className="w-6 h-6 text-muted-foreground mx-auto mb-2 opacity-70" />
+                <p className="text-xs text-muted-foreground">Monitoring not enabled</p>
+              </div>
+            )}
+
+            <ReliableLink
+              href={monitoringHref}
+              className="flex items-center justify-center gap-2 rounded-xl border border-border/30 bg-secondary/5 px-3 py-2.5 text-sm font-medium hover:bg-secondary/15 transition-colors"
+            >
+              <Activity className="w-4 h-4 text-muted-foreground" />
+              {monitor?.enabled ? "View monitor" : "Set up monitoring"}
+            </ReliableLink>
+          </section>
+
           <section className={cn(SURFACE, "p-5 md:p-6 space-y-5")}>
             <SectionHeader
               title="Broken links"

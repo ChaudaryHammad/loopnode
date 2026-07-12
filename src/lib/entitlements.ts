@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { PLAN_LABELS, PLAN_SITE_LIMITS, TRIAL_SITE_LIMIT } from "@/lib/plans";
 import { countActiveWebsites } from "@/lib/website-slots";
+import { PLAN_MIN_UPTIME_INTERVAL } from "@/lib/uptime/constants";
 import type { PlanTier, SubscriptionStatus } from "@prisma/client";
 
 export interface UserEntitlements {
@@ -13,6 +14,8 @@ export interface UserEntitlements {
   canAddWebsite: boolean;
   canScan: boolean;
   canScheduleScans: boolean;
+  canUseMonitoring: boolean;
+  minUptimeIntervalSeconds: number;
   isTrial: boolean;
   isReadOnly: boolean;
   trialEndsAt: Date | null;
@@ -74,6 +77,13 @@ export async function getEntitlements(userId: string): Promise<UserEntitlements>
   const canScan = !isReadOnly;
   const canScheduleScans =
     !isReadOnly && (plan === "PRO" || plan === "AGENCY");
+  const canUseMonitoring = !isReadOnly;
+  const minUptimeIntervalSeconds =
+    plan === "AGENCY"
+      ? PLAN_MIN_UPTIME_INTERVAL.AGENCY
+      : plan === "PRO"
+        ? PLAN_MIN_UPTIME_INTERVAL.PRO
+        : PLAN_MIN_UPTIME_INTERVAL.STARTER;
   const websitesRemaining = Math.max(0, websiteLimit - websiteCount);
 
   return {
@@ -86,6 +96,8 @@ export async function getEntitlements(userId: string): Promise<UserEntitlements>
     canAddWebsite: !isReadOnly && websiteCount < websiteLimit,
     canScan,
     canScheduleScans,
+    canUseMonitoring,
+    minUptimeIntervalSeconds,
     isTrial,
     isReadOnly,
     trialEndsAt,

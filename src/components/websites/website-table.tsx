@@ -30,6 +30,8 @@ interface Website {
   latestScan: WebsiteListScan | null;
   runningScan: WebsiteListScan | null;
   displayScan: WebsiteListScan | null;
+  monitorEnabled?: boolean;
+  monitorStatus?: string | null;
 }
 
 interface WebsiteTableProps {

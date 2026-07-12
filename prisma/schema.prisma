@@ -111,6 +111,36 @@ enum NotificationType {
   UPGRADE_REJECTED
   LIMITS_INCREASED
   GENERAL
+  UPTIME_DOWN
+  UPTIME_RECOVERED
+  UPTIME_SSL_EXPIRING
+  UPTIME_SLOW
+}
+
+enum MonitorHttpMethod {
+  HEAD
+  GET
+}
+
+enum MonitorStatus {
+  UP
+  DOWN
+  DEGRADED
+  UNKNOWN
+  PAUSED
+}
+
+enum UptimeCheckResult {
+  UP
+  DOWN
+  DEGRADED
+  ERROR
+}
+
+enum KeywordMatchMode {
+  NONE
+  CONTAINS
+  NOT_CONTAINS
 }
 
 // ─── USER & AUTH ──────────────────────────────────
@@ -239,11 +269,100 @@ model Website {
   reports          Report[]
   brokenLinkScans  BrokenLinkScan[]
   domainSlots      WebsiteDomainSlot[]
+  monitor          WebsiteMonitor?
 
   @@index([userId])
   @@index([deletedAt])
   @@index([nextScanAt])
   @@map("websites")
+}
+
+// ─── UPTIME MONITORING ───────────────────────────
+model WebsiteMonitor {
+  id                   String            @id @default(cuid())
+  websiteId            String            @unique
+  enabled              Boolean           @default(false)
+  paused               Boolean           @default(false)
+  url                  String
+  method               MonitorHttpMethod @default(HEAD)
+  expectedStatusMin    Int               @default(200)
+  expectedStatusMax    Int               @default(399)
+  intervalSeconds      Int               @default(300)
+  timeoutMs            Int               @default(10000)
+  followRedirects      Boolean           @default(true)
+  keyword              String?
+  keywordMode          KeywordMatchMode  @default(NONE)
+  alertEmail           Boolean           @default(true)
+  alertOnRecovery      Boolean           @default(true)
+  failureThreshold     Int               @default(2)
+  slowThresholdMs      Int?
+  checkSsl             Boolean           @default(true)
+  sslWarnDays          Int               @default(14)
+  nextCheckAt          DateTime?
+  lastCheckedAt        DateTime?
+  lastStatus           MonitorStatus     @default(UNKNOWN)
+  lastLatencyMs        Int?
+  lastHttpStatus       Int?
+  lastError            String?           @db.Text
+  consecutiveFailures  Int               @default(0)
+  consecutiveSuccesses Int               @default(0)
+  uptimePercent24h     Float?
+  uptimePercent7d      Float?
+  uptimePercent30d     Float?
+  avgLatency24h        Float?
+  sslExpiresAt         DateTime?
+  sslDaysRemaining     Int?
+  lastSslCheckedAt     DateTime?
+  sslAlertSentAt       DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  website   Website          @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  checks    UptimeCheck[]
+  incidents UptimeIncident[]
+
+  @@index([enabled, paused, nextCheckAt])
+  @@index([lastStatus])
+  @@map("website_monitors")
+}
+
+model UptimeCheck {
+  id           String            @id @default(cuid())
+  monitorId    String
+  result       UptimeCheckResult
+  httpStatus   Int?
+  latencyMs    Int?
+  errorMessage String?           @db.Text
+  finalUrl     String?           @db.Text
+  keywordMatched Boolean?
+  sslDaysRemaining Int?
+  checkedAt    DateTime          @default(now())
+
+  monitor WebsiteMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId, checkedAt])
+  @@index([checkedAt])
+  @@index([result])
+  @@map("uptime_checks")
+}
+
+model UptimeIncident {
+  id              String    @id @default(cuid())
+  monitorId       String
+  startedAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+  failCount       Int       @default(1)
+  lastError       String?   @db.Text
+  lastHttpStatus  Int?
+  acknowledgedAt  DateTime?
+  /// DOWN | SLOW | SSL
+  kind            String    @default("DOWN")
+
+  monitor WebsiteMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId, resolvedAt])
+  @@index([startedAt])
+  @@map("uptime_incidents")
 }
 
 model Scan {
