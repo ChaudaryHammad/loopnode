@@ -43,7 +43,7 @@ import {
 import { UPTIME_INTERVAL_OPTIONS } from "@/lib/uptime/constants";
 import { LatencySparkline } from "@/components/monitoring/latency-sparkline";
 import { toast } from "@/lib/toast";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import type { KeywordMatchMode, MonitorHttpMethod } from "@prisma/client";
 
 export type MonitorDetail = {
@@ -102,7 +102,11 @@ export type IncidentRow = {
 interface Props {
   website: { id: string; name: string; url: string };
   monitor: MonitorDetail | null;
+  /** Recent mixed checks for the latency chart */
   checks: CheckRow[];
+  recentSuccesses: CheckRow[];
+  recentFailures: CheckRow[];
+  totalCheckCount: number;
   incidents: IncidentRow[];
   minIntervalSeconds: number;
   canUseMonitoring: boolean;
@@ -111,23 +115,30 @@ interface Props {
 
 function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return "Never";
-  const diff = Date.now() - new Date(iso).getTime();
-  if (Math.abs(diff) < 5000) return "Just now";
+  const date = new Date(iso);
+  const diff = Date.now() - date.getTime();
+
+  // Future (e.g. next check)
   if (diff < 0) {
     const sec = Math.floor(-diff / 1000);
+    if (sec < 5) return "Just now";
     if (sec < 60) return `in ${sec}s`;
     const min = Math.floor(sec / 60);
     if (min < 60) return `in ${min}m`;
     const hr = Math.floor(min / 60);
-    return `in ${hr}h`;
+    if (hr < 24) return `in ${hr}h`;
+    return formatDateTime(date);
   }
+
+  // Past — relative for the first 24 hours, then a clear date + time
   const sec = Math.floor(diff / 1000);
+  if (sec < 5) return "Just now";
   if (sec < 60) return `${sec}s ago`;
   const min = Math.floor(sec / 60);
   if (min < 60) return `${min}m ago`;
   const hr = Math.floor(min / 60);
-  if (hr < 48) return `${hr}h ago`;
-  return new Date(iso).toLocaleDateString();
+  if (hr < 24) return `${hr}h ago`;
+  return formatDateTime(date);
 }
 
 /** Next-check label: overdue times read clearly instead of "1h ago". */
@@ -149,6 +160,9 @@ export function WebsiteMonitoringClient({
   website,
   monitor,
   checks,
+  recentSuccesses,
+  recentFailures,
+  totalCheckCount,
   incidents,
   minIntervalSeconds,
   canUseMonitoring,
@@ -488,11 +502,6 @@ export function WebsiteMonitoringClient({
               className="flex-none rounded-none px-4 pb-3 pt-1"
             >
               Checks
-              {checks.length > 0 ? (
-                <span className="ml-1.5 text-muted-foreground tabular-nums">
-                  {checks.length}
-                </span>
-              ) : null}
             </TabsTrigger>
             <TabsTrigger
               value="incidents"
@@ -535,62 +544,41 @@ export function WebsiteMonitoringClient({
         </TabsContent>
 
         <TabsContent value="checks" className="mt-0 w-full outline-none">
-          <section className="overflow-hidden rounded-xl border border-border/40 bg-card">
-            <div className="border-b border-border/30 px-5 py-4">
-              <h2 className="text-sm font-medium">Check history</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {checks.length > 0
-                  ? `${checks.length} most recent probes`
-                  : "No probes recorded yet"}
-              </p>
-            </div>
-            {checks.length === 0 ? (
-              <EmptyState>
-                No checks yet. Use <span className="text-foreground">Run check</span> or wait
-                for the schedule.
-              </EmptyState>
+          <div className="space-y-6">
+            {totalCheckCount === 0 ? (
+              <section className="overflow-hidden rounded-xl border border-border/40 bg-card">
+                <div className="border-b border-border/30 px-5 py-4">
+                  <h2 className="text-sm font-medium">Check history</h2>
+                </div>
+                <EmptyState>
+                  No checks yet. Use <span className="text-foreground">Run check</span> or wait
+                  for the schedule.
+                </EmptyState>
+              </section>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-border/30 text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-5 py-3 font-medium">Result</th>
-                      <th className="px-5 py-3 font-medium">HTTP</th>
-                      <th className="px-5 py-3 font-medium">Latency</th>
-                      <th className="px-5 py-3 font-medium">When</th>
-                      <th className="px-5 py-3 font-medium">Detail</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {checks.map((c) => (
-                      <tr
-                        key={c.id}
-                        className="border-b border-border/20 last:border-0 hover:bg-secondary/10"
-                      >
-                        <td className="px-5 py-3">
-                          <ResultPill result={c.result} />
-                        </td>
-                        <td className="px-5 py-3 tabular-nums text-muted-foreground">
-                          {c.httpStatus ?? "—"}
-                        </td>
-                        <td className="px-5 py-3 tabular-nums text-muted-foreground">
-                          {formatLatency(c.latencyMs)}
-                        </td>
-                        <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
-                          <span title={new Date(c.checkedAt).toLocaleString()}>
-                            {formatRelativeTime(c.checkedAt)}
-                          </span>
-                        </td>
-                        <td className="max-w-[280px] truncate px-5 py-3 text-muted-foreground">
-                          {c.errorMessage ?? "OK"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <CheckHistorySection
+                  title="Recent successes"
+                  description="Latest probes that came back up"
+                  empty="No successful checks yet."
+                  rows={recentSuccesses}
+                  countLabel={
+                    totalCheckCount > 0
+                      ? `${totalCheckCount.toLocaleString()} total`
+                      : undefined
+                  }
+                />
+                {recentFailures.length > 0 ? (
+                  <CheckHistorySection
+                    title="Recent failures"
+                    description="Latest down or error probes"
+                    empty="No failed checks."
+                    rows={recentFailures}
+                  />
+                ) : null}
+              </>
             )}
-          </section>
+          </div>
         </TabsContent>
 
         <TabsContent value="incidents" className="mt-0 w-full outline-none">
@@ -943,6 +931,79 @@ function SettingsSection({
         ) : null}
       </div>
       <div className="px-5 py-5">{children}</div>
+    </section>
+  );
+}
+
+function CheckHistorySection({
+  title,
+  description,
+  empty,
+  rows,
+  countLabel,
+}: {
+  title: string;
+  description: string;
+  empty: string;
+  rows: CheckRow[];
+  countLabel?: string;
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-border/40 bg-card">
+      <div className="flex items-start justify-between gap-3 border-b border-border/30 px-5 py-4">
+        <div className="min-w-0">
+          <h3 className="text-sm font-medium">{title}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        </div>
+        {countLabel ? (
+          <span className="shrink-0 pt-0.5 text-xs tabular-nums text-muted-foreground">
+            {countLabel}
+          </span>
+        ) : null}
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState>{empty}</EmptyState>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border/30 text-[11px] uppercase tracking-wider text-muted-foreground">
+                <th className="px-5 py-3 font-medium">Result</th>
+                <th className="px-5 py-3 font-medium">HTTP</th>
+                <th className="px-5 py-3 font-medium">Latency</th>
+                <th className="px-5 py-3 font-medium">When</th>
+                <th className="px-5 py-3 font-medium">Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((c) => (
+                <tr
+                  key={c.id}
+                  className="border-b border-border/20 last:border-0 hover:bg-secondary/10"
+                >
+                  <td className="px-5 py-3">
+                    <ResultPill result={c.result} />
+                  </td>
+                  <td className="px-5 py-3 tabular-nums text-muted-foreground">
+                    {c.httpStatus ?? "—"}
+                  </td>
+                  <td className="px-5 py-3 tabular-nums text-muted-foreground">
+                    {formatLatency(c.latencyMs)}
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
+                    <span title={formatDateTime(c.checkedAt)}>
+                      {formatRelativeTime(c.checkedAt)}
+                    </span>
+                  </td>
+                  <td className="max-w-[280px] truncate px-5 py-3 text-muted-foreground">
+                    {c.errorMessage ?? "OK"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
