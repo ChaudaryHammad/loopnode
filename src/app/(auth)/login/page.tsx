@@ -6,8 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { loginSchema } from "@/lib/validations/auth";
 import { loginAction } from "@/actions/auth";
+import { toast } from "@/lib/toast";
 import { Activity, Eye, EyeOff, Loader2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,6 @@ import { z } from "zod";
 
 function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { executeRecaptcha } = useGoogleReCaptcha();
 
@@ -40,18 +39,17 @@ function LoginForm() {
   });
 
   const onSubmit = (data: z.infer<typeof loginSchema>) => {
-    setError(null);
     startTransition(async () => {
       if (!executeRecaptcha) {
-        setError("reCAPTCHA is not ready. Please try again in a moment.");
+        toast.error("reCAPTCHA is not ready. Please try again in a moment.");
         return;
       }
 
       const recaptchaToken = await executeRecaptcha("login");
       const response = await loginAction({ ...data, recaptchaToken });
-      
+
       if (response && !response.success) {
-        setError(response.error || "Invalid credentials.");
+        toast.error(response.error || "Invalid credentials.");
       }
     });
   };
@@ -69,12 +67,6 @@ function LoginForm() {
           Sign in to your LoopNode dashboard
         </p>
       </div>
-
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="space-y-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -16,10 +16,9 @@ import {
 } from "@/actions/settings";
 import { cn, formatDate } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user-display";
+import { toast } from "@/lib/toast";
 import { UserAvatar } from "@/components/user-avatar";
 import { PlanBadge } from "@/components/settings/plan-badge";
-import { useAutoDismiss } from "@/hooks/use-auto-dismiss";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { PlanTier } from "@prisma/client";
 
@@ -39,21 +38,11 @@ export function SettingsHeader({ user }: SettingsHeaderProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [image, setImage] = useState<string | null>(user.image);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isUploadPending, startUploadTransition] = useTransition();
   const [isRemovePending, startRemoveTransition] = useTransition();
 
   const isPending = isUploadPending || isRemovePending;
   const displayName = getUserDisplayName(user.name, user.email);
-
-  const clearFeedback = useCallback(() => {
-    setMessage(null);
-    setError(null);
-  }, []);
-
-  useAutoDismiss(message, clearFeedback);
-  useAutoDismiss(error, clearFeedback);
 
   useEffect(() => {
     setImage(user.image);
@@ -63,9 +52,6 @@ export function SettingsHeader({ user }: SettingsHeaderProps) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setMessage(null);
-    setError(null);
-
     const formData = new FormData();
     formData.append("file", file);
 
@@ -73,10 +59,16 @@ export function SettingsHeader({ user }: SettingsHeaderProps) {
       const res = await uploadProfileImageAction(formData);
       if (res.success) {
         setImage(res.imageUrl ?? null);
-        setMessage(res.message ?? "Profile photo updated.");
+        toast.fromAction(res, {
+          success: "Profile photo updated.",
+          error: "Failed to upload profile photo.",
+        });
         router.refresh();
       } else {
-        setError(res.error ?? "Failed to upload profile photo.");
+        toast.fromAction(res, {
+          success: "Profile photo updated.",
+          error: "Failed to upload profile photo.",
+        });
       }
       if (fileInputRef.current) fileInputRef.current.value = "";
     });
@@ -86,17 +78,20 @@ export function SettingsHeader({ user }: SettingsHeaderProps) {
     if (!image || isPending) return;
     if (!confirm("Remove your profile photo?")) return;
 
-    setMessage(null);
-    setError(null);
-
     startRemoveTransition(async () => {
       const res = await removeProfileImageAction();
       if (res.success) {
         setImage(null);
-        setMessage(res.message ?? "Profile photo removed.");
+        toast.fromAction(res, {
+          success: "Profile photo removed.",
+          error: "Failed to remove profile photo.",
+        });
         router.refresh();
       } else {
-        setError(res.error ?? "Failed to remove profile photo.");
+        toast.fromAction(res, {
+          success: "Profile photo removed.",
+          error: "Failed to remove profile photo.",
+        });
       }
     });
   };
@@ -193,17 +188,6 @@ export function SettingsHeader({ user }: SettingsHeaderProps) {
           </div>
         </div>
       </div>
-
-      {error ? (
-        <Alert variant="destructive" className="mt-4">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-      {message ? (
-        <Alert className="mt-4">
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      ) : null}
     </section>
   );
 }

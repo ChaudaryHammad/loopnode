@@ -5,7 +5,6 @@ import { ReliableLink } from "@/components/ui/reliable-link";
 import {
   Globe,
   Zap,
-  ArrowLeft,
   CheckCircle,
   XCircle,
   Clock,
@@ -314,7 +313,7 @@ export function WebsiteOverviewClient({
       }
     : null;
 
-  const { startScan, cancelScan, isRunning, isCancelling, error, progress, completedScan } =
+  const { startScan, cancelScan, isRunning, isCancelling, progress, completedScan } =
     useAuditScan({
     websiteId: website.id,
     initialRunningScanId: serverRunningScan?.id ?? null,
@@ -341,20 +340,6 @@ export function WebsiteOverviewClient({
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <ReliableLink
-          href="/dashboard/websites"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Websites
-        </ReliableLink>
-        <ButtonLink href={settingsHref} variant="outline" size="sm">
-          <Settings className="w-4 h-4" />
-          Settings
-        </ButtonLink>
-      </div>
-
       {/* Hero */}
       <section className={cn(SURFACE, "overflow-hidden")}>
         <div className="p-6 md:p-8 space-y-6">
@@ -370,15 +355,27 @@ export function WebsiteOverviewClient({
                   </h1>
                   <StatusBadge status={headerStatus} />
                 </div>
-                <a
-                  href={website.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
-                >
-                  {host}
-                  <ExternalLink className="w-3 h-3 opacity-60" />
-                </a>
+                <div className="flex flex-wrap items-center gap-3">
+                  <a
+                    href={website.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    {host}
+                    <ExternalLink className="w-3 h-3 opacity-60" />
+                  </a>
+                  <ButtonLink
+                    href={settingsHref}
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-muted-foreground"
+                    aria-label="Website settings"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    <span className="text-xs font-medium">Settings</span>
+                  </ButtonLink>
+                </div>
               </div>
             </div>
 
@@ -403,9 +400,8 @@ export function WebsiteOverviewClient({
             </div>
           </div>
 
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-border/30">
+          <div className="flex flex-wrap gap-2 border-t border-border/30 pt-2">
             {displayScan?.completedAt ? (
               <Badge variant="secondary" className="gap-1.5 font-normal">
                 <Calendar className="w-3 h-3" />

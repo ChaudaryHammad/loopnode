@@ -190,6 +190,20 @@ export async function runMonitorNowAction(websiteId: string) {
     });
   }
 
+  if (!monitor.enabled) {
+    return {
+      success: false as const,
+      error: "Monitoring is disabled. Enable it in Settings to run a check.",
+    };
+  }
+
+  if (monitor.paused) {
+    return {
+      success: false as const,
+      error: "Monitoring is paused. Resume it first, then run a check.",
+    };
+  }
+
   try {
     const result = await runMonitorCheck(monitor.id);
     revalidatePath("/dashboard/monitoring");

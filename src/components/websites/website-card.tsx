@@ -77,7 +77,7 @@ export function WebsiteCard({ website }: WebsiteCardProps) {
       }
     : null;
 
-  const { startScan, cancelScan, isRunning, isCancelling, error, progress, completedScan } = useAuditScan({
+  const { startScan, cancelScan, isRunning, isCancelling, progress, completedScan } = useAuditScan({
     websiteId: website.id,
     initialRunningScanId: runningScan?.id ?? null,
     initialProgress,
@@ -166,7 +166,6 @@ export function WebsiteCard({ website }: WebsiteCardProps) {
           </div>
         ) : null}
 
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </CardContent>
 
       <CardFooter className="flex items-center justify-between border-t border-border/30">

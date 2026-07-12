@@ -31,35 +31,56 @@ interface TopbarProps {
   onMenuClick?: () => void;
 }
 
+const SEGMENT_LABELS: Record<string, string> = {
+  dashboard: "Overview",
+  websites: "Websites",
+  monitoring: "Monitoring",
+  "broken-links": "Broken links",
+  reports: "Reports",
+  issues: "Issue Center",
+  settings: "Settings",
+  account: "Account",
+  billing: "Billing",
+  upgrade: "Upgrade",
+  performance: "Performance",
+  accessibility: "Accessibility",
+  seo: "SEO",
+  security: "Security",
+};
+
+function isIdSegment(segment: string) {
+  return segment.length > 15 && (/^[a-z0-9]+$/i.test(segment) || segment.includes("-"));
+}
+
+function labelForSegment(segment: string): string {
+  return (
+    SEGMENT_LABELS[segment] ??
+    segment
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ")
+  );
+}
+
+function getBreadcrumbs(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) {
+    return [{ name: "Overview", href: "/dashboard" }];
+  }
+
+  return segments
+    .map((segment, index) => {
+      if (isIdSegment(segment)) return null;
+      const href = "/" + segments.slice(0, index + 1).join("/");
+      return { name: labelForSegment(segment), href };
+    })
+    .filter((crumb): crumb is { name: string; href: string } => crumb != null);
+}
+
 export function Topbar({ user, onMenuClick }: TopbarProps) {
   const pathname = usePathname();
   const displayName = getUserDisplayName(user?.name, user?.email);
-
-  const getBreadcrumbs = () => {
-    const segments = pathname.split("/").filter(Boolean);
-    if (segments.length === 0) return [{ name: "Dashboard", href: "/dashboard" }];
-
-    const isIdSegment = (segment: string) =>
-      segment.length > 15 && (/^[a-z0-9]+$/i.test(segment) || segment.includes("-"));
-
-    return segments
-      .map((segment, index) => {
-        const href = "/" + segments.slice(0, index + 1).join("/");
-        let name = segment.charAt(0).toUpperCase() + segment.slice(1);
-
-        // Skip opaque IDs (cuid/uuid) — avoid "Details" crumbs
-        if (isIdSegment(segment)) return null;
-
-        if (name === "Dashboard") name = "Overview";
-        if (name === "Broken-links") name = "Broken links";
-        if (name === "Seo") name = "SEO";
-
-        return { name, href };
-      })
-      .filter((crumb): crumb is { name: string; href: string } => crumb != null);
-  };
-
-  const breadcrumbs = getBreadcrumbs();
+  const breadcrumbs = getBreadcrumbs(pathname);
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-card px-4 sm:px-6">
@@ -68,17 +89,22 @@ export function Topbar({ user, onMenuClick }: TopbarProps) {
           <Menu />
         </Button>
 
-        <nav className="hidden items-center space-x-1.5 text-sm font-medium text-muted-foreground sm:flex">
+        <nav
+          aria-label="Breadcrumb"
+          className="hidden min-w-0 items-center gap-1.5 text-sm font-medium text-muted-foreground sm:flex"
+        >
           {breadcrumbs.map((crumb, idx) => (
-            <React.Fragment key={crumb.href}>
-              {idx > 0 && <span className="font-normal text-muted-foreground/30">/</span>}
+            <React.Fragment key={`${crumb.href}-${idx}`}>
+              {idx > 0 ? (
+                <span className="font-normal text-muted-foreground/30">/</span>
+              ) : null}
               {idx === breadcrumbs.length - 1 ? (
-                <span className="font-semibold text-foreground">{crumb.name}</span>
+                <span className="truncate font-semibold text-foreground">{crumb.name}</span>
               ) : (
                 <Button
                   variant="link"
                   size="sm"
-                  className="h-auto p-0 text-muted-foreground"
+                  className="h-auto shrink-0 p-0 text-muted-foreground"
                   render={<Link href={crumb.href} />}
                   nativeButton={false}
                 >
@@ -122,49 +148,44 @@ export function Topbar({ user, onMenuClick }: TopbarProps) {
               </Button>
             }
           />
-
-          <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="p-0 font-normal">
-                <div className="flex items-center gap-3 px-2 py-3">
-                  <UserAvatar
-                    name={user?.name}
-                    email={user?.email}
-                    image={user?.image}
-                    size="lg"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-foreground">{displayName}</p>
-                    <p className="truncate text-xs text-muted-foreground">{user?.email || ""}</p>
-                    <Badge
-                      variant="outline"
-                      className="mt-1.5 text-[10px] uppercase tracking-wider"
-                    >
-                      {user?.role || "User"}
-                    </Badge>
-                  </div>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{displayName}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
                 </div>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
-              <User />
-              Profile Settings
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/dashboard/settings/billing" />}>
-              <Settings />
-              Account Settings
-            </DropdownMenuItem>
-            {user?.role === "ADMIN" && (
-              <DropdownMenuItem render={<Link href="/admin" />}>
-                <Shield />
-                Admin panel
+            <DropdownMenuGroup>
+              <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
+                <User />
+                Profile
               </DropdownMenuItem>
-            )}
+              <DropdownMenuItem render={<Link href="/dashboard/settings/billing" />}>
+                <Settings />
+                Billing
+              </DropdownMenuItem>
+              {user?.role === "ADMIN" ? (
+                <DropdownMenuItem render={<Link href="/admin" />}>
+                  <Shield />
+                  Admin
+                  <Badge variant="secondary" className="ml-auto text-[10px]">
+                    Admin
+                  </Badge>
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={() => logoutAction()}>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => {
+                void logoutAction();
+              }}
+            >
               <LogOut />
-              Sign Out
+              Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

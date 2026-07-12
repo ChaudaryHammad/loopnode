@@ -14,7 +14,7 @@ import {
   type PaymentMethodTemplateId,
 } from "@/lib/payment-method-templates";
 import type { PaymentMethodDisplayStyle } from "@prisma/client";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -73,8 +73,6 @@ function filledDetails(details: PaymentDetailRow[]) {
 export function AdminPaymentMethodsClient({ methods }: { methods: PaymentMethodRow[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm());
 
@@ -83,7 +81,6 @@ export function AdminPaymentMethodsClient({ methods }: { methods: PaymentMethodR
 
   const openCreate = () => {
     setForm({ ...emptyForm(), sortOrder: methods.length });
-    setError(null);
     setDialogOpen(true);
   };
 
@@ -109,7 +106,6 @@ export function AdminPaymentMethodsClient({ methods }: { methods: PaymentMethodR
       enabled: method.enabled,
       sortOrder: method.sortOrder,
     });
-    setError(null);
     setDialogOpen(true);
   };
 
@@ -121,7 +117,6 @@ export function AdminPaymentMethodsClient({ methods }: { methods: PaymentMethodR
   };
 
   const save = () => {
-    setError(null);
     startTransition(async () => {
       const res = await upsertPaymentMethodAction({
         id: form.id,
@@ -134,11 +129,11 @@ export function AdminPaymentMethodsClient({ methods }: { methods: PaymentMethodR
       });
 
       if (!res.success) {
-        setError(res.error ?? "Failed to save.");
+        toast.fromAction(res, { error: "Failed to save." });
         return;
       }
 
-      setMessage(res.message ?? "Saved.");
+      toast.fromAction(res, { success: "Saved." });
       setDialogOpen(false);
       router.refresh();
     });
@@ -148,11 +143,9 @@ export function AdminPaymentMethodsClient({ methods }: { methods: PaymentMethodR
     if (!confirm("Remove this payment method?")) return;
     startTransition(async () => {
       const res = await deletePaymentMethodAction(id);
+      toast.fromAction(res, { success: "Removed.", error: "Failed to remove." });
       if (res.success) {
-        setMessage(res.message ?? "Removed.");
         router.refresh();
-      } else {
-        setError(res.error ?? "Failed to remove.");
       }
     });
   };
@@ -161,8 +154,7 @@ export function AdminPaymentMethodsClient({ methods }: { methods: PaymentMethodR
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/20 pb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Payment methods</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground">
             Shown to customers on the upgrade page.
           </p>
         </div>
@@ -171,17 +163,6 @@ export function AdminPaymentMethodsClient({ methods }: { methods: PaymentMethodR
           Add method
         </Button>
       </div>
-
-      {message && (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      )}
-      {error && !dialogOpen && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
 
       {methods.length === 0 ? (
         <Card className="rounded-2xl border-dashed">
@@ -373,12 +354,6 @@ export function AdminPaymentMethodsClient({ methods }: { methods: PaymentMethodR
                 onCheckedChange={(enabled) => setForm((f) => ({ ...f, enabled }))}
               />
             </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
           </div>
 
           <DialogFooter className="px-6 py-4 border-t bg-muted/20">

@@ -119,8 +119,7 @@ export function AdminCommandCenter({ data }: { data: CommandCenterData }) {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
-          <p className="text-sm text-muted-foreground mt-1">{todayLabel}</p>
+          <p className="text-sm text-muted-foreground">{todayLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {data.pendingUpgrades.length > 0 ? (

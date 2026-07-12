@@ -34,8 +34,7 @@ export default async function BrokenLinksHubPage() {
   return (
     <div className="w-full space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Broken links</h1>
-        <p className="text-sm text-muted-foreground max-w-2xl">
+        <p className="max-w-2xl text-sm text-muted-foreground">
           Crawl summaries across your sites. Open a site to run a new internal or external link
           check.
         </p>

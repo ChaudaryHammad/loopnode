@@ -412,8 +412,8 @@ function BrokenLinkResultCard({ group }: { group: GroupedBrokenLink }) {
 }
 
 export function BrokenLinksPageShell({
-  websiteId,
-  websiteName,
+  websiteId: _websiteId,
+  websiteName: _websiteName,
   websiteUrl,
   lastScanned,
   scanComplete,
@@ -434,18 +434,6 @@ export function BrokenLinksPageShell({
     <Card className="rounded-2xl border-border/30 bg-gradient-to-br from-card via-card to-secondary/10">
       <CardContent className="flex flex-col gap-5 p-6 md:p-8 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-4">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <ButtonLink href="/dashboard/websites" variant="link" size="sm" className="h-auto p-0">
-              Websites
-            </ButtonLink>
-            <span>/</span>
-            <ButtonLink href={`/dashboard/websites/${websiteId}`} variant="link" size="sm" className="h-auto p-0">
-              {websiteName}
-            </ButtonLink>
-            <span>/</span>
-            <span className="text-foreground">Broken links</span>
-          </div>
-
           <div className="flex items-start gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-300">
               <Link2 className="size-5" />
@@ -532,22 +520,14 @@ export function BrokenLinksMetricsGrid({
 }
 
 export function BrokenLinksStatusAlerts({
-  error,
   activeScan,
   hasResults,
 }: {
-  error: string | null;
   activeScan: SerializedScanLike | null;
   hasResults: boolean;
 }) {
   return (
     <div className="space-y-3">
-      {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-
       {activeScan?.phase === "cancelled" ? (
         <Alert className="border-amber-500/20 bg-amber-500/10 text-amber-100">
           <AlertDescription>

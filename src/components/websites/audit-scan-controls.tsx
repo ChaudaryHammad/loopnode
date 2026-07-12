@@ -30,7 +30,7 @@ export function AuditScanControls({
   runVariant = "link",
   showProgressPanel = false,
 }: AuditScanControlsProps) {
-  const { startScan, cancelScan, isRunning, isCancelling, error, progress } = useAuditScan({
+  const { startScan, cancelScan, isRunning, isCancelling, progress } = useAuditScan({
     websiteId,
     initialRunningScanId: runningScanId ?? null,
     initialProgress,
@@ -55,10 +55,6 @@ export function AuditScanControls({
         {!showProgressPanel && !iconOnly ? (
           <AuditProgressPanel progress={progress} compact />
         ) : null}
-
-        {error && !iconOnly ? (
-          <span className="block w-full text-xs text-destructive">{error}</span>
-        ) : null}
       </div>
     );
   }
@@ -74,9 +70,6 @@ export function AuditScanControls({
       >
         {iconOnly ? <Zap /> : label}
       </Button>
-      {error && !iconOnly ? (
-        <p className="mt-2 text-xs text-destructive">{error}</p>
-      ) : null}
     </div>
   );
 }

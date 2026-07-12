@@ -22,7 +22,7 @@
   |---|---|
   | Click **Save settings** | Immediately stored. The **next** scheduled check (or **Run check**) uses the new values. |
   | **Run check** | Uses whatever is already saved — unsaved form changes are ignored. |
-  | **Pause / Resume** | Immediate. Pause skips scheduled checks until resumed. |
+  | **Pause / Resume** | Immediate. Pause skips scheduled checks until resumed. **Run check** is disabled while paused — resume first. |
   | **Disable monitor** | Immediate. Stops all checks until you enable + save again. |
 
   Changing fields in the form does nothing until you save.

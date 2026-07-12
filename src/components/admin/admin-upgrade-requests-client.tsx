@@ -9,7 +9,7 @@ import {
 } from "@/actions/admin";
 import { PLAN_LABELS, PLAN_SITE_LIMITS } from "@/lib/plans";
 import { formatDateTime } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,7 +59,6 @@ export function AdminUpgradeRequestsClient({ requests }: { requests: UpgradeRequ
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [adminNote, setAdminNote] = useState("");
   const [limitOverride, setLimitOverride] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const pendingCount = requests.filter((r) => r.status === "PENDING").length;
@@ -90,13 +89,13 @@ export function AdminUpgradeRequestsClient({ requests }: { requests: UpgradeRequ
         : await rejectUpgradeRequestAction(payload);
 
       if (res.success) {
-        setMessage(res.message ?? "Updated.");
+        toast.fromAction(res, { success: "Updated." });
         setExpandedId(null);
         setAdminNote("");
         setLimitOverride("");
         router.refresh();
       } else {
-        setMessage(res.error ?? "Action failed.");
+        toast.fromAction(res, { error: "Action failed." });
       }
     });
   };
@@ -104,7 +103,6 @@ export function AdminUpgradeRequestsClient({ requests }: { requests: UpgradeRequ
   return (
     <div className="space-y-6">
       <div className="border-b border-border/20 pb-6 space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Upgrade requests</h1>
         <p className="text-sm text-muted-foreground">
           Review customer payments and activate plans · {pendingCount} pending. You can also grant
           plans or raise limits directly from{" "}
@@ -114,12 +112,6 @@ export function AdminUpgradeRequestsClient({ requests }: { requests: UpgradeRequ
           without a payment record.
         </p>
       </div>
-
-      {message && (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">

@@ -15,7 +15,6 @@ import {
   Copy,
   Check,
   Trash2,
-  X,
   Link2,
 } from "lucide-react";
 import {
@@ -28,7 +27,7 @@ import { REPORT_TYPE_LABELS, REPORT_TYPE_GROUPS, REPORT_TYPE_STYLES, buildReport
 import { getReportShareUrl } from "@/lib/reports/share";
 import { cn, formatDateTime } from "@/lib/utils";
 import type { ReportType } from "@prisma/client";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
 import {
@@ -237,8 +236,6 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
   const [search, setSearch] = useState("");
   const [websiteFilter, setWebsiteFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState<ReportType | "ALL">("ALL");
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedWebsiteId, setSelectedWebsiteId] = useState("");
   const [selectedScanId, setSelectedScanId] = useState("");
@@ -311,8 +308,6 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
     search.trim().length > 0 || websiteFilter !== "ALL" || typeFilter !== "ALL";
 
   const openGenerateDialog = () => {
-    setError(null);
-    setMessage(null);
     setSelectedWebsiteId(websites[0]?.id ?? "");
     setSelectedType("FULL_AUDIT");
     setCustomTitle("");
@@ -323,11 +318,10 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
 
   const handleGenerate = () => {
     if (!selectedWebsiteId || !selectedScanId) {
-      setError("Select a website and scan.");
+      toast.error("Select a website and scan.");
       return;
     }
 
-    setError(null);
     startGenerateTransition(async () => {
       const res = await generateReportAction({
         websiteId: selectedWebsiteId,
@@ -359,7 +353,7 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
             scanCompletedAt: data.scanCompletedAt ?? null,
           };
           setReports((prev) => [savedReport, ...prev]);
-          setMessage(res.message ?? "Report saved.");
+          toast.fromAction(res, { success: "Report saved." });
           router.refresh();
         } else {
           triggerDownload(
@@ -367,10 +361,10 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
             `${sanitizeFilename(data.title)}.${data.format}`,
             reportMimeType(data.format)
           );
-          setMessage(res.message ?? "Report downloaded.");
+          toast.fromAction(res, { success: "Report downloaded." });
         }
       } else {
-        setError(res.error ?? "Failed to generate report.");
+        toast.fromAction(res, { error: "Failed to generate report." });
       }
     });
   };
@@ -386,11 +380,10 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
   const handleShareToggle = async (enabled: boolean) => {
     if (!shareDialogReport) return;
     setShareUpdating(true);
-    setError(null);
     const res = await setReportShareAction(shareDialogReport.id, enabled);
     setShareUpdating(false);
     if (!res.success) {
-      setError(res.error ?? "Failed to update sharing.");
+      toast.fromAction(res, { error: "Failed to update sharing." });
       return;
     }
     const url = res.data?.shareUrl ?? null;
@@ -403,7 +396,9 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
       )
     );
     setShareDialogReport((prev) => (prev ? { ...prev, shareEnabled: enabled } : prev));
-    setMessage(res.message ?? (enabled ? "Share link enabled." : "Share link disabled."));
+    toast.fromAction(res, {
+      success: enabled ? "Share link enabled." : "Share link disabled.",
+    });
     router.refresh();
   };
 
@@ -417,16 +412,14 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
   const handleDelete = (reportId: string, title: string) => {
     if (!confirm(`Delete "${title}"?`)) return;
 
-    setMessage(null);
-    setError(null);
     startTransition(async () => {
       const res = await deleteReportAction(reportId);
       if (res.success) {
         setReports((prev) => prev.filter((r) => r.id !== reportId));
-        setMessage(res.message ?? "Report deleted.");
+        toast.fromAction(res, { success: "Report deleted." });
         router.refresh();
       } else {
-        setError(res.error ?? "Failed to delete report.");
+        toast.fromAction(res, { error: "Failed to delete report." });
       }
     });
   };
@@ -439,30 +432,11 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
 
   return (
     <div className="w-full max-w-6xl space-y-4">
-      {(error || message) && (
-        <Alert variant={error ? "destructive" : "default"} className="py-2.5">
-          <AlertDescription className="flex items-center justify-between gap-3 text-sm">
-            {error ?? message}
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => {
-                setError(null);
-                setMessage(null);
-              }}
-            >
-              <X />
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
       <section className={cn(SURFACE, "overflow-hidden")}>
         {/* Header */}
         <div className="flex flex-col gap-4 border-b border-border/40 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {reports.length} saved · {websites.length} website{websites.length === 1 ? "" : "s"}
             </p>
           </div>

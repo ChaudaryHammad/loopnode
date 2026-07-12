@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRound, Loader2, Trash2, UserRound } from "lucide-react";
@@ -14,8 +14,7 @@ import {
   deleteAccountAction,
   updateProfileAction,
 } from "@/actions/settings";
-import { useAutoDismiss } from "@/hooks/use-auto-dismiss";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,32 +34,9 @@ interface ProfileSettingsFormProps {
 }
 
 export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
-  const [profileMessage, setProfileMessage] = useState<string | null>(null);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isProfilePending, startProfileTransition] = useTransition();
   const [isPasswordPending, startPasswordTransition] = useTransition();
   const [isDeletePending, startDeleteTransition] = useTransition();
-
-  const clearProfileFeedback = useCallback(() => {
-    setProfileMessage(null);
-    setProfileError(null);
-  }, []);
-  const clearPasswordFeedback = useCallback(() => {
-    setPasswordMessage(null);
-    setPasswordError(null);
-  }, []);
-  const clearDeleteFeedback = useCallback(() => {
-    setDeleteError(null);
-  }, []);
-
-  useAutoDismiss(profileMessage, clearProfileFeedback);
-  useAutoDismiss(profileError, clearProfileFeedback);
-  useAutoDismiss(passwordMessage, clearPasswordFeedback);
-  useAutoDismiss(passwordError, clearPasswordFeedback);
-  useAutoDismiss(deleteError, clearDeleteFeedback);
 
   const profileForm = useForm({
     resolver: zodResolver(updateProfileSchema),
@@ -82,28 +58,24 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
   });
 
   const onProfileSubmit = profileForm.handleSubmit((data) => {
-    setProfileMessage(null);
-    setProfileError(null);
     startProfileTransition(async () => {
       const res = await updateProfileAction(data);
-      if (res.success) {
-        setProfileMessage(res.message ?? "Profile updated.");
-      } else {
-        setProfileError(res.error ?? "Failed to update profile.");
-      }
+      toast.fromAction(res, {
+        success: "Profile updated.",
+        error: "Failed to update profile.",
+      });
     });
   });
 
   const onPasswordSubmit = passwordForm.handleSubmit((data) => {
-    setPasswordMessage(null);
-    setPasswordError(null);
     startPasswordTransition(async () => {
       const res = await changePasswordAction(data);
+      toast.fromAction(res, {
+        success: "Password updated.",
+        error: "Failed to change password.",
+      });
       if (res.success) {
-        setPasswordMessage(res.message ?? "Password updated.");
         passwordForm.reset();
-      } else {
-        setPasswordError(res.error ?? "Failed to change password.");
       }
     });
   });
@@ -117,11 +89,12 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
       return;
     }
 
-    setDeleteError(null);
     startDeleteTransition(async () => {
       const res = await deleteAccountAction(data);
       if (!res.success) {
-        setDeleteError(res.error ?? "Failed to delete account.");
+        toast.fromAction(res, {
+          error: "Failed to delete account.",
+        });
       }
     });
   });
@@ -159,17 +132,6 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
                   </p>
                 )}
               </div>
-
-              {profileError && (
-                <Alert variant="destructive">
-                  <AlertDescription>{profileError}</AlertDescription>
-                </Alert>
-              )}
-              {profileMessage && (
-                <Alert>
-                  <AlertDescription>{profileMessage}</AlertDescription>
-                </Alert>
-              )}
 
               <Button type="submit" disabled={isProfilePending}>
                 {isProfilePending && <Loader2 className="animate-spin" />}
@@ -224,17 +186,6 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
                 />
               </div>
 
-              {passwordError && (
-                <Alert variant="destructive">
-                  <AlertDescription>{passwordError}</AlertDescription>
-                </Alert>
-              )}
-              {passwordMessage && (
-                <Alert>
-                  <AlertDescription>{passwordMessage}</AlertDescription>
-                </Alert>
-              )}
-
               <Button type="submit" disabled={isPasswordPending}>
                 {isPasswordPending && <Loader2 className="animate-spin" />}
                 Update password
@@ -276,12 +227,6 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
                 </p>
               )}
             </div>
-
-            {deleteError && (
-              <Alert variant="destructive">
-                <AlertDescription>{deleteError}</AlertDescription>
-              </Alert>
-            )}
 
             <Button type="submit" variant="destructive" disabled={isDeletePending}>
               {isDeletePending && <Loader2 className="animate-spin" />}

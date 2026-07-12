@@ -22,7 +22,6 @@ import {
   Search,
   Shield,
   Trash2,
-  X,
 } from "lucide-react";
 import {
   bulkDeleteIssuesAction,
@@ -38,7 +37,7 @@ import {
   severityBadgeClass,
   type IssueSeverity,
 } from "@/components/websites/audit-shared";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
@@ -151,8 +150,6 @@ export function IssueCenterClient({ websites, issues: initialIssues }: IssueCent
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -278,16 +275,14 @@ export function IssueCenterClient({ websites, issues: initialIssues }: IssueCent
       return;
     }
 
-    setMessage(null);
-    setError(null);
     startTransition(async () => {
       const res = await deleteIssueAction(issueId);
       if (res.success) {
         removeLocalIssues([issueId]);
-        setMessage(res.message ?? "Issue dismissed.");
+        toast.fromAction(res, { success: "Issue dismissed." });
         router.refresh();
       } else {
-        setError(res.error ?? "Failed to dismiss issue.");
+        toast.fromAction(res, { error: "Failed to dismiss issue." });
       }
     });
   };
@@ -304,31 +299,27 @@ export function IssueCenterClient({ websites, issues: initialIssues }: IssueCent
       return;
     }
 
-    setMessage(null);
-    setError(null);
     startTransition(async () => {
       const res = await bulkDeleteIssuesAction(ids);
       if (res.success) {
         removeLocalIssues(ids);
-        setMessage(res.message ?? "Issues dismissed.");
+        toast.fromAction(res, { success: "Issues dismissed." });
         router.refresh();
       } else {
-        setError(res.error ?? "Failed to dismiss issues.");
+        toast.fromAction(res, { error: "Failed to dismiss issues." });
       }
     });
   };
 
   const handleStatusUpdate = (issueId: string, status: "OPEN" | "ACKNOWLEDGED") => {
-    setMessage(null);
-    setError(null);
     startTransition(async () => {
       const res = await updateIssueStatusAction(issueId, status);
       if (res.success) {
         updateLocalStatus([issueId], status);
-        setMessage(res.message ?? "Issue updated.");
+        toast.fromAction(res, { success: "Issue updated." });
         router.refresh();
       } else {
-        setError(res.error ?? "Failed to update issue.");
+        toast.fromAction(res, { error: "Failed to update issue." });
       }
     });
   };
@@ -337,16 +328,14 @@ export function IssueCenterClient({ websites, issues: initialIssues }: IssueCent
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
 
-    setMessage(null);
-    setError(null);
     startTransition(async () => {
       const res = await bulkUpdateIssueStatusAction(ids, status);
       if (res.success) {
         updateLocalStatus(ids, status);
-        setMessage(res.message ?? "Issues updated.");
+        toast.fromAction(res, { success: "Issues updated." });
         router.refresh();
       } else {
-        setError(res.error ?? "Failed to update issues.");
+        toast.fromAction(res, { error: "Failed to update issues." });
       }
     });
   };
@@ -357,7 +346,6 @@ export function IssueCenterClient({ websites, issues: initialIssues }: IssueCent
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Issue Center</h1>
         <p className="text-sm text-muted-foreground">
           Open findings from your latest audits across all connected websites.
         </p>
@@ -539,22 +527,6 @@ export function IssueCenterClient({ websites, issues: initialIssues }: IssueCent
         </CardHeader>
 
         <CardContent className="p-0">
-          {error && (
-            <Alert variant="destructive" className="m-4 mb-0">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {message && (
-            <Alert className="m-4 mb-0">
-              <AlertDescription className="flex items-center justify-between gap-2">
-                {message}
-                <Button variant="ghost" size="icon-xs" onClick={() => setMessage(null)}>
-                  <X />
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
           {!hasWebsites ? (
             <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
               <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">

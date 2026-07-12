@@ -42,7 +42,7 @@ import {
 } from "@/lib/uptime/format";
 import { UPTIME_INTERVAL_OPTIONS } from "@/lib/uptime/constants";
 import { LatencySparkline } from "@/components/monitoring/latency-sparkline";
-import { useAutoDismiss } from "@/hooks/use-auto-dismiss";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import type { KeywordMatchMode, MonitorHttpMethod } from "@prisma/client";
 
@@ -156,9 +156,7 @@ export function WebsiteMonitoringClient({
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [flash, setFlash] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
   const [tab, setTab] = useState("overview");
-  useAutoDismiss(flash?.text ?? null, () => setFlash(null));
 
   const [enabled, setEnabled] = useState(monitor?.enabled ?? true);
   const [url, setUrl] = useState(monitor?.url ?? website.url);
@@ -215,7 +213,6 @@ export function WebsiteMonitoringClient({
   const monitorUrl = monitor?.url ?? website.url;
 
   function save() {
-    setFlash(null);
     startTransition(async () => {
       const result = await upsertMonitorAction({
         websiteId: website.id,
@@ -238,27 +235,38 @@ export function WebsiteMonitoringClient({
         sslWarnDays,
       });
       if (!result.success) {
-        setFlash({ tone: "bad", text: result.error });
+        toast.error(result.error);
         return;
       }
-      setFlash({ tone: "ok", text: "Settings saved." });
+      toast.success("Settings saved.");
       router.refresh();
     });
   }
 
   function runNow() {
-    setFlash(null);
+    if (monitor?.paused) {
+      toast.error("Monitoring is paused. Resume it first, then run a check.");
+      return;
+    }
+    if (monitor && !monitor.enabled) {
+      toast.error("Monitoring is disabled. Enable it in Settings to run a check.");
+      return;
+    }
+
     startTransition(async () => {
       const result = await runMonitorNowAction(website.id);
       if (!result.success) {
-        setFlash({ tone: "bad", text: result.error });
+        toast.error(result.error);
         return;
       }
       const down = result.result === "DOWN" || result.result === "ERROR";
-      setFlash({
-        tone: down ? "bad" : "ok",
-        text: `Check finished: ${result.result} in ${result.latencyMs} ms`,
-      });
+      const text = down
+        ? `Check finished: ${result.result}${
+            result.latencyMs > 0 ? ` in ${result.latencyMs} ms` : ""
+          }`
+        : `Check finished: ${result.result} in ${result.latencyMs} ms`;
+      if (down) toast.error(text);
+      else toast.success(text);
       router.refresh();
     });
   }
@@ -267,17 +275,21 @@ export function WebsiteMonitoringClient({
     if (!monitor) return;
     startTransition(async () => {
       const result = await pauseMonitorAction(website.id, !monitor.paused);
-      if (!result.success) setFlash({ tone: "bad", text: result.error });
-      else router.refresh();
+      if (!result.success) toast.error(result.error);
+      else {
+        toast.success(monitor.paused ? "Monitoring resumed." : "Monitoring paused.");
+        router.refresh();
+      }
     });
   }
 
   function turnOff() {
     startTransition(async () => {
       const result = await disableMonitorAction(website.id);
-      if (!result.success) setFlash({ tone: "bad", text: result.error });
+      if (!result.success) toast.error(result.error);
       else {
         setEnabled(false);
+        toast.success("Monitor disabled.");
         router.refresh();
       }
     });
@@ -324,8 +336,24 @@ export function WebsiteMonitoringClient({
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Button onClick={runNow} disabled={pending || !canUseMonitoring} size="sm">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button
+              onClick={runNow}
+              disabled={
+                pending ||
+                !canUseMonitoring ||
+                Boolean(monitor?.paused) ||
+                Boolean(monitor && !monitor.enabled)
+              }
+              size="sm"
+              title={
+                monitor?.paused
+                  ? "Resume monitoring to run a check"
+                  : monitor && !monitor.enabled
+                    ? "Enable monitoring in Settings to run a check"
+                    : undefined
+              }
+            >
               {pending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -396,20 +424,6 @@ export function WebsiteMonitoringClient({
           ) : null}
         </dl>
       </header>
-
-      {flash ? (
-        <div
-          role="status"
-          className={cn(
-            "rounded-lg border px-3.5 py-2.5 text-sm",
-            flash.tone === "ok"
-              ? "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-400"
-              : "border-rose-500/20 bg-rose-500/[0.06] text-rose-400"
-          )}
-        >
-          {flash.text}
-        </div>
-      ) : null}
 
       {/* Metrics ribbon — one surface, no card soup */}
       <section className="overflow-hidden rounded-xl border border-border/40 bg-card">

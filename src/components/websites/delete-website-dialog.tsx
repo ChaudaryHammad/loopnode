@@ -6,6 +6,7 @@ import {
   deleteWebsiteAction,
   getWebsiteDeleteNoticeAction,
 } from "@/actions/websites";
+import { toast } from "@/lib/toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,8 +35,6 @@ export function DeleteWebsiteDialog({
 }: DeleteWebsiteDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [loadingNotice, setLoadingNotice] = useState(false);
-  const [noticeError, setNoticeError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
   const [canReconnect, setCanReconnect] = useState(true);
@@ -44,13 +43,11 @@ export function DeleteWebsiteDialog({
     if (!open) return;
 
     setLoadingNotice(true);
-    setNoticeError(null);
-    setDeleteError(null);
 
     getWebsiteDeleteNoticeAction(websiteId)
       .then((res) => {
         if (!res.success || !res.data) {
-          setNoticeError(res.error ?? "Could not load delete details.");
+          toast.error(res.error ?? "Could not load delete details.");
           setSummary("This will permanently remove this website and all of its data.");
           setDetail(null);
           setCanReconnect(true);
@@ -65,15 +62,15 @@ export function DeleteWebsiteDialog({
   }, [open, websiteId]);
 
   const handleDelete = () => {
-    setDeleteError(null);
     startTransition(async () => {
       const res = await deleteWebsiteAction(websiteId);
       if (res.success) {
+        toast.success("Website deleted.");
         onOpenChange(false);
         onDeleted?.();
         return;
       }
-      setDeleteError(res.error ?? "Failed to delete website.");
+      toast.error(res.error ?? "Failed to delete website.");
     });
   };
 
@@ -94,14 +91,6 @@ export function DeleteWebsiteDialog({
             <AlertTriangle />
             <AlertDescription className="text-xs leading-relaxed">{detail}</AlertDescription>
           </Alert>
-        ) : null}
-
-        {noticeError ? (
-          <p className="text-xs text-muted-foreground">{noticeError}</p>
-        ) : null}
-
-        {deleteError ? (
-          <p className="text-xs text-destructive">{deleteError}</p>
         ) : null}
 
         <DialogFooter>

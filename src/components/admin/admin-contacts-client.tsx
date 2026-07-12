@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Archive, Mail, MailOpen, Search } from "lucide-react";
 import { updateContactStatusAction } from "@/actions/admin";
 import { formatDateTime } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,7 +34,6 @@ export function AdminContactsClient({ messages }: { messages: ContactMessage[] }
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "NEW" | "READ" | "ARCHIVED">("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
@@ -56,8 +55,8 @@ export function AdminContactsClient({ messages }: { messages: ContactMessage[] }
   const setStatus = (id: string, status: "NEW" | "READ" | "ARCHIVED") => {
     startTransition(async () => {
       const res = await updateContactStatusAction(id, status);
+      toast.fromAction(res, { success: "Updated." });
       if (res.success) {
-        setMessage(res.message ?? "Updated.");
         router.refresh();
       }
     });
@@ -66,17 +65,10 @@ export function AdminContactsClient({ messages }: { messages: ContactMessage[] }
   return (
     <div className="space-y-6">
       <div className="border-b border-border/20 pb-6 space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Support inbox</h1>
         <p className="text-sm text-muted-foreground">
           Contact form submissions · {newCount} unread
         </p>
       </div>
-
-      {message && (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-md">

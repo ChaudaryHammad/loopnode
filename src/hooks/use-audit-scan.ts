@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cancelScanAction, startScanAction } from "@/actions/scans";
+import { toast } from "@/lib/toast";
 import type { AuditProgressState } from "@/components/websites/audit-progress-panel";
 
 export interface CompletedScanSnapshot {
@@ -85,7 +86,6 @@ export function useAuditScan({
   const [pollingId, setPollingId] = useState<string | null>(initialRunningScanId ?? null);
   const [isStarting, setIsStarting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [completedScan, setCompletedScan] = useState<CompletedScanSnapshot | null>(null);
   const [progress, setProgress] = useState<AuditProgressState>(
     initialProgress ?? EMPTY_PROGRESS
@@ -202,7 +202,6 @@ export function useAuditScan({
   }, [pollingId, pollScan, finishPolling]);
 
   const startScan = useCallback(async () => {
-    setError(null);
     setIsStarting(true);
     haltedLocallyRef.current = false;
     setCompletedScan(null);
@@ -216,13 +215,13 @@ export function useAuditScan({
           setIsStarting(false);
           return;
         }
-        setError(res.error ?? "Failed to start audit.");
+        toast.error(res.error ?? "Failed to start audit.");
         setIsStarting(false);
         return;
       }
 
       if (!res.data?.scanId) {
-        setError("Failed to start audit.");
+        toast.error("Failed to start audit.");
         setIsStarting(false);
         return;
       }
@@ -230,6 +229,7 @@ export function useAuditScan({
       const scanId = res.data.scanId;
       setPollingId(scanId);
       setIsStarting(false);
+      toast.success("Audit started.");
 
       void fetch(`/api/audits/${scanId}/execute`, { method: "POST" })
         .then(async (response) => {
@@ -247,7 +247,7 @@ export function useAuditScan({
             return;
           }
           if (!response.ok) {
-            setError(
+            toast.error(
               typeof data.error === "string"
                 ? data.error
                 : "Audit failed to start. You can stop and try again."
@@ -257,11 +257,11 @@ export function useAuditScan({
         })
         .catch((err) => {
           console.error("Audit execute request failed:", err);
-          setError("Lost connection to the audit runner. Stop the scan or refresh and try again.");
+          toast.error("Lost connection to the audit runner. Stop the scan or refresh and try again.");
         });
     } catch (err) {
       console.error(err);
-      setError("Something went wrong starting the audit.");
+      toast.error("Something went wrong starting the audit.");
       setIsStarting(false);
     }
   }, [websiteId, pollScan, scheduleRefresh]);
@@ -271,7 +271,6 @@ export function useAuditScan({
     if (!scanId) return;
 
     setIsCancelling(true);
-    setError(null);
     haltedLocallyRef.current = true;
     setPollingId(null);
     setIsStarting(false);
@@ -287,7 +286,7 @@ export function useAuditScan({
       if (!res.success) {
         haltedLocallyRef.current = false;
         setPollingId(scanId);
-        setError(res.error ?? "Failed to stop audit.");
+        toast.error(res.error ?? "Failed to stop audit.");
         return;
       }
 
@@ -302,7 +301,7 @@ export function useAuditScan({
       console.error(err);
       haltedLocallyRef.current = false;
       setPollingId(scanId);
-      setError("Something went wrong stopping the audit.");
+      toast.error("Something went wrong stopping the audit.");
     } finally {
       setIsCancelling(false);
     }
@@ -316,7 +315,6 @@ export function useAuditScan({
     cancelScan,
     isRunning,
     isCancelling,
-    error,
     pollingId,
     progress,
     completedScan,

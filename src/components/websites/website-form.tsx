@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useMemo, useTransition, useState } from "react";
+import React, { useMemo, useTransition } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { websiteSchema } from "@/lib/validations/website";
 import { addWebsiteAction, editWebsiteAction } from "@/actions/websites";
 import { ScanFrequency } from "@prisma/client";
 import { Loader2, Plus, Edit, CalendarClock } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -80,8 +80,6 @@ export function WebsiteForm({
   defaultValues,
   onSuccess,
 }: WebsiteFormProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const isEditMode = !!websiteId;
@@ -146,15 +144,13 @@ export function WebsiteForm({
     scanDayOfWeek?: number | null;
     scanDayOfMonth?: number | null;
   }) => {
-    setError(null);
-    setSuccess(null);
     startTransition(async () => {
       const res = isEditMode
         ? await editWebsiteAction(websiteId!, data)
         : await addWebsiteAction(data);
 
       if (res.success) {
-        setSuccess(
+        toast.success(
           isEditMode
             ? "Website details updated successfully!"
             : "Website connected successfully!"
@@ -162,7 +158,7 @@ export function WebsiteForm({
         if (!isEditMode) reset();
         onSuccess?.();
       } else {
-        setError(res.error || "Failed to process form.");
+        toast.error(res.error || "Failed to process form.");
       }
     });
   };
@@ -177,18 +173,6 @@ export function WebsiteForm({
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {success && (
-            <Alert className="border-green-500/20 bg-green-500/10 text-green-500">
-              <AlertDescription>{success}</AlertDescription>
-            </Alert>
-          )}
-
           <div className="space-y-2">
             <Label htmlFor="name">Friendly name</Label>
             <Input

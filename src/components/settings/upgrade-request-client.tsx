@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Building2,
-  Check,
   CreditCard,
   MessageSquare,
   Smartphone,
@@ -16,6 +15,7 @@ import { submitUpgradeRequestAction, uploadPaymentProofAction } from "@/actions/
 import { PaymentMethodDetails } from "@/components/payments/payment-method-details";
 import type { PublicPaymentMethod } from "@/lib/payment-methods";
 import { PLAN_LABELS, PLAN_PRICES_USD } from "@/lib/plans";
+import { toast } from "@/lib/toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,8 +64,6 @@ export function UpgradeRequestClient({
 }: UpgradeRequestClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
 
   const [requestedPlan, setRequestedPlan] = useState<PlanTier>("PRO");
@@ -91,10 +89,9 @@ export function UpgradeRequestClient({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     if (!paymentMethodId) {
-      setError("Select a payment method.");
+      toast.error("Select a payment method.");
       return;
     }
 
@@ -106,7 +103,7 @@ export function UpgradeRequestClient({
         formData.set("file", proofFile);
         const upload = await uploadPaymentProofAction(formData);
         if (!upload.success || !upload.url) {
-          setError(upload.error ?? "Failed to upload screenshot.");
+          toast.error(upload.error ?? "Failed to upload screenshot.");
           return;
         }
         paymentProofUrl = upload.url;
@@ -121,11 +118,11 @@ export function UpgradeRequestClient({
       });
 
       if (!res.success) {
-        setError(res.error ?? "Failed to submit request.");
+        toast.fromAction(res, { error: "Failed to submit request." });
         return;
       }
 
-      setSuccess(true);
+      toast.success("Payment submitted for verification.");
       router.refresh();
     });
   };
@@ -147,30 +144,6 @@ export function UpgradeRequestClient({
           </AlertDescription>
         </Alert>
         <ButtonLink href="/dashboard/settings/billing">View billing</ButtonLink>
-      </div>
-    );
-  }
-
-  if (success) {
-    return (
-      <div className="max-w-2xl space-y-6">
-        <Card className="rounded-2xl border-emerald-500/25 bg-emerald-500/5">
-          <CardContent className="pt-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
-                <Check className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-bold text-foreground">Payment submitted</p>
-                <p className="text-sm text-muted-foreground">
-                  We&apos;re verifying your payment. Your plan activates once approved — you&apos;ll
-                  get an in-app notification and email.
-                </p>
-              </div>
-            </div>
-            <ButtonLink href="/dashboard/settings/billing">Back to billing</ButtonLink>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -234,12 +207,6 @@ export function UpgradeRequestClient({
           </div>
         </CardContent>
       </Card>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="rounded-2xl border-border/30">

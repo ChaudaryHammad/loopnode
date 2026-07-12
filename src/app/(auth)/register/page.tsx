@@ -6,10 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { registerSchema } from "@/lib/validations/auth";
 import { registerAction } from "@/actions/auth";
-import { Activity, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
+import { Activity, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ButtonLink } from "@/components/ui/button-link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,8 +20,6 @@ import { z } from "zod";
 function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { executeRecaptcha } = useGoogleReCaptcha();
 
@@ -42,22 +39,20 @@ function RegisterForm() {
   });
 
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
-    setError(null);
-    setSuccess(null);
     startTransition(async () => {
       if (!executeRecaptcha) {
-        setError("reCAPTCHA is not ready. Please try again in a moment.");
+        toast.error("reCAPTCHA is not ready. Please try again in a moment.");
         return;
       }
 
       const recaptchaToken = await executeRecaptcha("register");
       const response = await registerAction({ ...data, recaptchaToken });
-      
+
       if (response.success) {
-        setSuccess(response.message || "Registration successful! Check your email.");
+        toast.success(response.message || "Registration successful! Check your email.");
         reset();
       } else {
-        setError(response.error || "Something went wrong.");
+        toast.error(response.error || "Something went wrong.");
       }
     });
   };
@@ -76,148 +71,131 @@ function RegisterForm() {
         </p>
       </div>
 
-      {success ? (
-        <div className="text-center py-6 px-4 animate-in fade-in zoom-in duration-300">
-          <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-foreground mb-2">Check your email</h3>
-          <p className="text-sm text-muted-foreground mb-6">{success}</p>
-          <ButtonLink href="/login">Go to sign in</ButtonLink>
-        </div>
-      ) : (
-        <>
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Full name</Label>
+          <Input
+            id="name"
+            placeholder="Your name"
+            disabled={isPending}
+            aria-invalid={!!errors.name}
+            {...register("name")}
+          />
+          {errors.name && (
+            <p className="text-xs text-destructive">{errors.name.message as string}</p>
           )}
+        </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full name</Label>
-              <Input
-                id="name"
-                placeholder="Your name"
-                disabled={isPending}
-                aria-invalid={!!errors.name}
-                {...register("name")}
-              />
-              {errors.name && (
-                <p className="text-xs text-destructive">{errors.name.message as string}</p>
-              )}
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email address</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            disabled={isPending}
+            aria-invalid={!!errors.email}
+            {...register("email")}
+          />
+          {errors.email && (
+            <p className="text-xs text-destructive">{errors.email.message as string}</p>
+          )}
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                disabled={isPending}
-                aria-invalid={!!errors.email}
-                {...register("email")}
-              />
-              {errors.email && (
-                <p className="text-xs text-destructive">{errors.email.message as string}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  disabled={isPending}
-                  aria-invalid={!!errors.password}
-                  className="pr-10"
-                  {...register("password")}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  tabIndex={-1}
-                  disabled={isPending}
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground"
-                >
-                  {showPassword ? <EyeOff /> : <Eye />}
-                </Button>
-              </div>
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password.message as string}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  disabled={isPending}
-                  aria-invalid={!!errors.confirmPassword}
-                  className="pr-10"
-                  {...register("confirmPassword")}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  tabIndex={-1}
-                  disabled={isPending}
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground"
-                >
-                  {showConfirmPassword ? <EyeOff /> : <Eye />}
-                </Button>
-              </div>
-              {errors.confirmPassword && (
-                <p className="text-xs text-destructive">
-                  {errors.confirmPassword.message as string}
-                </p>
-              )}
-            </div>
-
-            <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              By creating an account, you agree to our{" "}
-              <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
-                Privacy Policy
-              </Link>
-              .
-            </p>
-
-            <Button type="submit" disabled={isPending} className="w-full" size="lg">
-              {isPending ? (
-                <>
-                  <Loader2 className="animate-spin" />
-                  Creating account...
-                </>
-              ) : (
-                "Create account"
-              )}
-            </Button>
-          </form>
-
-          <p className="text-center text-sm text-muted-foreground mt-8">
-            Already have an account?{" "}
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              disabled={isPending}
+              aria-invalid={!!errors.password}
+              className="pr-10"
+              {...register("password")}
+            />
             <Button
-              variant="link"
-              className="h-auto p-0 font-semibold"
-              render={<Link href="/login" />}
-              nativeButton={false}
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              tabIndex={-1}
+              disabled={isPending}
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground"
             >
-              Sign in
+              {showPassword ? <EyeOff /> : <Eye />}
             </Button>
-          </p>
-        </>
-      )}
+          </div>
+          {errors.password && (
+            <p className="text-xs text-destructive">{errors.password.message as string}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirm password</Label>
+          <div className="relative">
+            <Input
+              id="confirmPassword"
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="••••••••"
+              disabled={isPending}
+              aria-invalid={!!errors.confirmPassword}
+              className="pr-10"
+              {...register("confirmPassword")}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              tabIndex={-1}
+              disabled={isPending}
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground"
+            >
+              {showConfirmPassword ? <EyeOff /> : <Eye />}
+            </Button>
+          </div>
+          {errors.confirmPassword && (
+            <p className="text-xs text-destructive">
+              {errors.confirmPassword.message as string}
+            </p>
+          )}
+        </div>
+
+        <p className="text-xs text-muted-foreground text-center leading-relaxed">
+          By creating an account, you agree to our{" "}
+          <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+
+        <Button type="submit" disabled={isPending} className="w-full" size="lg">
+          {isPending ? (
+            <>
+              <Loader2 className="animate-spin" />
+              Creating account...
+            </>
+          ) : (
+            "Create account"
+          )}
+        </Button>
+      </form>
+
+      <p className="text-center text-sm text-muted-foreground mt-8">
+        Already have an account?{" "}
+        <Button
+          variant="link"
+          className="h-auto p-0 font-semibold"
+          render={<Link href="/login" />}
+          nativeButton={false}
+        >
+          Sign in
+        </Button>
+      </p>
     </div>
   );
 }

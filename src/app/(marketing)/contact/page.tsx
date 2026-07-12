@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useTransition, useCallback } from "react";
+import React, { useTransition, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { submitContactForm } from "@/actions/contact";
-import { Loader2, Mail, CheckCircle2, MessageSquare, Globe, Building2, Send } from "lucide-react";
+import { toast } from "@/lib/toast";
+import { Loader2, Mail, MessageSquare, Building2, Send } from "lucide-react";
 import { z } from "zod";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,8 +26,6 @@ const contactValidation = z.object({
 
 // ─── Inner form (must be inside the provider) ────────────────────────────────
 function ContactForm() {
-  const [success, setSuccess] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { executeRecaptcha } = useGoogleReCaptcha();
 
@@ -48,11 +46,9 @@ function ContactForm() {
 
   const onSubmit = useCallback(
     (data: z.infer<typeof contactValidation>) => {
-      setError(null);
-      setSuccess(null);
       startTransition(async () => {
         if (!executeRecaptcha) {
-          setError("reCAPTCHA is not ready. Please try again in a moment.");
+          toast.error("reCAPTCHA is not ready. Please try again in a moment.");
           return;
         }
 
@@ -60,10 +56,10 @@ function ContactForm() {
 
         const res = await submitContactForm({ ...data, recaptchaToken });
         if (res.success) {
-          setSuccess(res.message || "Message sent!");
+          toast.success(res.message || "Message sent!");
           reset();
         } else {
-          setError(res.error || "Failed to send message.");
+          toast.error(res.error || "Failed to send message.");
         }
       });
     },
@@ -145,46 +141,15 @@ function ContactForm() {
             {/* Subtle inner glow */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none -z-10" />
 
-            {success ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-16 px-4"
-              >
-                <div className="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-500" />
-                </div>
-                <h3 className="text-2xl font-bold mb-3">Message Received</h3>
-                <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">
-                  {success}
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold tracking-tight mb-2">Send a message</h2>
+                <p className="text-sm text-muted-foreground">
+                  Fill out the form below and we'll get back to you shortly.
                 </p>
-                <Button
-                  onClick={() => setSuccess(null)}
-                  variant="outline"
-                  className="rounded-xl h-12 px-6 border-white/10 hover:bg-white/5 uppercase tracking-widest text-xs font-bold"
-                >
-                  Send another message
-                </Button>
-              </motion.div>
-            ) : (
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold tracking-tight mb-2">Send a message</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Fill out the form below and we'll get back to you shortly.
-                  </p>
-                </div>
+              </div>
 
-                {error && (
-                  <Alert
-                    variant="destructive"
-                    className="bg-rose-500/10 border-rose-500/20 text-rose-400"
-                  >
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2.5">
                     <Label
                       htmlFor="name"
@@ -286,7 +251,6 @@ function ContactForm() {
                   )}
                 </Button>
               </form>
-            )}
           </motion.div>
         </div>
       </div>

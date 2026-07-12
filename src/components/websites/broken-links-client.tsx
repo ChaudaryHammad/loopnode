@@ -9,6 +9,7 @@ import {
   getSitemapEstimateAction,
 } from "@/actions/broken-links";
 import { groupBrokenLinkFindings, type GroupedBrokenLink } from "@/broken-links/group-results";
+import { toast } from "@/lib/toast";
 import type { BrokenLinkScanMode } from "@prisma/client";
 import {
   ALL_LINK_RESOURCE_TYPES,
@@ -216,7 +217,6 @@ export function BrokenLinksClient({
   );
   const [isStarting, setIsStarting] = useState(false);
   const [isHalting, setIsHalting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [pdfLoadingAction, setPdfLoadingAction] = useState<"view" | "download" | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfFilename, setPdfFilename] = useState<string | null>(null);
@@ -339,11 +339,10 @@ export function BrokenLinksClient({
 
   const handleStartScan = async () => {
     if (selectedTypes.length === 0) {
-      setError("Select at least one link type.");
+      toast.error("Select at least one link type.");
       return;
     }
 
-    setError(null);
     setIsStarting(true);
     setStopRequested(false);
     setLiveResults([]);
@@ -358,7 +357,7 @@ export function BrokenLinksClient({
     try {
       const res = await startBrokenLinkScanAction(websiteId, scanMode, selectedTypes);
       if (!res.success || !res.data?.scanId) {
-        setError(res.error ?? "Failed to start scan.");
+        toast.error(res.error ?? "Failed to start scan.");
         setActiveScan(initialScan);
         setShowConfig(true);
         return;
@@ -375,18 +374,18 @@ export function BrokenLinksClient({
       })
         .then(async (response) => {
           const data = await response.json();
-          if (!response.ok) setError(data.error ?? "Scan failed.");
+          if (!response.ok) toast.error(data.error ?? "Scan failed.");
           await loadFullResults(scanId);
           await pollScan(scanId);
         })
-        .catch(() => setError("Lost connection. Refresh and try again."))
+        .catch(() => toast.error("Lost connection. Refresh and try again."))
         .finally(async () => {
           await pollScan(scanId);
           setPollingId(null);
           setIsStarting(false);
         });
     } catch {
-      setError("Something went wrong starting the scan.");
+      toast.error("Something went wrong starting the scan.");
       setActiveScan(initialScan);
       setShowConfig(true);
     } finally {
@@ -399,7 +398,6 @@ export function BrokenLinksClient({
     const scanId = activeScan.id;
     setIsHalting(true);
     setStopRequested(true);
-    setError(null);
 
     setActiveScan((prev) =>
       prev
@@ -415,7 +413,7 @@ export function BrokenLinksClient({
       const res = await cancelBrokenLinkScanAction(scanId);
       if (!res.success) {
         setStopRequested(false);
-        setError(res.error ?? "Failed to stop scan.");
+        toast.error(res.error ?? "Failed to stop scan.");
         await pollScan(scanId);
         return;
       }
@@ -423,7 +421,7 @@ export function BrokenLinksClient({
       await pollScan(scanId);
     } catch {
       setStopRequested(false);
-      setError("Something went wrong stopping the scan.");
+      toast.error("Something went wrong stopping the scan.");
       await pollScan(scanId);
     } finally {
       setIsHalting(false);
@@ -440,7 +438,6 @@ export function BrokenLinksClient({
     }
 
     setPdfLoadingAction(action);
-    setError(null);
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 55000);
@@ -485,7 +482,7 @@ export function BrokenLinksClient({
       const { blobUrl } = await ensurePdfReady("view");
       window.open(blobUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to open PDF.");
+      toast.error(err instanceof Error ? err.message : "Failed to open PDF.");
     }
   };
 
@@ -497,7 +494,7 @@ export function BrokenLinksClient({
       anchor.download = filename;
       anchor.click();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to download PDF.");
+      toast.error(err instanceof Error ? err.message : "Failed to download PDF.");
     }
   };
 
@@ -597,7 +594,6 @@ export function BrokenLinksClient({
       ) : null}
 
       <BrokenLinksStatusAlerts
-        error={error}
         activeScan={activeScan}
         hasResults={hasResults}
       />

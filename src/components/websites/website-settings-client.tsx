@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { ArrowLeft, Globe, Trash2, Settings } from "lucide-react";
 import { WebsiteForm } from "./website-form";
 import { DeleteWebsiteDialog } from "./delete-website-dialog";
@@ -43,24 +42,6 @@ export function WebsiteSettingsClient({
 
   return (
     <div className="space-y-8 max-w-2xl">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Button variant="link" size="sm" className="h-auto p-0" render={<Link href="/dashboard/websites" />} nativeButton={false}>
-          Websites
-        </Button>
-        <span>/</span>
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto p-0"
-          render={<Link href={`/dashboard/websites/${website.id}`} />}
-          nativeButton={false}
-        >
-          {website.name}
-        </Button>
-        <span>/</span>
-        <span className="text-foreground">Settings</span>
-      </div>
-
       <div className="flex items-center gap-3 border-b border-border/20 pb-6">
         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-secondary/40 border border-border/30">
           <Settings className="w-5 h-5 text-muted-foreground" />

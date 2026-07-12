@@ -9,7 +9,7 @@ import {
   verifyUserEmailAction,
 } from "@/actions/admin";
 import { formatDateTime } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,8 +45,6 @@ export function AdminUsersClient({ users }: { users: SerializedUser[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
@@ -63,15 +61,11 @@ export function AdminUsersClient({ users }: { users: SerializedUser[] }) {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const runAction = (fn: () => Promise<{ success: boolean; message?: string; error?: string }>) => {
-    setMessage(null);
-    setError(null);
     startTransition(async () => {
       const res = await fn();
+      toast.fromAction(res, { success: "Updated.", error: "Action failed." });
       if (res.success) {
-        setMessage(res.message ?? "Updated.");
         router.refresh();
-      } else {
-        setError(res.error ?? "Action failed.");
       }
     });
   };
@@ -79,22 +73,10 @@ export function AdminUsersClient({ users }: { users: SerializedUser[] }) {
   return (
     <div className="space-y-6">
       <div className="border-b border-border/20 pb-6 space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Users</h1>
         <p className="text-sm text-muted-foreground">
           Search accounts, change roles, verify email, or ban (soft-delete) users.
         </p>
       </div>
-
-      {message && (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      )}
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
 
       <div className="relative max-w-md">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />

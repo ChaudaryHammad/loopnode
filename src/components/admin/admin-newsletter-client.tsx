@@ -58,7 +58,6 @@ export function AdminNewsletterClient({ subscribers }: { subscribers: Subscriber
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between border-b border-border/20 pb-6">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Newsletter</h1>
           <p className="text-sm text-muted-foreground">
             {activeCount} active · {subscribers.length} total records
           </p>

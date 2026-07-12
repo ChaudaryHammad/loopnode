@@ -72,8 +72,7 @@ export default function WebsitesClient({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-border/20 pb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Connected Websites</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Manage your websites and inspect their historical scan metrics.
           </p>
         </div>

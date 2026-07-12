@@ -10,7 +10,7 @@ import {
 } from "@/actions/admin";
 import { PLAN_LABELS, PLAN_PRICES_USD, PLAN_SITE_LIMITS } from "@/lib/plans";
 import { formatDateTime } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
@@ -81,8 +81,6 @@ export function AdminBillingClient({
   estimatedMrr: number;
 }) {
   const router = useRouter();
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState<SubscriptionRow | null>(null);
   const [form, setForm] = useState({
@@ -114,8 +112,6 @@ export function AdminBillingClient({
   const saveSubscription = () => {
     if (!editing) return;
     startTransition(async () => {
-      setMessage(null);
-      setError(null);
       const res = await updateSubscriptionAction({
         userId: editing.userId,
         plan: form.plan ? (form.plan as (typeof PLANS)[number]) : null,
@@ -130,11 +126,11 @@ export function AdminBillingClient({
         notifyUser: form.notifyUser,
       });
       if (res.success) {
-        setMessage(res.message ?? "Saved.");
+        toast.fromAction(res, { success: "Saved." });
         setEditing(null);
         router.refresh();
       } else {
-        setError(res.error ?? "Failed to save.");
+        toast.fromAction(res, { error: "Failed to save." });
       }
     });
   };
@@ -144,7 +140,6 @@ export function AdminBillingClient({
       <div className="border-b border-border/20 pb-6 space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
             <p className="text-sm text-muted-foreground">
               Subscription records, plan overrides, and website limits. Grant upgrades here without
               requiring a customer payment submission.
@@ -156,17 +151,6 @@ export function AdminBillingClient({
           </ButtonLink>
         </div>
       </div>
-
-      {message && (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      )}
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="rounded-2xl border-border/30">
@@ -218,11 +202,9 @@ export function AdminBillingClient({
               onClick={() =>
                 startTransition(async () => {
                   const res = await initMissingSubscriptionsAction();
+                  toast.fromAction(res, { success: "Done.", error: "Failed." });
                   if (res.success) {
-                    setMessage(res.message ?? "Done.");
                     router.refresh();
-                  } else {
-                    setError(res.error ?? "Failed.");
                   }
                 })
               }
@@ -323,11 +305,9 @@ export function AdminBillingClient({
                           onClick={() =>
                             startTransition(async () => {
                               const res = await initUserSubscriptionAction(user.id);
+                              toast.fromAction(res, { success: "Created.", error: "Failed." });
                               if (res.success) {
-                                setMessage(res.message ?? "Created.");
                                 router.refresh();
-                              } else {
-                                setError(res.error ?? "Failed.");
                               }
                             })
                           }

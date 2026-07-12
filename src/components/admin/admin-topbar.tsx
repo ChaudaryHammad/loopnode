@@ -19,6 +19,8 @@ const LABELS: Record<string, string> = {
   billing: "Billing",
   newsletter: "Newsletter",
   contacts: "Support inbox",
+  "upgrade-requests": "Upgrade requests",
+  "payment-methods": "Payment methods",
 };
 
 export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {

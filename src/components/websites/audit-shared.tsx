@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import {
   ArrowLeft,
   AlertTriangle,
@@ -209,7 +208,7 @@ interface AuditPageShellProps {
 
 export function AuditPageShell({
   websiteId,
-  websiteName,
+  websiteName: _websiteName,
   websiteUrl,
   categoryLabel,
   score,
@@ -230,24 +229,6 @@ export function AuditPageShell({
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Button variant="link" size="sm" className="h-auto p-0" render={<Link href="/dashboard/websites" />} nativeButton={false}>
-          Websites
-        </Button>
-        <span>/</span>
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto p-0"
-          render={<Link href={`/dashboard/websites/${websiteId}`} />}
-          nativeButton={false}
-        >
-          {websiteName}
-        </Button>
-        <span>/</span>
-        <span className="text-foreground">{categoryLabel}</span>
-      </div>
-
       <Card className="rounded-[28px] border-border/30 bg-card/95 shadow-sm">
         <CardContent className="p-6 md:p-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
