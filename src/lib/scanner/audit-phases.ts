@@ -169,5 +169,5 @@ export function lighthouseSubstepMessage(step: string): string {
   if (normalized.includes("audit") || normalized.includes("gather")) {
     return "Lighthouse: gathering opportunities…";
   }
-  return `Lighthouse: ${step}…`;
+  return `Lighthouse: ${step.replace(/(?:\.{3}|…)+$/, "")}…`;
 }

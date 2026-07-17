@@ -965,6 +965,91 @@ export type LighthousePreset = "fast" | "accurate";
  */
 export type LighthouseDevice = "desktop" | "mobile";
 
+/**
+ * Converts a raw Lighthouse internal status ("Auditing: Serve images in
+ * next-gen formats") into the user-facing live status line — the same
+ * progression Chrome DevTools shows while Lighthouse runs.
+ */
+function friendlyLighthouseStatus(raw: string): string | null {
+  const message = raw.replace(/(?:\.{3}|…)+$/, "").trim();
+  if (!message) return null;
+  const lower = message.toLowerCase();
+
+  if (lower.startsWith("connecting")) return "Lighthouse: connecting to the lab browser…";
+  if (
+    lower.startsWith("initialize config") ||
+    lower.startsWith("gather phase") ||
+    lower.startsWith("getting browser version") ||
+    lower.startsWith("benchmarking")
+  ) {
+    return "Lighthouse: preparing the lab environment…";
+  }
+  if (lower.startsWith("navigating") || lower.startsWith("loading page")) {
+    return "Lighthouse: navigating to your page…";
+  }
+  if (lower.startsWith("gathering") || lower.startsWith("getting artifact")) {
+    const artifact = message.replace(
+      /^(?:Gathering(?: in-page)?|Getting artifact):?\s*/i,
+      ""
+    );
+    return artifact
+      ? `Lighthouse: gathering ${artifact}…`
+      : "Lighthouse: gathering page data…";
+  }
+  if (lower.startsWith("trace engine")) {
+    return "Lighthouse: analyzing the performance trace…";
+  }
+  if (lower.startsWith("computing")) {
+    const artifact = message.replace(/^Computing(?: artifact)?:?\s*/i, "");
+    return artifact
+      ? `Lighthouse: computing ${artifact}…`
+      : "Lighthouse: computing metrics…";
+  }
+  if (lower.startsWith("auditing")) {
+    let audit = message.replace(/^Auditing:?\s*/i, "").replace(/`/g, "");
+    if (audit.length > 72) audit = `${audit.slice(0, 69)}…`;
+    return audit ? `Lighthouse: auditing — ${audit}` : "Lighthouse: running audits…";
+  }
+  if (lower.startsWith("analyzing")) return `Lighthouse: ${message.toLowerCase()}…`;
+  if (lower.startsWith("generating results")) return "Lighthouse: generating results…";
+  if (lower.startsWith("disconnecting") || lower.startsWith("cleaning")) return null;
+
+  return `Lighthouse: ${message}…`;
+}
+
+/**
+ * Forwards Lighthouse's internal status events (the ones DevTools shows) to
+ * the audit progress stream, throttled so the DB isn't hammered.
+ */
+function createStatusForwarder(onSubstep: (message: string) => Promise<void>) {
+  let lastSentAt = 0;
+  let lastMessage = "";
+  let inFlight = false;
+
+  return (event: unknown) => {
+    const args = Array.isArray(event) ? event : [];
+    const raw = typeof args[1] === "string" ? args[1] : null;
+    if (!raw) return;
+
+    const friendly = friendlyLighthouseStatus(raw);
+    if (!friendly || friendly === lastMessage) return;
+
+    const now = Date.now();
+    if (inFlight || now - lastSentAt < 900) return;
+
+    lastSentAt = now;
+    lastMessage = friendly;
+    inFlight = true;
+    void onSubstep(friendly)
+      .catch(() => {
+        // Progress updates must never break the run (cancellation is enforced at checkpoints).
+      })
+      .finally(() => {
+        inFlight = false;
+      });
+  };
+}
+
 export async function runLighthousePerformanceAudit(
   browser: Browser,
   _page: Page,
@@ -992,7 +1077,23 @@ export async function runLighthousePerformanceAudit(
   );
   console.log(`[lighthouse] Starting audit for ${url} on port ${port} (${device})`);
 
-  const runnerResult = await lighthouse(
+  // Stream Lighthouse's own DevTools-style statuses to the live progress UI.
+  let statusEvents: { on: Function; off: Function } | null = null;
+  let statusListener: ((event: unknown) => void) | null = null;
+  if (onSubstep) {
+    try {
+      const lhLog = (await import("lighthouse-logger")).default as unknown as {
+        events: { on: Function; off: Function };
+      };
+      statusEvents = lhLog.events;
+      statusListener = createStatusForwarder(onSubstep);
+      statusEvents.on("status", statusListener);
+    } catch {
+      // Status streaming is best-effort; the run works without it.
+    }
+  }
+
+  const runLighthouse = () => lighthouse(
     url,
     {
       port,
@@ -1033,6 +1134,15 @@ export async function runLighthousePerformanceAudit(
     },
     undefined
   );
+
+  let runnerResult: Awaited<ReturnType<typeof runLighthouse>>;
+  try {
+    runnerResult = await runLighthouse();
+  } finally {
+    if (statusEvents && statusListener) {
+      statusEvents.off("status", statusListener);
+    }
+  }
 
   console.log("[lighthouse] Run finished");
 
