@@ -21,10 +21,16 @@ export function computeIssueFingerprint(issue: {
   title: string;
   selector?: string | null;
   url?: string | null;
+  metadata?: Record<string, unknown> | null;
 }) {
   const selector = issue.selector?.trim() ?? "";
   const url = issue.url?.trim() ?? "";
-  return `${issue.category}|${issue.title.trim()}|${selector}|${url}`;
+  const meta = issue.metadata;
+  const stableId =
+    (typeof meta?.lighthouseAuditId === "string" && meta.lighthouseAuditId) ||
+    (typeof meta?.axeId === "string" && meta.axeId) ||
+    "";
+  return `${issue.category}|${stableId}|${issue.title.trim()}|${selector}|${url}`;
 }
 
 export function categoryToAuditPath(websiteId: string, category: IssueCategory) {

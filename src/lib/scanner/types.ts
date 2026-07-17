@@ -23,6 +23,16 @@ export type PerformanceIssueKind =
   | "network"
   | "general";
 
+export type LighthouseAuditGroup =
+  | "insights"
+  | "diagnostics"
+  | "passed"
+  | "manual"
+  | "notApplicable"
+  | "metrics";
+
+export type LighthouseMetricTag = "FCP" | "LCP" | "TBT" | "CLS" | "INP" | "Unscored";
+
 export interface PerformanceIssueOffender {
   label: string;
   url: string | null;
@@ -31,15 +41,29 @@ export interface PerformanceIssueOffender {
   transferSize: number | null;
   totalBytes: number | null;
   snippet: string | null;
+  selector: string | null;
+  party: "1st" | "3rd" | null;
+  thumbnail: string | null;
+  displayedWidth: number | null;
+  displayedHeight: number | null;
+  naturalWidth: number | null;
+  naturalHeight: number | null;
+  subItems: Array<{
+    label: string;
+    wastedBytes: number | null;
+    wastedMs: number | null;
+  }>;
 }
 
 export interface PerformanceIssueMetadata {
   [key: string]: unknown;
-  version: 1;
-  source: "lighthouse" | "fallback";
+  version: 1 | 2;
+  source: "lighthouse" | "fallback" | "lab-failed";
   lighthouseAuditId?: string | null;
   lighthouseCategory?: string | null;
   kind: PerformanceIssueKind;
+  group: LighthouseAuditGroup;
+  metricTags: LighthouseMetricTag[];
   score: number | null;
   scoreDisplayMode: string | null;
   displayValue: string | null;
@@ -49,9 +73,11 @@ export interface PerformanceIssueMetadata {
   summary: string;
   impact: string | null;
   primaryAction: string | null;
+  learnMoreUrl: string | null;
   headings: string[];
   topOffenders: PerformanceIssueOffender[];
   url: string | null;
+  criticalPathLatencyMs?: number | null;
 }
 
 export interface AuditResult {

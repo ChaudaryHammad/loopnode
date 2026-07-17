@@ -17,6 +17,7 @@ export type PortfolioIssue = {
   selector: string | null;
   url: string | null;
   recommendation: string | null;
+  metadata: unknown;
   fingerprint: string;
   acknowledgedAt: Date | null;
   createdAt: Date;
@@ -58,6 +59,7 @@ export async function getPortfolioIssuesForUser(userId: string) {
               selector: true,
               url: true,
               recommendation: true,
+              metadata: true,
               fingerprint: true,
               acknowledgedAt: true,
               createdAt: true,

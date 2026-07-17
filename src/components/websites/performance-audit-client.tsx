@@ -3,8 +3,6 @@
 import React from "react";
 import { Zap } from "lucide-react";
 import {
-  AUDIT_FINDINGS_DESCRIPTION,
-  AUDIT_FINDINGS_TITLE,
   AuditPageShell,
   AuditSection,
   type AuditIssue,
@@ -251,7 +249,10 @@ export function PerformanceAuditClient({
         </AuditSection>
       )}
 
-      <AuditSection title={AUDIT_FINDINGS_TITLE} description={AUDIT_FINDINGS_DESCRIPTION}>
+      <AuditSection
+        title="Insights & diagnostics"
+        description="Lighthouse-style opportunities with estimated savings, metric tags, and resource offenders from your latest mobile lab run"
+      >
         <PerformanceFindingsList issues={issues} />
       </AuditSection>
     </AuditPageShell>

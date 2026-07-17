@@ -18,13 +18,35 @@ export function moduleOk(
 }
 
 export function moduleFail(moduleId: string, started: number, error: unknown): ModuleResult {
+  const message = error instanceof Error ? error.message : "Module failed";
   return {
     moduleId,
     status: "failed",
     score: null,
-    findings: [],
+    findings: [
+      {
+        moduleId,
+        category: moduleId.includes("accessibility")
+          ? "ACCESSIBILITY"
+          : moduleId.includes("seo")
+            ? "SEO"
+            : moduleId.includes("security") || moduleId.includes("cookie")
+              ? "SECURITY"
+              : "PERFORMANCE",
+        severity: "CRITICAL",
+        title: `Audit module failed: ${moduleId}`,
+        description: message,
+        recommendation:
+          "Retry the audit. If it keeps failing, check whether the page blocks scanners or returns errors.",
+        metadata: {
+          version: 2,
+          source: "lab-failed",
+          moduleId,
+        },
+      },
+    ],
     durationMs: Date.now() - started,
-    error: error instanceof Error ? error.message : "Module failed",
+    error: message,
   };
 }
 

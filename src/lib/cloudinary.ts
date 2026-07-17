@@ -213,3 +213,39 @@ export async function deleteReportFile(publicId: string, format: "pdf" | "csv") 
 
   return result;
 }
+
+const AUDIT_ARTIFACTS_FOLDER = "loopnode/audit-artifacts";
+
+/** Upload compact Lighthouse JSON for a scan (raw resource). Returns secure URL. */
+export async function uploadLighthouseReport(
+  scanId: string,
+  lhrJson: string
+): Promise<{ url: string; publicId: string }> {
+  const buffer = Buffer.from(lhrJson, "utf8");
+  const publicId = `${scanId}-lhr`;
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: AUDIT_ARTIFACTS_FOLDER,
+        public_id: publicId,
+        resource_type: "raw",
+        format: "json",
+        overwrite: true,
+        invalidate: true,
+      },
+      (error, result) => {
+        if (error || !result) {
+          reject(error ?? new Error("Cloudinary Lighthouse artifact upload failed"));
+          return;
+        }
+        resolve({
+          url: cleanCloudinaryUrl(result.secure_url),
+          publicId: result.public_id,
+        });
+      }
+    );
+
+    uploadStream.end(buffer);
+  });
+}

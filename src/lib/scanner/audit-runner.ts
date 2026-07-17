@@ -174,6 +174,8 @@ export async function runFullAudit(
       console.error("[audit] Performance audit failed", error);
       return {
         score: 0,
+        accessibilityScore: 0,
+        seoScore: 0,
         bestPracticesScore: 0,
         fcp: null,
         lcp: null,
@@ -183,7 +185,9 @@ export async function runFullAudit(
         issues: [
           scannerFailureIssue("PERFORMANCE", "Performance audit failed", error),
         ],
-        engine: "fallback" as const,
+        engine: "failed" as const,
+        failureReason: error instanceof Error ? error.message : "Performance audit failed",
+        lhrJson: null,
       };
     });
     console.log(`[audit] Performance audit completed (${performance.engine})`);

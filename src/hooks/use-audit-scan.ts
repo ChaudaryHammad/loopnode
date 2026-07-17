@@ -201,14 +201,14 @@ export function useAuditScan({
     };
   }, [pollingId, pollScan, finishPolling]);
 
-  const startScan = useCallback(async () => {
+  const startScan = useCallback(async (device: "desktop" | "mobile" = "desktop") => {
     setIsStarting(true);
     haltedLocallyRef.current = false;
     setCompletedScan(null);
     setProgress(EMPTY_PROGRESS);
 
     try {
-      const res = await startScanAction(websiteId);
+      const res = await startScanAction(websiteId, { device });
       if (!res.success) {
         if (res.data?.scanId) {
           setPollingId(res.data.scanId);
@@ -231,34 +231,42 @@ export function useAuditScan({
       setIsStarting(false);
       toast.success("Audit started.");
 
-      void fetch(`/api/audits/${scanId}/execute`, { method: "POST" })
-        .then(async (response) => {
-          const data = await response.json().catch(() => ({}));
-          if (response.status === 409 || data.cancelled) {
-            haltedLocallyRef.current = true;
-            setPollingId(null);
-            setProgress({
-              phase: "cancelled",
-              statusMessage: "Audit stopped.",
-              progressPercent: 0,
-              startedAt: null,
-            });
-            scheduleRefresh();
-            return;
-          }
-          if (!response.ok) {
+      // Prefer server-side dispatch from startScanAction; keep execute as a safety net
+      // for older clients / local recovery when the row was created without a run id.
+      if (!res.data?.runId) {
+        void fetch(`/api/audits/${scanId}/execute`, { method: "POST" })
+          .then(async (response) => {
+            const data = await response.json().catch(() => ({}));
+            if (response.status === 409 || data.cancelled) {
+              haltedLocallyRef.current = true;
+              setPollingId(null);
+              setProgress({
+                phase: "cancelled",
+                statusMessage: "Audit stopped.",
+                progressPercent: 0,
+                startedAt: null,
+              });
+              scheduleRefresh();
+              return;
+            }
+            if (!response.ok) {
+              toast.error(
+                typeof data.error === "string"
+                  ? data.error
+                  : "Audit failed to start. You can stop and try again."
+              );
+            }
+            await pollScan(scanId);
+          })
+          .catch((err) => {
+            console.error("Audit execute request failed:", err);
             toast.error(
-              typeof data.error === "string"
-                ? data.error
-                : "Audit failed to start. You can stop and try again."
+              "Lost connection to the audit runner. Stop the scan or refresh and try again."
             );
-          }
-          await pollScan(scanId);
-        })
-        .catch((err) => {
-          console.error("Audit execute request failed:", err);
-          toast.error("Lost connection to the audit runner. Stop the scan or refresh and try again.");
-        });
+          });
+      } else {
+        await pollScan(scanId);
+      }
     } catch (err) {
       console.error(err);
       toast.error("Something went wrong starting the audit.");

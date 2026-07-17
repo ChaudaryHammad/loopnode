@@ -31,9 +31,13 @@ export async function dispatchAuditScan(
     throw new AuditCancelledError("Scan was halted or is no longer running.");
   }
 
+  // Already queued — avoid duplicate Trigger workers for the same scan.
+  if (scan.triggerRunId && !options?.forceTrigger) {
+    return { mode: "trigger", runId: scan.triggerRunId };
+  }
+
   // Never run Chrome/Lighthouse on Vercel serverless — control plane only.
   const onVercel = Boolean(process.env.VERCEL);
-  // Queue the heavy audit to `run-audit` on a large machine instead of running inline.
   const preferTrigger =
     options?.forceTrigger === true || getAuditRunnerMode() === "trigger" || onVercel;
 
@@ -47,11 +51,19 @@ export async function dispatchAuditScan(
     const handle = await tasks.trigger<typeof runAuditTask>(
       "run-audit",
       { scanId },
-      { machine: "large-1x" }
+      {
+        machine: "large-1x",
+        idempotencyKey: `audit:${scanId}`,
+        idempotencyKeyTTL: "2h",
+      }
     );
 
     const updated = await prisma.scan.updateMany({
-      where: { id: scanId, status: "RUNNING" },
+      where: {
+        id: scanId,
+        status: "RUNNING",
+        OR: [{ triggerRunId: null }, { triggerRunId: handle.id }],
+      },
       data: {
         triggerRunId: handle.id,
         phase: "queued",
@@ -61,6 +73,23 @@ export async function dispatchAuditScan(
     });
 
     if (updated.count === 0) {
+      const current = await prisma.scan.findFirst({
+        where: { id: scanId },
+        select: { status: true, triggerRunId: true },
+      });
+
+      if (current?.status === "RUNNING" && current.triggerRunId) {
+        // Another dispatcher won the race; cancel our duplicate if different.
+        if (current.triggerRunId !== handle.id) {
+          try {
+            await runs.cancel(handle.id);
+          } catch (error) {
+            console.warn("Failed to cancel duplicate Trigger.dev run:", error);
+          }
+        }
+        return { mode: "trigger", runId: current.triggerRunId };
+      }
+
       try {
         await runs.cancel(handle.id);
       } catch (error) {

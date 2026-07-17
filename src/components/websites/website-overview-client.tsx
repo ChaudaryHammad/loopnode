@@ -23,6 +23,8 @@ import {
   TrendingUp,
   Square,
   Activity,
+  Monitor,
+  Smartphone,
 } from "lucide-react";
 import { ScoreGauge } from "./score-gauge";
 import { ScoreChart } from "./score-chart";
@@ -313,6 +315,7 @@ export function WebsiteOverviewClient({
       }
     : null;
 
+  const [scanDevice, setScanDevice] = React.useState<"desktop" | "mobile">("desktop");
   const { startScan, cancelScan, isRunning, isCancelling, progress, completedScan } =
     useAuditScan({
     websiteId: website.id,
@@ -392,10 +395,44 @@ export function WebsiteOverviewClient({
                   {isCancelling ? "Stopping…" : "Stop audit"}
                 </Button>
               ) : (
-                <Button size="lg" onClick={() => void startScan()} className="gap-2 shadow-none">
-                  <Zap className="w-4 h-4" />
-                  Run audit
-                </Button>
+                <>
+                  <div
+                    className="flex items-center rounded-lg border border-border/40 p-0.5"
+                    role="group"
+                    aria-label="Lighthouse device"
+                  >
+                    <Button
+                      type="button"
+                      variant={scanDevice === "desktop" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-9 gap-1.5 px-3"
+                      title="Desktop lab (default) — no CPU/network throttling"
+                      onClick={() => setScanDevice("desktop")}
+                    >
+                      <Monitor className="w-3.5 h-3.5" />
+                      <span className="text-xs">Desktop</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={scanDevice === "mobile" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-9 gap-1.5 px-3"
+                      title="Mobile lab — slow 4G + 4x CPU throttle, matches Google's mobile default"
+                      onClick={() => setScanDevice("mobile")}
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                      <span className="text-xs">Mobile</span>
+                    </Button>
+                  </div>
+                  <Button
+                    size="lg"
+                    onClick={() => void startScan(scanDevice)}
+                    className="gap-2 shadow-none"
+                  >
+                    <Zap className="w-4 h-4" />
+                    Run audit
+                  </Button>
+                </>
               )}
             </div>
           </div>

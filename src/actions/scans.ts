@@ -11,6 +11,8 @@ import {
 import { reaperStaleRunningScans } from "@/lib/scanner/fail-audit-scan";
 import { syncTriggerRunForScan } from "@/lib/scanner/sync-trigger-run";
 import { useTriggerDev } from "@/lib/env";
+import { getEntitlements } from "@/lib/entitlements";
+import { dispatchAuditScan } from "@/lib/audit-dispatch";
 
 const STALE_SCAN_MS = 10 * 60 * 1000;
 
@@ -32,13 +34,28 @@ async function clearStaleRunningScans(websiteId: string) {
   });
 }
 
-export async function startScanAction(websiteId: string) {
+export type ScanDevice = "desktop" | "mobile";
+
+export async function startScanAction(
+  websiteId: string,
+  options?: { device?: ScanDevice }
+) {
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized." };
   }
 
   const userId = session.user.id;
+
+  const entitlements = await getEntitlements(userId);
+  if (!entitlements.canScan) {
+    return {
+      success: false,
+      error:
+        entitlements.accountMessage ??
+        "Your account cannot start audits right now. Check billing or trial status.",
+    };
+  }
 
   const website = await prisma.website.findFirst({
     where: { id: websiteId, userId, deletedAt: null },
@@ -62,6 +79,8 @@ export async function startScanAction(websiteId: string) {
     };
   }
 
+  const device: ScanDevice = options?.device === "mobile" ? "mobile" : "desktop";
+
   const scan = await prisma.scan.create({
     data: {
       websiteId,
@@ -70,14 +89,44 @@ export async function startScanAction(websiteId: string) {
       phase: "queued",
       statusMessage: "Preparing your premium URL audit…",
       progressPercent: 2,
+      device,
     },
   });
 
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/websites");
-  revalidatePath(`/dashboard/websites/${websiteId}`);
+  // Enqueue on Trigger from the authenticated mutation when the worker path is enabled.
+  // Local-without-Trigger keeps the execute route so the Server Action does not block on Chrome.
+  const shouldDispatchNow = useTriggerDev() || Boolean(process.env.VERCEL);
 
-  return { success: true, data: { scanId: scan.id } };
+  if (!shouldDispatchNow) {
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/websites");
+    revalidatePath(`/dashboard/websites/${websiteId}`);
+    return { success: true, data: { scanId: scan.id, runId: null, mode: "local" as const } };
+  }
+
+  try {
+    const dispatched = await dispatchAuditScan(scan.id, { forceTrigger: true });
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/websites");
+    revalidatePath(`/dashboard/websites/${websiteId}`);
+    return {
+      success: true,
+      data: { scanId: scan.id, runId: dispatched.runId ?? null, mode: dispatched.mode },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to queue audit.";
+    await prisma.scan.updateMany({
+      where: { id: scan.id, status: "RUNNING" },
+      data: {
+        status: "FAILED",
+        phase: "failed",
+        errorMessage: message,
+        statusMessage: "Audit failed to queue.",
+        completedAt: new Date(),
+      },
+    });
+    return { success: false, error: message };
+  }
 }
 
 export async function getScanStatusAction(scanId: string) {

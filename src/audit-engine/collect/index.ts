@@ -5,6 +5,8 @@ import { buildElementSelector } from "@/lib/scanner/url-utils";
 
 const FETCH_TIMEOUT_MS = 15000;
 const PROBE_TIMEOUT_MS = 8000;
+/** Bound HTML before Cheerio to protect Trigger memory on large pages. */
+const MAX_HTML_BYTES = 2_500_000;
 const USER_AGENT =
   "Mozilla/5.0 (compatible; LoopNodeAudit/2.0; +https://loopnode.dev)";
 
@@ -14,6 +16,45 @@ function headersToRecord(headers: Headers): Record<string, string> {
     out[key.toLowerCase()] = value;
   });
   return out;
+}
+
+async function readBoundedText(res: Response, maxBytes: number): Promise<string> {
+  const contentLength = Number(res.headers.get("content-length") ?? NaN);
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new Error(
+      `Target HTML exceeds ${Math.round(maxBytes / 1024)} KiB (${contentLength} bytes).`
+    );
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) {
+    const text = await res.text();
+    if (text.length > maxBytes) {
+      return text.slice(0, maxBytes);
+    }
+    return text;
+  }
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      chunks.push(value.slice(0, Math.max(0, value.byteLength - (total - maxBytes))));
+      try {
+        await reader.cancel();
+      } catch {
+        // ignore
+      }
+      break;
+    }
+    chunks.push(value);
+  }
+
+  return Buffer.concat(chunks.map((c) => Buffer.from(c))).toString("utf8");
 }
 
 export async function collectTargetResponse(targetUrl: string): Promise<ResponseArtifact> {
@@ -26,8 +67,10 @@ export async function collectTargetResponse(targetUrl: string): Promise<Response
   });
 
   const contentType = res.headers.get("content-type");
-  const isHtml = (contentType ?? "").includes("text/html") || (contentType ?? "").includes("application/xhtml");
-  const body = isHtml ? await res.text() : null;
+  const isHtml =
+    (contentType ?? "").includes("text/html") ||
+    (contentType ?? "").includes("application/xhtml");
+  const body = isHtml ? await readBoundedText(res, MAX_HTML_BYTES) : null;
 
   return {
     url: targetUrl,

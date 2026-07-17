@@ -2,7 +2,8 @@
 
 import React from "react";
 import { Shield } from "lucide-react";
-import { AuditPageShell, AuditFindingsSection, type AuditIssue } from "./audit-shared";
+import { AuditPageShell, AuditSection, type AuditIssue } from "./audit-shared";
+import { LighthouseFindingsList } from "./lighthouse-findings-list";
 
 interface SecurityAuditClientProps {
   websiteId: string;
@@ -35,7 +36,12 @@ export function SecurityAuditClient({
       lastScanned={lastScanned}
     >
       {children}
-      <AuditFindingsSection issues={issues} />
+      <AuditSection
+        title="Security & best practices"
+        description="HTTP security checks plus Lighthouse Best Practices findings from your latest scan"
+      >
+        <LighthouseFindingsList issues={issues} showMetricFilters={false} />
+      </AuditSection>
     </AuditPageShell>
   );
 }

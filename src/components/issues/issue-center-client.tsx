@@ -37,6 +37,11 @@ import {
   severityBadgeClass,
   type IssueSeverity,
 } from "@/components/websites/audit-shared";
+import {
+  formatSavingsBytes,
+  formatSavingsMs,
+  parsePerformanceIssueMetadata,
+} from "@/lib/audit/performance-issue-metadata";
 import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +71,7 @@ type SerializedPortfolioIssue = Omit<
   createdAt: string;
   acknowledgedAt: string | null;
   scanCompletedAt: string | null;
+  metadata?: unknown;
 };
 
 interface IssueCenterClientProps {
@@ -616,6 +622,45 @@ export function IssueCenterClient({ websites, issues: initialIssues }: IssueCent
                             <p className="truncate text-sm font-medium text-foreground">
                               {issue.title}
                             </p>
+                            {(() => {
+                              const meta = parsePerformanceIssueMetadata(issue.metadata);
+                              const savings = [
+                                formatSavingsBytes(meta?.estimatedSavingsBytes),
+                                formatSavingsMs(meta?.estimatedSavingsMs),
+                              ]
+                                .filter(Boolean)
+                                .join(" / ");
+                              if (!savings && !meta?.metricTags?.length) {
+                                return (
+                                  <p className="mt-0.5 truncate text-xs text-muted-foreground md:hidden">
+                                    {issue.websiteName}
+                                  </p>
+                                );
+                              }
+                              return (
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  {savings ? (
+                                    <span className="text-[11px] font-medium text-rose-400">
+                                      Est savings {savings}
+                                    </span>
+                                  ) : null}
+                                  {meta?.metricTags?.slice(0, 3).map((tag) => (
+                                    <Badge
+                                      key={tag}
+                                      variant="outline"
+                                      className="text-[9px] border-border/30 text-muted-foreground"
+                                    >
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                  {(meta?.topOffenders.length ?? 0) > 0 ? (
+                                    <span className="text-[11px] text-muted-foreground">
+                                      {meta?.topOffenders.length} offenders
+                                    </span>
+                                  ) : null}
+                                </div>
+                              );
+                            })()}
                             <p className="mt-0.5 truncate text-xs text-muted-foreground md:hidden">
                               {issue.websiteName}
                             </p>
@@ -704,33 +749,96 @@ export function IssueCenterClient({ websites, issues: initialIssues }: IssueCent
                       {isExpanded && (
                         <TableRow className="bg-muted/20 hover:bg-muted/20">
                           <TableCell colSpan={7} className="px-4 py-4">
-                            <div className="space-y-3 text-sm">
-                              <p className="leading-relaxed text-muted-foreground">
-                                {issue.description}
-                              </p>
-                              {issue.recommendation && (
-                                <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
-                                  <p className="mb-1 text-xs font-semibold text-primary">
-                                    Recommendation
+                            {(() => {
+                              const meta = parsePerformanceIssueMetadata(issue.metadata);
+                              const offenders = meta?.topOffenders ?? [];
+                              return (
+                                <div className="space-y-3 text-sm">
+                                  <p className="leading-relaxed text-muted-foreground">
+                                    {issue.description}
                                   </p>
-                                  <p className="text-xs leading-relaxed text-muted-foreground">
-                                    {issue.recommendation}
+                                  {meta?.impact ? (
+                                    <p className="text-xs leading-relaxed text-muted-foreground">
+                                      {meta.impact}
+                                    </p>
+                                  ) : null}
+                                  {issue.recommendation && (
+                                    <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+                                      <p className="mb-1 text-xs font-semibold text-primary">
+                                        Recommendation
+                                      </p>
+                                      <p className="text-xs leading-relaxed text-muted-foreground">
+                                        {issue.recommendation}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {(meta?.estimatedSavingsBytes != null ||
+                                    meta?.estimatedSavingsMs != null) && (
+                                    <div className="flex flex-wrap gap-3 text-xs">
+                                      {meta.estimatedSavingsBytes != null ? (
+                                        <span>
+                                          Byte savings:{" "}
+                                          <strong>
+                                            {formatSavingsBytes(meta.estimatedSavingsBytes)}
+                                          </strong>
+                                        </span>
+                                      ) : null}
+                                      {meta.estimatedSavingsMs != null ? (
+                                        <span>
+                                          Time savings:{" "}
+                                          <strong>
+                                            {formatSavingsMs(meta.estimatedSavingsMs)}
+                                          </strong>
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  )}
+                                  {offenders.length > 0 ? (
+                                    <div className="rounded-xl border border-border/30 overflow-hidden">
+                                      <div className="border-b border-border/30 bg-secondary/20 px-3 py-2 text-xs font-semibold">
+                                        Top offenders ({offenders.length})
+                                      </div>
+                                      <div className="divide-y divide-border/20">
+                                        {offenders.slice(0, 8).map((offender, index) => (
+                                          <div
+                                            key={`${offender.label}-${index}`}
+                                            className="flex items-start justify-between gap-3 px-3 py-2 text-xs"
+                                          >
+                                            <div className="min-w-0">
+                                              <p className="truncate font-medium">
+                                                {offender.url ?? offender.label}
+                                              </p>
+                                              {offender.selector ? (
+                                                <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                                                  {offender.selector}
+                                                </p>
+                                              ) : null}
+                                            </div>
+                                            <span className="shrink-0 tabular-nums text-rose-400">
+                                              {formatSavingsBytes(offender.wastedBytes) ??
+                                                formatSavingsMs(offender.wastedMs) ??
+                                                "—"}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  {(issue.selector || issue.url) && (
+                                    <div className="space-y-1 font-mono text-xs text-muted-foreground">
+                                      {issue.selector && <p>Selector: {issue.selector}</p>}
+                                      {issue.url && <p>URL: {issue.url}</p>}
+                                    </div>
+                                  )}
+                                  <p className="text-xs text-muted-foreground">
+                                    Last seen in audit:{" "}
+                                    {issue.scanCompletedAt
+                                      ? formatDateTime(issue.scanCompletedAt)
+                                      : "—"}
                                   </p>
                                 </div>
-                              )}
-                              {(issue.selector || issue.url) && (
-                                <div className="space-y-1 font-mono text-xs text-muted-foreground">
-                                  {issue.selector && <p>Selector: {issue.selector}</p>}
-                                  {issue.url && <p>URL: {issue.url}</p>}
-                                </div>
-                              )}
-                              <p className="text-xs text-muted-foreground">
-                                Last seen in audit:{" "}
-                                {issue.scanCompletedAt
-                                  ? formatDateTime(issue.scanCompletedAt)
-                                  : "—"}
-                              </p>
-                            </div>
+                              );
+                            })()}
                           </TableCell>
                         </TableRow>
                       )}

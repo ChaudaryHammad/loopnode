@@ -2,7 +2,8 @@
 
 import React from "react";
 import { Search } from "lucide-react";
-import { AuditPageShell, AuditFindingsSection, type AuditIssue } from "./audit-shared";
+import { AuditPageShell, AuditSection, type AuditIssue } from "./audit-shared";
+import { LighthouseFindingsList } from "./lighthouse-findings-list";
 
 interface SeoAuditClientProps {
   websiteId: string;
@@ -35,7 +36,12 @@ export function SeoAuditClient({
       lastScanned={lastScanned}
     >
       {children}
-      <AuditFindingsSection issues={issues} />
+      <AuditSection
+        title="SEO findings"
+        description="Lighthouse SEO audits plus LoopNode crawler checks from your latest scan"
+      >
+        <LighthouseFindingsList issues={issues} showMetricFilters={false} />
+      </AuditSection>
     </AuditPageShell>
   );
 }

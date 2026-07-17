@@ -1,11 +1,21 @@
-import { logger, task } from "@trigger.dev/sdk";
+import { AbortTaskRunError, logger, queue, task } from "@trigger.dev/sdk";
+
+export const auditQueue = queue({
+  name: "audit-scans",
+  concurrencyLimit: 3,
+});
 
 export const runAuditTask = task({
   id: "run-audit",
+  queue: auditQueue,
   machine: { preset: "large-1x" },
   maxDuration: 300,
   retry: {
-    maxAttempts: 1,
+    maxAttempts: 2,
+    factor: 1.5,
+    minTimeoutInMs: 2000,
+    maxTimeoutInMs: 15000,
+    randomize: true,
   },
   run: async (payload: { scanId: string }) => {
     logger.info("run-audit started", { scanId: payload.scanId });
@@ -27,7 +37,7 @@ export const runAuditTask = task({
     });
 
     if (!scan) {
-      throw new Error("Scan not found or not in RUNNING state.");
+      throw new AbortTaskRunError("Scan not found or not in RUNNING state.");
     }
 
     try {
@@ -40,10 +50,12 @@ export const runAuditTask = task({
       logger.info("Audit scan completed", {
         scanId: completed.id,
         overallScore: completed.overallScore,
+        labEngine: completed.labEngine,
       });
       return {
         scanId: completed.id,
         overallScore: completed.overallScore,
+        labEngine: completed.labEngine,
       };
     } catch (error) {
       if (error instanceof AuditCancelledError) {
@@ -53,11 +65,22 @@ export const runAuditTask = task({
       }
 
       const message = error instanceof Error ? error.message : "Scan failed";
+      const isInfrastructure =
+        /timed out|Could not launch|Chrome|ECONNRESET|ENOTFOUND|socket|network|OOM|memory/i.test(
+          message
+        );
+
       logger.error("Audit scan failed", {
         scanId: payload.scanId,
         message,
+        isInfrastructure,
       });
-      await failAuditScan(payload.scanId, message);
+
+      if (!isInfrastructure) {
+        await failAuditScan(payload.scanId, message);
+        throw new AbortTaskRunError(message);
+      }
+
       throw error;
     }
   },
@@ -82,4 +105,3 @@ export const runAuditTask = task({
     });
   },
 });
-

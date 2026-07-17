@@ -1,6 +1,7 @@
 "use client";
 
-import { Square, Zap } from "lucide-react";
+import { useState } from "react";
+import { Monitor, Smartphone, Square, Zap } from "lucide-react";
 import { useAuditScan } from "@/hooks/use-audit-scan";
 import { AuditProgressPanel, type AuditProgressState } from "@/components/websites/audit-progress-panel";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export function AuditScanControls({
   runVariant = "link",
   showProgressPanel = false,
 }: AuditScanControlsProps) {
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const { startScan, cancelScan, isRunning, isCancelling, progress } = useAuditScan({
     websiteId,
     initialRunningScanId: runningScanId ?? null,
@@ -61,15 +63,43 @@ export function AuditScanControls({
 
   return (
     <div className={className}>
-      <Button
-        variant={runVariant}
-        size={size}
-        onClick={() => void startScan()}
-        title={iconOnly ? label : undefined}
-        className={iconOnly ? undefined : "gap-2"}
-      >
-        {iconOnly ? <Zap /> : label}
-      </Button>
+      <div className="flex items-center gap-2">
+        {!iconOnly ? (
+          <div
+            className="flex items-center rounded-lg border border-border/40 p-0.5"
+            role="group"
+            aria-label="Lighthouse device"
+          >
+            <Button
+              type="button"
+              variant={device === "desktop" ? "secondary" : "ghost"}
+              size="icon-sm"
+              title="Desktop lab (default)"
+              onClick={() => setDevice("desktop")}
+            >
+              <Monitor className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant={device === "mobile" ? "secondary" : "ghost"}
+              size="icon-sm"
+              title="Mobile lab (slow 4G, 4x CPU throttle — matches Google's mobile default)"
+              onClick={() => setDevice("mobile")}
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : null}
+        <Button
+          variant={runVariant}
+          size={size}
+          onClick={() => void startScan(device)}
+          title={iconOnly ? label : undefined}
+          className={iconOnly ? undefined : "gap-2"}
+        >
+          {iconOnly ? <Zap /> : label}
+        </Button>
+      </div>
     </div>
   );
 }

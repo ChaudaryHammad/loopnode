@@ -1,5 +1,7 @@
 import type { AuditIssue } from "@/components/websites/audit-shared";
 import type {
+  LighthouseAuditGroup,
+  LighthouseMetricTag,
   PerformanceIssueMetadata,
   PerformanceIssueOffender,
   PerformanceIssueKind,
@@ -23,6 +25,17 @@ function isKind(value: unknown): value is PerformanceIssueKind {
   );
 }
 
+function isGroup(value: unknown): value is LighthouseAuditGroup {
+  return (
+    value === "insights" ||
+    value === "diagnostics" ||
+    value === "passed" ||
+    value === "manual" ||
+    value === "notApplicable" ||
+    value === "metrics"
+  );
+}
+
 function toNullableString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
@@ -36,6 +49,16 @@ function parseOffender(value: unknown): PerformanceIssueOffender | null {
   const label = toNullableString(value.label);
   if (!label) return null;
 
+  const subItems = Array.isArray(value.subItems)
+    ? value.subItems
+        .filter(isRecord)
+        .map((entry) => ({
+          label: toNullableString(entry.label) ?? "Detail",
+          wastedBytes: toNullableNumber(entry.wastedBytes),
+          wastedMs: toNullableNumber(entry.wastedMs),
+        }))
+    : [];
+
   return {
     label,
     url: toNullableString(value.url),
@@ -44,14 +67,32 @@ function parseOffender(value: unknown): PerformanceIssueOffender | null {
     transferSize: toNullableNumber(value.transferSize),
     totalBytes: toNullableNumber(value.totalBytes),
     snippet: toNullableString(value.snippet),
+    selector: toNullableString(value.selector),
+    party: value.party === "1st" || value.party === "3rd" ? value.party : null,
+    thumbnail: toNullableString(value.thumbnail),
+    displayedWidth: toNullableNumber(value.displayedWidth),
+    displayedHeight: toNullableNumber(value.displayedHeight),
+    naturalWidth: toNullableNumber(value.naturalWidth),
+    naturalHeight: toNullableNumber(value.naturalHeight),
+    subItems,
   };
+}
+
+function parseMetricTags(value: unknown): LighthouseMetricTag[] {
+  if (!Array.isArray(value)) return [];
+  const allowed = new Set(["FCP", "LCP", "TBT", "CLS", "INP", "Unscored"]);
+  return value
+    .map((entry) => (typeof entry === "string" ? entry : null))
+    .filter((entry): entry is LighthouseMetricTag => Boolean(entry && allowed.has(entry)));
 }
 
 export function parsePerformanceIssueMetadata(
   metadata: unknown
 ): PerformanceIssueMetadata | null {
   if (!isRecord(metadata)) return null;
-  if (metadata.version !== 1 || !isKind(metadata.kind)) return null;
+  if ((metadata.version !== 1 && metadata.version !== 2) || !isKind(metadata.kind)) {
+    return null;
+  }
 
   const headings = Array.isArray(metadata.headings)
     ? metadata.headings.map(toNullableString).filter((value): value is string => Boolean(value))
@@ -66,11 +107,18 @@ export function parsePerformanceIssueMetadata(
   if (!summary) return null;
 
   return {
-    version: 1,
-    source: metadata.source === "fallback" ? "fallback" : "lighthouse",
+    version: metadata.version === 2 ? 2 : 1,
+    source:
+      metadata.source === "fallback"
+        ? "fallback"
+        : metadata.source === "lab-failed"
+          ? "lab-failed"
+          : "lighthouse",
     lighthouseAuditId: toNullableString(metadata.lighthouseAuditId),
     lighthouseCategory: toNullableString(metadata.lighthouseCategory),
     kind: metadata.kind,
+    group: isGroup(metadata.group) ? metadata.group : "diagnostics",
+    metricTags: parseMetricTags(metadata.metricTags),
     score: toNullableNumber(metadata.score),
     scoreDisplayMode: toNullableString(metadata.scoreDisplayMode),
     displayValue: toNullableString(metadata.displayValue),
@@ -80,9 +128,11 @@ export function parsePerformanceIssueMetadata(
     summary,
     impact: toNullableString(metadata.impact),
     primaryAction: toNullableString(metadata.primaryAction),
+    learnMoreUrl: toNullableString(metadata.learnMoreUrl),
     headings,
     topOffenders,
     url: toNullableString(metadata.url),
+    criticalPathLatencyMs: toNullableNumber(metadata.criticalPathLatencyMs),
   };
 }
 
@@ -123,4 +173,17 @@ export function sortPerformanceIssues(issues: AuditIssue[]): AuditIssue[] {
     if (diff !== 0) return diff;
     return a.title.localeCompare(b.title);
   });
+}
+
+export function formatSavingsBytes(value: number | null | undefined) {
+  if (value == null) return null;
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
+  if (value >= 1024) return `${Math.round(value / 1024)} KiB`;
+  return `${Math.round(value)} B`;
+}
+
+export function formatSavingsMs(value: number | null | undefined) {
+  if (value == null) return null;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)} s`;
+  return `${Math.round(value)} ms`;
 }

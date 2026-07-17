@@ -72,13 +72,17 @@ export interface SiteProbe {
 
 export interface LabMetrics {
   score: number;
+  accessibilityScore: number;
+  seoScore: number;
   bestPracticesScore: number;
   fcp: number | null;
   lcp: number | null;
   cls: number | null;
   inp: number | null;
   tbt: number | null;
-  engine: "lighthouse" | "fallback";
+  engine: "lighthouse" | "failed";
+  failureReason: string | null;
+  lighthouseReportUrl: string | null;
   findings: AuditFinding[];
 }
 
@@ -89,7 +93,7 @@ export interface AuditMeta {
   host: string;
   profile: AuditProfileId;
   enableLab: boolean;
-  lighthousePreset: "fast" | "accurate";
+  device: "desktop" | "mobile";
 }
 
 /** Shared blackboard for one Target URL audit. No crawl frontier. */
@@ -113,6 +117,8 @@ export interface AuditEngineResult {
   cls: number | null;
   inp: number | null;
   tbt: number | null;
+  labEngine: "lighthouse" | "failed" | "skipped" | null;
+  lighthouseReportUrl: string | null;
   issues: Array<Omit<AuditFinding, "moduleId"> & { moduleId?: string }>;
   moduleResults: ModuleResult[];
 }

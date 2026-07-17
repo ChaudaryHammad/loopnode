@@ -30,6 +30,9 @@ const TASK_ENV_KEYS = [
   "SMTP_PORT",
   "SMTP_USER",
   "SMTP_PASS",
+  "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME",
+  "NEXT_PUBLIC_CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
 ] as const;
 
 function taskEnv(): Record<string, string> {

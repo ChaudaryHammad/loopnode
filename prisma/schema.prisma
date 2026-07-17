@@ -391,12 +391,15 @@ model Scan {
   triggerRunId    String?
 
   // Metadata
-  screenshot   String?   // Cloudinary URL
-  startedAt    DateTime?
-  completedAt  DateTime?
-  errorMessage String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  screenshot            String?   // Cloudinary screenshot URL (optional)
+  lighthouseReportUrl   String?   @db.Text // Compact LHR JSON artifact URL
+  labEngine             String?   // lighthouse | failed | skipped
+  device                String?   @default("desktop") // desktop | mobile lab emulation
+  startedAt             DateTime?
+  completedAt           DateTime?
+  errorMessage          String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   website Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
   issues  Issue[]

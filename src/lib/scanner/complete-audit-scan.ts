@@ -16,6 +16,12 @@ export async function completeAuditScan(
 
   const { runAuditEngine } = await import("@/audit-engine");
 
+  const scanRecord = await prisma.scan.findFirst({
+    where: { id: scanId },
+    select: { device: true },
+  });
+  const device = scanRecord?.device === "mobile" ? "mobile" : "desktop";
+
   let result;
   try {
     result = await runAuditEngine({
@@ -23,6 +29,7 @@ export async function completeAuditScan(
       websiteId: website.id,
       targetUrl: website.url,
       profile: "standard",
+      device,
     });
   } catch (error) {
     if (error instanceof AuditCancelledError) {
@@ -38,7 +45,10 @@ export async function completeAuditScan(
     data: {
       status: "COMPLETED",
       phase: "completed",
-      statusMessage: "Audit complete — results are ready.",
+      statusMessage:
+        result.labEngine === "failed"
+          ? "Audit finished, but the Lighthouse lab was incomplete — see Issue Center."
+          : "Audit complete — results are ready.",
       progressPercent: 100,
       overallScore: result.overallScore,
       performanceScore: result.performanceScore,
@@ -50,6 +60,8 @@ export async function completeAuditScan(
       cls: result.cls,
       inp: result.inp,
       tbt: result.tbt,
+      labEngine: result.labEngine,
+      lighthouseReportUrl: result.lighthouseReportUrl,
       completedAt: new Date(),
       issues: {
         create: result.issues.map((issue: (typeof result.issues)[number]) => ({
@@ -75,7 +87,12 @@ export async function completeAuditScan(
       userId: website.userId,
       action: "SCAN_COMPLETED",
       description: `Completed audit for "${website.name}" — overall score: ${result.overallScore}`,
-      metadata: { websiteId: website.id, scanId, overallScore: result.overallScore },
+      metadata: {
+        websiteId: website.id,
+        scanId,
+        overallScore: result.overallScore,
+        labEngine: result.labEngine,
+      },
     },
   });
 

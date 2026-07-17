@@ -27,6 +27,8 @@ export interface RunAuditEngineOptions {
   websiteId: string;
   targetUrl: string;
   profile?: AuditProfileId;
+  /** Lighthouse emulation target. Defaults to desktop (DevTools Desktop mode). */
+  device?: "desktop" | "mobile";
 }
 
 async function report(
@@ -63,8 +65,9 @@ export async function runAuditEngine(
     : `https://${options.targetUrl}`;
   const host = normalizeWebsiteHost(targetUrl) ?? targetUrl;
   const profile = resolveAuditProfile(options.profile);
+  const device = options.device === "mobile" ? "mobile" : "desktop";
 
-  console.log(`[audit-engine] Starting ${profile.id} audit for ${targetUrl}`);
+  console.log(`[audit-engine] Starting ${profile.id} audit for ${targetUrl} (${device})`);
 
   await assertScanRunnable(options.auditId);
   await report(
@@ -82,7 +85,7 @@ export async function runAuditEngine(
       host,
       profile: profile.id,
       enableLab: profile.enableLab,
-      lighthousePreset: profile.lighthousePreset,
+      device,
     },
     response: null,
     dom: null,
@@ -162,9 +165,9 @@ export async function runAuditEngine(
     await report(
       options.auditId,
       "performance",
-      profile.lighthousePreset === "accurate"
-        ? "Measuring Core Web Vitals (accurate mobile lab)…"
-        : "Measuring Core Web Vitals with Lighthouse…",
+      device === "mobile"
+        ? "Measuring Core Web Vitals (mobile lab)…"
+        : "Measuring Core Web Vitals (desktop lab)…",
       host
     );
 
@@ -172,7 +175,7 @@ export async function runAuditEngine(
       {
         auditId: options.auditId,
         targetUrl,
-        lighthousePreset: profile.lighthousePreset,
+        device,
         onSubstep: async (message) => {
           await report(options.auditId, "performance", message, host);
         },
