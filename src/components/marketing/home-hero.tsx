@@ -21,7 +21,7 @@ export function HomeHero({ isLoggedIn }: { isLoggedIn: boolean }) {
   const primaryLabel = isLoggedIn ? "Open dashboard" : "Start monitoring";
 
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative -mt-16 overflow-hidden pt-16">
       <HeroShaderBg />
       <div className="absolute inset-0 ln-grid-bg opacity-25" />
 

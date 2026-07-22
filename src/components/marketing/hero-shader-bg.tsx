@@ -5,12 +5,11 @@ import { ShaderGradient, ShaderGradientCanvas } from "@shadergradient/react";
 
 /**
  * Health Mesh hero — Shader Gradient water plane.
- * Soft teal / paper / mist palette with grain + light mouse parallax.
+ * Fixed camera (no mouse-driven prop updates) so the mesh animates smoothly.
  */
 export function HeroShaderBg() {
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [azimuth, setAzimuth] = useState(180);
-  const [polar, setPolar] = useState(95);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -20,49 +19,46 @@ export function HeroShaderBg() {
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (reducedMotion) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    setAzimuth(180 + x * 32);
-    setPolar(95 + y * 18);
-  }
+  useEffect(() => {
+    // Defer WebGL mount one frame so layout is stable (avoids initial hitch).
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
-  if (reducedMotion) {
+  if (reducedMotion || !ready) {
     return <div className="ln-hero-mesh" aria-hidden />;
   }
 
   return (
-    <div className="absolute inset-0" aria-hidden onPointerMove={onPointerMove}>
+    <div className="absolute inset-0" aria-hidden>
       <ShaderGradientCanvas
         className="absolute inset-0"
         style={{ width: "100%", height: "100%" }}
-        pixelDensity={1.2}
+        pixelDensity={1}
         fov={45}
         pointerEvents="none"
-        lazyLoad
+        lazyLoad={false}
       >
         <ShaderGradient
           control="props"
           animate="on"
           type="waterPlane"
           shader="defaults"
-          uSpeed={0.18}
-          uStrength={1.6}
-          uDensity={1.05}
-          uFrequency={5.2}
+          uSpeed={0.12}
+          uStrength={1.4}
+          uDensity={1}
+          uFrequency={5}
           uAmplitude={0}
           color1="#9fd4cc"
           color2="#efe9df"
           color3="#b7c8dc"
           reflection={0.08}
           lightType="3d"
-          brightness={1.2}
+          brightness={1.15}
           grain="on"
-          grainBlending={0.45}
-          cAzimuthAngle={azimuth}
-          cPolarAngle={polar}
+          grainBlending={0.35}
+          cAzimuthAngle={180}
+          cPolarAngle={95}
           cDistance={3.9}
           cameraZoom={1}
           positionX={0}
@@ -71,8 +67,7 @@ export function HeroShaderBg() {
           rotationX={0}
           rotationY={0}
           rotationZ={0}
-          enableTransition
-          smoothTime={0.35}
+          enableTransition={false}
         />
       </ShaderGradientCanvas>
 

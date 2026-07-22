@@ -23,6 +23,7 @@ export function MarketingNavClient({ isLoggedIn }: MarketingNavClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const isHome = pathname === "/";
 
   useEffect(() => {
     setIsOpen(false);
@@ -42,6 +43,8 @@ export function MarketingNavClient({ isLoggedIn }: MarketingNavClientProps) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const overHero = isHome && !scrolled && !isOpen;
+
   return (
     <>
       <header
@@ -49,7 +52,9 @@ export function MarketingNavClient({ isLoggedIn }: MarketingNavClientProps) {
           "sticky top-0 z-50 w-full transition-all duration-300",
           scrolled || isOpen
             ? "border-b border-[var(--ln-line)] bg-[var(--ln-bg)]/90 backdrop-blur-xl"
-            : "border-b border-transparent bg-transparent"
+            : isHome
+              ? "border-b border-transparent bg-white/35 backdrop-blur-sm"
+              : "border-b border-white/40 bg-white/45 backdrop-blur-md"
         )}
       >
         <div className="ln-container flex h-16 items-center justify-between gap-4">
@@ -62,20 +67,26 @@ export function MarketingNavClient({ isLoggedIn }: MarketingNavClientProps) {
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "rounded-[var(--ln-radius-sm)] px-3 py-1.5 text-sm transition-colors",
-                  pathname === link.href || pathname.startsWith(`${link.href}/`)
-                    ? "text-[var(--ln-ink)]"
-                    : "text-[var(--ln-muted)] hover:text-[var(--ln-ink)]"
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const active =
+                pathname === link.href || pathname.startsWith(`${link.href}/`);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    "rounded-[var(--ln-radius-sm)] px-3 py-1.5 text-sm transition-colors",
+                    active
+                      ? "font-medium text-[var(--ln-ink)]"
+                      : overHero
+                        ? "font-medium text-[var(--ln-ink-soft)] hover:text-[var(--ln-ink)]"
+                        : "text-[var(--ln-muted)] hover:text-[var(--ln-ink)]"
+                  )}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="hidden items-center gap-2 md:flex">
@@ -90,7 +101,12 @@ export function MarketingNavClient({ isLoggedIn }: MarketingNavClientProps) {
               <>
                 <Link
                   href="/login"
-                  className="px-3 py-1.5 text-sm text-[var(--ln-muted)] transition-colors hover:text-[var(--ln-ink)]"
+                  className={cn(
+                    "px-3 py-1.5 text-sm transition-colors hover:text-[var(--ln-ink)]",
+                    overHero
+                      ? "font-medium text-[var(--ln-ink-soft)]"
+                      : "text-[var(--ln-muted)]"
+                  )}
                 >
                   Sign in
                 </Link>
@@ -108,7 +124,12 @@ export function MarketingNavClient({ isLoggedIn }: MarketingNavClientProps) {
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="relative z-50 rounded-[var(--ln-radius-sm)] p-2 text-[var(--ln-muted)] transition-colors hover:bg-black/5 hover:text-[var(--ln-ink)] md:hidden"
+            className={cn(
+              "relative z-50 rounded-[var(--ln-radius-sm)] p-2 transition-colors hover:bg-black/5 hover:text-[var(--ln-ink)] md:hidden",
+              overHero
+                ? "text-[var(--ln-ink-soft)]"
+                : "text-[var(--ln-muted)]"
+            )}
             aria-label="Toggle menu"
           >
             {isOpen ? <X className="size-5" /> : <Menu className="size-5" />}
