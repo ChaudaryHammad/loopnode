@@ -152,20 +152,85 @@ export function HomeSections({ isLoggedIn }: { isLoggedIn: boolean }) {
         </div>
       </Section>
 
-      {/* Final CTA */}
-      <Section className="py-20 md:py-24">
+      {/* Final CTA — homepage only; promote elsewhere after approval */}
+      <Section className="py-20 md:py-28">
         <div className="ln-container">
           <Reveal>
-            <div className="relative overflow-hidden rounded-[var(--ln-radius-lg)] bg-[var(--ln-panel)] px-8 py-14 text-center md:px-16 md:py-16">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(13,122,111,0.22),transparent_55%)]" />
-              <div className="relative">
-                <p className="font-display text-3xl font-medium text-white md:text-4xl">
-                  Build for everyone. Watch production.
+            <div className="relative overflow-hidden rounded-[20px] bg-[#070a0c]">
+              <div className="pointer-events-none absolute inset-0">
+                {/* Teal wash */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_50%_-10%,rgba(13,122,111,0.26),transparent_55%)]" />
+
+                {/* Element line pattern — diagonals + grid */}
+                <svg
+                  className="absolute inset-0 h-full w-full opacity-[0.55]"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden
+                >
+                  <defs>
+                    <pattern
+                      id="cta-line-pattern"
+                      width="48"
+                      height="48"
+                      patternUnits="userSpaceOnUse"
+                    >
+                      <path
+                        d="M0 48L48 0"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.14)"
+                        strokeWidth="1"
+                      />
+                      <path
+                        d="M-12 12L12 -12M36 60L60 36"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.08)"
+                        strokeWidth="1"
+                      />
+                      <circle cx="0" cy="0" r="1.25" fill="rgba(255,255,255,0.22)" />
+                      <circle cx="48" cy="0" r="1.25" fill="rgba(255,255,255,0.22)" />
+                      <circle cx="0" cy="48" r="1.25" fill="rgba(255,255,255,0.22)" />
+                      <circle cx="48" cy="48" r="1.25" fill="rgba(255,255,255,0.22)" />
+                    </pattern>
+                    <radialGradient id="cta-pattern-fade" cx="50%" cy="45%" r="70%">
+                      <stop offset="0%" stopColor="white" stopOpacity="1" />
+                      <stop offset="55%" stopColor="white" stopOpacity="0.7" />
+                      <stop offset="100%" stopColor="white" stopOpacity="0" />
+                    </radialGradient>
+                    <mask id="cta-pattern-mask">
+                      <rect width="100%" height="100%" fill="url(#cta-pattern-fade)" />
+                    </mask>
+                  </defs>
+                  <rect
+                    width="100%"
+                    height="100%"
+                    fill="url(#cta-line-pattern)"
+                    mask="url(#cta-pattern-mask)"
+                  />
+                </svg>
+
+                {/* Soft grain for depth */}
+                <div
+                  className="absolute inset-0 opacity-[0.25] mix-blend-overlay"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+                    backgroundSize: "180px 180px",
+                  }}
+                />
+              </div>
+
+              <div className="relative mx-auto flex max-w-2xl flex-col items-center px-8 py-16 text-center md:px-14 md:py-20 lg:py-24">
+                <h2 className="max-w-[20ch] font-display text-[2rem] font-semibold leading-[1.15] tracking-[-0.03em] text-white sm:text-[2.5rem] sm:leading-[1.12] md:max-w-none md:text-[2.85rem] md:leading-[1.1]">
+                  A calm read on
+                  <br className="hidden sm:block" />
+                  everything that can fail.
+                </h2>
+
+                <p className="mt-6 max-w-[32rem] text-[15px] leading-[1.65] text-white/55 sm:text-base sm:leading-[1.7]">
+                  Uptime, SSL, security, and accessibility — scored together,
+                  watched on a schedule, and clear enough to act on.
                 </p>
-                <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-[var(--ln-panel-muted)]">
-                  Keep sites up, usable, and compliant — starting with your first audit.
-                </p>
-                <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+
+                <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
                   <MarketingButton href={primaryHref} variant="panel">
                     {isLoggedIn ? "Open dashboard" : "Start free trial"}
                     <ArrowRight className="size-4" />
@@ -173,7 +238,7 @@ export function HomeSections({ isLoggedIn }: { isLoggedIn: boolean }) {
                   <MarketingButton
                     href="/contact"
                     variant="ghost"
-                    className="text-[var(--ln-panel-muted)] hover:text-white"
+                    className="border border-white/12 text-white/75 hover:bg-white/5 hover:text-white"
                   >
                     Talk to us
                   </MarketingButton>

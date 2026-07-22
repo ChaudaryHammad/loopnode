@@ -1,9 +1,9 @@
 import type { PlanTier } from "@prisma/client";
 
 export const PLAN_PRICES_USD: Record<PlanTier, number> = {
-  STARTER: 19,
-  PRO: 49,
-  AGENCY: 129,
+  STARTER: 9,
+  PRO: 19,
+  AGENCY: 49,
 };
 
 export const PLAN_SITE_LIMITS: Record<PlanTier, number> = {

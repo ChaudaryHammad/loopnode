@@ -74,6 +74,7 @@ export function HomeHero({ isLoggedIn }: { isLoggedIn: boolean }) {
         initial={{ opacity: 0, y: 28 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        className="relative ln-container pb-12 md:pb-16"
       >
         <LiveMonitorCanvas />
       </motion.div>

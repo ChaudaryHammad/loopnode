@@ -315,6 +315,39 @@ body {
   animation: ln-scan 3.2s ease-in-out infinite;
 }
 
+@keyframes ln-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ln-marquee-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.ln-marquee {
+  animation: ln-marquee var(--ln-marquee-duration, 48s) linear infinite;
+}
+
+.ln-marquee-reverse {
+  animation: ln-marquee-reverse var(--ln-marquee-duration, 48s) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ln-marquee,
+  .ln-marquee-reverse {
+    animation: none;
+  }
+}
+
 /* Health Mesh Cadence — Fade cascade loader (brand motion L04) */
 @keyframes cadence-fade {
   0%,

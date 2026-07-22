@@ -1,214 +1,276 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { StatusDot } from "@/components/marketing/primitives";
 import { cn } from "@/lib/utils";
 
-type SiteStatus = "healthy" | "degraded" | "down" | "checking";
-
-type Site = {
-  name: string;
+type Frame = {
+  overall: number;
   host: string;
-  latency: string;
-  status: SiteStatus;
+  status: "Healthy" | "Degraded" | "Down";
+  checkedAt: string;
+  nextRun: string;
+  event: string;
+  metrics: {
+    label: string;
+    value: string;
+    hint: string;
+    score: number;
+  }[];
 };
 
-const CYCLE: Site[][] = [
-  [
-    { name: "Checkout", host: "pay.acme.io", latency: "142ms", status: "healthy" },
-    { name: "Marketing", host: "acme.io", latency: "89ms", status: "healthy" },
-    { name: "API", host: "api.acme.io", latency: "61ms", status: "healthy" },
-    { name: "Docs", host: "docs.acme.io", latency: "118ms", status: "healthy" },
-  ],
-  [
-    { name: "Checkout", host: "pay.acme.io", latency: "142ms", status: "healthy" },
-    { name: "Marketing", host: "acme.io", latency: "89ms", status: "healthy" },
-    { name: "API", host: "api.acme.io", latency: "—", status: "checking" },
-    { name: "Docs", host: "docs.acme.io", latency: "118ms", status: "healthy" },
-  ],
-  [
-    { name: "Checkout", host: "pay.acme.io", latency: "142ms", status: "healthy" },
-    { name: "Marketing", host: "acme.io", latency: "89ms", status: "healthy" },
-    { name: "API", host: "api.acme.io", latency: "2.4s", status: "degraded" },
-    { name: "Docs", host: "docs.acme.io", latency: "118ms", status: "healthy" },
-  ],
-  [
-    { name: "Checkout", host: "pay.acme.io", latency: "142ms", status: "healthy" },
-    { name: "Marketing", host: "acme.io", latency: "89ms", status: "healthy" },
-    { name: "API", host: "api.acme.io", latency: "timeout", status: "down" },
-    { name: "Docs", host: "docs.acme.io", latency: "118ms", status: "healthy" },
-  ],
-  [
-    { name: "Checkout", host: "pay.acme.io", latency: "142ms", status: "healthy" },
-    { name: "Marketing", host: "acme.io", latency: "89ms", status: "healthy" },
-    { name: "API", host: "api.acme.io", latency: "74ms", status: "healthy" },
-    { name: "Docs", host: "docs.acme.io", latency: "118ms", status: "healthy" },
-  ],
+const FRAMES: Frame[] = [
+  {
+    host: "acme.io",
+    overall: 94,
+    status: "Healthy",
+    checkedAt: "2m ago",
+    nextRun: "47m",
+    event: "Audit complete · accessibility and security clear",
+    metrics: [
+      { label: "Uptime", value: "99.98%", hint: "24h", score: 99 },
+      { label: "SSL", value: "48d", hint: "remaining", score: 96 },
+      { label: "Security", value: "96", hint: "headers · TLS", score: 96 },
+      { label: "Accessibility", value: "94", hint: "WCAG AA", score: 94 },
+    ],
+  },
+  {
+    host: "acme.io",
+    overall: 84,
+    status: "Degraded",
+    checkedAt: "just now",
+    nextRun: "8m",
+    event: "Accessibility dropped · 6 contrast issues",
+    metrics: [
+      { label: "Uptime", value: "99.98%", hint: "24h", score: 99 },
+      { label: "SSL", value: "48d", hint: "remaining", score: 96 },
+      { label: "Security", value: "91", hint: "CSP missing", score: 91 },
+      { label: "Accessibility", value: "72", hint: "6 issues", score: 72 },
+    ],
+  },
+  {
+    host: "acme.io",
+    overall: 61,
+    status: "Down",
+    checkedAt: "just now",
+    nextRun: "now",
+    event: "Uptime check failed · on-call notified",
+    metrics: [
+      { label: "Uptime", value: "99.91%", hint: "24h", score: 97 },
+      { label: "SSL", value: "48d", hint: "remaining", score: 96 },
+      { label: "Security", value: "88", hint: "HSTS weak", score: 88 },
+      { label: "Accessibility", value: "70", hint: "8 issues", score: 70 },
+    ],
+  },
+  {
+    host: "acme.io",
+    overall: 93,
+    status: "Healthy",
+    checkedAt: "1m ago",
+    nextRun: "58m",
+    event: "Recovered · uptime stable · scores restored",
+    metrics: [
+      { label: "Uptime", value: "99.97%", hint: "24h", score: 99 },
+      { label: "SSL", value: "48d", hint: "remaining", score: 96 },
+      { label: "Security", value: "95", hint: "headers · TLS", score: 95 },
+      { label: "Accessibility", value: "93", hint: "WCAG AA", score: 93 },
+    ],
+  },
 ];
 
-const EVENTS = [
-  { t: "14:02:11", label: "SSL certificate valid · 48 days remaining", tone: "ok" as const },
-  { t: "14:02:18", label: "Uptime check passed · api.acme.io", tone: "ok" as const },
-  { t: "14:04:01", label: "Latency spike detected · p95 2.4s", tone: "warn" as const },
-  { t: "14:04:09", label: "Endpoint unreachable · HTTP timeout", tone: "alert" as const },
-  { t: "14:04:10", label: "Alert sent · Slack #ops · email on-call", tone: "alert" as const },
-  { t: "14:07:42", label: "Recovered · response 74ms · status 200", tone: "ok" as const },
-];
-
-function statusTone(status: SiteStatus) {
-  if (status === "healthy") return "ok" as const;
-  if (status === "degraded") return "warn" as const;
-  if (status === "down") return "alert" as const;
-  return "idle" as const;
+function statusColor(status: Frame["status"]) {
+  if (status === "Healthy") return "var(--ln-signal)";
+  if (status === "Degraded") return "var(--ln-warn)";
+  return "var(--ln-alert)";
 }
 
-function statusLabel(status: SiteStatus) {
-  if (status === "healthy") return "Healthy";
-  if (status === "degraded") return "Degraded";
-  if (status === "down") return "Down";
-  return "Checking";
+function ringColor(score: number) {
+  if (score >= 90) return "#0d7a6f";
+  if (score >= 70) return "#b54708";
+  return "#b42318";
+}
+
+function OverallRing({ score }: { score: number }) {
+  const size = 148;
+  const stroke = 8;
+  const radius = (size - stroke) / 2;
+  const center = size / 2;
+  const circumference = 2 * Math.PI * radius;
+  const arc = circumference * 0.78;
+  const gap = circumference - arc;
+  const progress = (score / 100) * arc;
+  const color = ringColor(score);
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+        <g transform={`rotate(148 ${center} ${center})`}>
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke="rgba(10,12,16,0.06)"
+            strokeWidth={stroke}
+            strokeDasharray={`${arc} ${gap}`}
+            strokeLinecap="round"
+          />
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={stroke}
+            strokeDasharray={`${progress} ${circumference - progress}`}
+            strokeLinecap="round"
+            style={{
+              transition: "stroke-dasharray 1s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          />
+        </g>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span
+          className="font-display text-[2.75rem] font-semibold leading-none tracking-tight tabular-nums"
+          style={{ color }}
+        >
+          {score}
+        </span>
+        <span className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ln-faint)]">
+          Overall
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export function LiveMonitorCanvas({ className }: { className?: string }) {
   const [step, setStep] = useState(0);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      setStep((s) => (s + 1) % CYCLE.length);
-    }, 2200);
-    return () => window.clearInterval(id);
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReducedMotion(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, []);
 
-  const sites = CYCLE[step];
-  const incident = sites.some((s) => s.status === "down" || s.status === "degraded");
-  // Reveal events in sync with the cycle without changing layout height.
-  const visibleCount = Math.min(2 + step, EVENTS.length);
+  useEffect(() => {
+    if (reducedMotion) return;
+    const id = window.setInterval(() => {
+      setStep((s) => (s + 1) % FRAMES.length);
+    }, 3200);
+    return () => window.clearInterval(id);
+  }, [reducedMotion]);
+
+  const frame = FRAMES[step];
+  const accent = statusColor(frame.status);
 
   return (
     <div
       className={cn(
-        "relative w-full overflow-hidden bg-[var(--ln-panel)] text-white",
+        "relative overflow-hidden rounded-[20px] border border-[var(--ln-line)] bg-[var(--ln-surface)] shadow-[0_1px_1px_rgba(10,12,16,0.03),0_28px_64px_rgba(10,12,16,0.10)]",
         className
       )}
       aria-hidden="true"
     >
-      <div className="pointer-events-none absolute inset-0 opacity-[0.35]">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-            backgroundSize: "56px 56px",
-          }}
-        />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(13,122,111,0.18),transparent_55%)]" />
-      </div>
+      {/* Quiet top wash */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_at_50%_0%,rgba(13,122,111,0.07),transparent_70%)]" />
 
-      <div className="relative ln-container py-8 md:py-10">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-[var(--ln-panel-line)] pb-4">
-          <div className="flex items-center gap-3">
-            <StatusDot tone={incident ? "alert" : "ok"} pulse />
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ln-panel-faint)]">
-                Live monitor
+      <div className="relative px-6 py-6 sm:px-8 sm:py-7 md:px-10 md:py-8">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              {/* Cadence mark */}
+              <span className="inline-flex h-3.5 items-stretch gap-[2.5px]" aria-hidden>
+                <span className="w-[2.5px] rounded-[0.5px] bg-[var(--ln-ink)]" />
+                <span className="w-[2.5px] rounded-[0.5px] bg-[var(--ln-ink)]" />
+                <span className="w-[2.5px] rounded-[0.5px] bg-[var(--ln-ink)]" />
+                <span className="w-[2.5px] rounded-[0.5px] bg-[var(--ln-ink)]" />
+                <span className="w-[1.5px] rounded-[0.5px] bg-[var(--ln-ink)] opacity-35" />
+              </span>
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ln-faint)]">
+                Health Mesh
               </p>
-              <p className="text-sm text-white/90">acme production · 4 endpoints</p>
             </div>
+            <p className="mt-3 font-display text-xl font-semibold tracking-tight text-[var(--ln-ink)] sm:text-2xl">
+              {frame.host}
+            </p>
+            <p className="mt-1 text-sm text-[var(--ln-muted)]">
+              Checked {frame.checkedAt}
+              <span className="mx-2 text-[var(--ln-line-strong)]">·</span>
+              Next scan {frame.nextRun}
+            </p>
           </div>
-          <div className="flex items-center gap-6 font-mono text-[11px] text-[var(--ln-panel-muted)]">
-            <span>Region · multi</span>
-            <span>Interval · 60s</span>
+
+          <div className="flex items-center gap-2 pt-1">
             <span
-              className={cn(
-                "inline-block w-[7.5rem] text-right",
-                incident ? "text-[var(--ln-warn-soft)]" : "text-[#7dd3c7]"
-              )}
+              className="size-1.5 rounded-full"
+              style={{ background: accent }}
+            />
+            <span
+              className="text-sm font-medium"
+              style={{ color: accent }}
             >
-              {incident ? "Incident open" : "All clear"}
+              {frame.status}
             </span>
           </div>
         </div>
 
-        <div className="grid h-auto gap-6 lg:h-[22rem] lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="flex h-full flex-col gap-2">
-            {sites.map((site) => (
+        {/* Focal score + metrics */}
+        <div className="mt-8 grid items-center gap-8 border-t border-[var(--ln-line)] pt-8 lg:grid-cols-[180px_1fr] lg:gap-12">
+          <div className="flex justify-center lg:justify-start">
+            <OverallRing score={frame.overall} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-6 gap-y-7 sm:grid-cols-4 sm:gap-x-0">
+            {frame.metrics.map((metric, i) => (
               <div
-                key={site.host}
-                className="grid min-h-[4.25rem] flex-1 grid-cols-[1fr_auto_auto] items-center gap-4 rounded-[var(--ln-radius)] border border-[var(--ln-panel-line)] bg-[var(--ln-panel-elevated)]/70 px-4"
+                key={metric.label}
+                className={cn(
+                  "min-w-0 sm:px-5",
+                  i > 0 && "sm:border-l sm:border-[var(--ln-line)]"
+                )}
               >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <StatusDot tone={statusTone(site.status)} pulse={site.status === "checking"} />
-                    <p className="truncate text-sm font-medium text-white">{site.name}</p>
-                  </div>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--ln-panel-faint)]">
-                    {site.host}
-                  </p>
-                </div>
-                <p className="w-14 text-right font-mono text-xs tabular-nums text-[var(--ln-panel-muted)]">
-                  {site.latency}
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ln-faint)]">
+                  {metric.label}
                 </p>
                 <p
-                  className={cn(
-                    "w-20 text-right font-mono text-[11px] uppercase tracking-wide transition-colors duration-300",
-                    site.status === "healthy" && "text-[#7dd3c7]",
-                    site.status === "degraded" && "text-[#f5c26b]",
-                    site.status === "down" && "text-[#f2a19a]",
-                    site.status === "checking" && "text-[var(--ln-panel-muted)]"
-                  )}
+                  key={`${metric.label}-${metric.value}`}
+                  className="mt-2 font-display text-2xl font-semibold tracking-tight tabular-nums text-[var(--ln-ink)] sm:text-[1.65rem]"
                 >
-                  {statusLabel(site.status)}
+                  {metric.value}
                 </p>
+                <p className="mt-1 text-xs text-[var(--ln-muted)]">{metric.hint}</p>
+                {/* Tiny score track */}
+                <div className="mt-3 h-[2px] w-full overflow-hidden rounded-full bg-[rgba(10,12,16,0.06)]">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    style={{
+                      width: `${metric.score}%`,
+                      background: ringColor(metric.score),
+                    }}
+                  />
+                </div>
               </div>
             ))}
           </div>
+        </div>
 
-          <div className="flex h-full min-h-[22rem] flex-col rounded-[var(--ln-radius)] border border-[var(--ln-panel-line)] bg-[var(--ln-panel-elevated)]/50 p-4 lg:min-h-0">
-            <p className="mb-4 shrink-0 font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ln-panel-faint)]">
-              Event stream
-            </p>
-            <div className="flex min-h-0 flex-1 flex-col justify-start gap-0">
-              {EVENTS.map((event, i) => {
-                const visible = i < visibleCount;
-                return (
-                  <div
-                    key={event.t}
-                    className={cn(
-                      "flex h-8 shrink-0 items-start gap-3 transition-opacity duration-300",
-                      visible ? "opacity-100" : "opacity-0"
-                    )}
-                  >
-                    <span className="w-14 shrink-0 font-mono text-[11px] text-[var(--ln-panel-faint)]">
-                      {event.t}
-                    </span>
-                    <div className="flex min-w-0 items-start gap-2">
-                      <StatusDot tone={event.tone} className="mt-1.5" />
-                      <p className="truncate text-sm leading-snug text-white/80">{event.label}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-auto flex h-16 shrink-0 items-end gap-1 border-t border-[var(--ln-panel-line)] pt-4">
-              {Array.from({ length: 28 }).map((_, i) => {
-                const hot = incident && i > 18 && i < 24;
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      "flex-1 rounded-sm origin-bottom",
-                      hot ? "bg-[#f2a19a]" : "bg-[#2a9f90]/70"
-                    )}
-                    style={{
-                      height: `${28 + ((i * 17) % 48)}%`,
-                      animation: `ln-bar ${1.6 + (i % 5) * 0.2}s ease-in-out ${i * 0.04}s infinite`,
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
+        {/* Event */}
+        <div className="mt-8 flex items-center gap-3 border-t border-[var(--ln-line)] pt-5">
+          <span
+            className="size-1.5 shrink-0 rounded-full"
+            style={{ background: accent }}
+          />
+          <p
+            key={frame.event}
+            className="text-sm text-[var(--ln-ink-soft)]"
+          >
+            {frame.event}
+          </p>
         </div>
       </div>
     </div>
