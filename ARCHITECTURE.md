@@ -92,11 +92,13 @@ PostgreSQL (Scan, Issue, scores)
 
 ### Plans (summary)
 
-| Plan | Price | Sites | Scheduling |
-|------|-------|-------|--------------|
-| Starter | $19/mo | 3 | Manual only |
-| Pro | $49/mo | 15 | Daily / weekly / monthly |
-| Agency | $129/mo | 50 | Daily / weekly / monthly |
+| Plan | Price | Sites | Uptime | Scheduling | Reports |
+|------|-------|-------|--------|--------------|---------|
+| Starter | $9/mo | 3 | 15 min / hourly | Manual only | Dashboard only |
+| Pro | $19/mo | 15 | 5 min+ | Daily / weekly / monthly | PDF & CSV |
+| Agency | $49/mo | 50 | 1 min+ | Daily / weekly / monthly | PDF & CSV |
+
+Site caps, scheduling, uptime intervals, and report generation are what entitlements enforce. Audit feature access is otherwise identical across plans.
 
 ---
 

@@ -29,6 +29,7 @@ export default async function SettingsBillingPage() {
         websitesRemaining: entitlements.websitesRemaining,
         canAddWebsite: entitlements.canAddWebsite,
         canScheduleScans: entitlements.canScheduleScans,
+        canGenerateReports: entitlements.canGenerateReports,
         isTrial: entitlements.isTrial,
         isReadOnly: entitlements.isReadOnly,
         trialEndsAt: entitlements.trialEndsAt?.toISOString() ?? null,

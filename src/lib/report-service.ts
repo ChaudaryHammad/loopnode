@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getEntitlements } from "@/lib/entitlements";
 import {
   cleanCloudinaryUrl,
   deleteReportFile,
@@ -107,6 +108,13 @@ export async function generateReportForUser(
     saveToLibrary?: boolean;
   }
 ) {
+  const entitlements = await getEntitlements(userId);
+  if (!entitlements.canGenerateReports) {
+    throw new Error(
+      "Report generation requires a Pro or Agency plan. Upgrade in Billing settings."
+    );
+  }
+
   const context = await loadScanContext(userId, input.websiteId, input.scanId);
   if (!context) {
     throw new Error("Scan not found or not accessible.");

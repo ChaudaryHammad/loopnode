@@ -76,6 +76,10 @@ interface GroupedResultsPanelProps {
   resultSearch: string;
   onSearchChange: (value: string) => void;
   onSeverityChange: (value: SeverityFilter) => void;
+  /** True while findings are still loading after a completed scan. */
+  resultsLoading?: boolean;
+  /** Denormalized scan count — used to avoid a false "all healthy" empty state. */
+  expectedBrokenCount?: number;
 }
 
 interface SetupPanelProps {
@@ -902,14 +906,22 @@ export function BrokenLinksResultsPanel({
   resultSearch,
   onSearchChange,
   onSeverityChange,
+  resultsLoading = false,
+  expectedBrokenCount = 0,
 }: GroupedResultsPanelProps) {
   const hasResults = groups.length > 0;
+  const awaitingFindings =
+    !hasResults && (resultsLoading || expectedBrokenCount > 0);
 
   return (
     <div className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-foreground">
-          {hasResults ? "Unreachable URLs found" : "No unreachable URLs found"}
+          {hasResults
+            ? "Unreachable URLs found"
+            : awaitingFindings
+              ? "Loading unreachable URLs…"
+              : "No unreachable URLs found"}
         </h2>
         <p className="text-sm text-muted-foreground">
           {hasResults
@@ -918,7 +930,13 @@ export function BrokenLinksResultsPanel({
               } grouped unreachable URL${groups.length === 1 ? "" : "s"} across ${formatNumber(
                 occurrenceCount
               )} page occurrence${occurrenceCount === 1 ? "" : "s"}`
-            : `Checked ${formatNumber(linksChecked)} URLs and every verified response came back healthy.`}
+            : awaitingFindings
+              ? expectedBrokenCount > 0
+                ? `Found ${formatNumber(expectedBrokenCount)} unreachable URL${
+                    expectedBrokenCount === 1 ? "" : "s"
+                  }. Loading details…`
+                : "Pulling findings from this scan…"
+              : `Checked ${formatNumber(linksChecked)} URLs and every verified response came back healthy.`}
         </p>
       </div>
 
@@ -991,6 +1009,12 @@ export function BrokenLinksResultsPanel({
             </TooltipProvider>
           )}
         </>
+      ) : awaitingFindings ? (
+        <SectionEmptyState
+          icon={<Loader2 className="size-5 animate-spin text-muted-foreground" />}
+          title="Loading findings"
+          description="Scan totals are ready — fetching the unreachable URL details now."
+        />
       ) : (
         <SectionEmptyState
           icon={<Check className="size-5 text-emerald-400" />}
@@ -1006,6 +1030,7 @@ export function BrokenLinksActionButtons({
   showNewCheck,
   onNewCheck,
   canExportPdf,
+  showReportUpgrade = false,
   pdfLoadingAction,
   onViewPdf,
   onDownloadPdf,
@@ -1013,6 +1038,7 @@ export function BrokenLinksActionButtons({
   showNewCheck: boolean;
   onNewCheck: () => void;
   canExportPdf: boolean;
+  showReportUpgrade?: boolean;
   pdfLoadingAction: "view" | "download" | null;
   onViewPdf: () => void;
   onDownloadPdf: () => void;
@@ -1066,6 +1092,10 @@ export function BrokenLinksActionButtons({
             <TooltipContent>Download the same report as a PDF file.</TooltipContent>
           </Tooltip>
         </>
+      ) : showReportUpgrade ? (
+        <ButtonLink href="/dashboard/settings/billing/upgrade" size="sm" variant="outline">
+          Upgrade for PDF reports
+        </ButtonLink>
       ) : null}
     </TooltipProvider>
   );

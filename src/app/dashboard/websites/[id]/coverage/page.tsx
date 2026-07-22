@@ -2,6 +2,7 @@ import React from "react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
+import { getEntitlements } from "@/lib/entitlements";
 import { BrokenLinksClient } from "@/components/websites/broken-links-client";
 import { ALL_LINK_RESOURCE_TYPES } from "@/lib/scanner/link-resource-types";
 
@@ -52,10 +53,13 @@ export default async function BrokenLinksPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const website = await prisma.website.findFirst({
-    where: { id, userId: session.user.id, deletedAt: null },
-    select: { id: true, name: true, url: true },
-  });
+  const [website, entitlements] = await Promise.all([
+    prisma.website.findFirst({
+      where: { id, userId: session.user.id, deletedAt: null },
+      select: { id: true, name: true, url: true },
+    }),
+    getEntitlements(session.user.id),
+  ]);
   if (!website) notFound();
 
   const latestScan = await prisma.brokenLinkScan.findFirst({
@@ -104,6 +108,7 @@ export default async function BrokenLinksPage({ params }: Props) {
       initialScan={serializedScan}
       initialResults={initialResults}
       deferSitemapEstimate
+      canGenerateReports={entitlements.canGenerateReports}
     />
   );
 }

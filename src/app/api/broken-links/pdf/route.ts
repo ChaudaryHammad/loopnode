@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getEntitlements } from "@/lib/entitlements";
 import { prisma } from "@/lib/prisma";
 import {
   generateBrokenLinksPdf,
@@ -21,6 +22,17 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const entitlements = await getEntitlements(session.user.id);
+  if (!entitlements.canGenerateReports) {
+    return NextResponse.json(
+      {
+        error:
+          "Report generation requires a Pro or Agency plan. Upgrade in Billing settings.",
+      },
+      { status: 403 }
+    );
   }
 
   let body: unknown;

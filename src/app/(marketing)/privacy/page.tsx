@@ -211,8 +211,9 @@ export default function PrivacyPage() {
         <ul>
           <li>Account data is kept while your account remains active</li>
           <li>
-            Monitoring history and audit results are retained according to your plan
-            limits and our operational needs
+            Monitoring history and audit results are retained according to our
+            operational needs (for example, uptime check history is pruned on a
+            rolling window)
           </li>
           <li>
             Billing and transaction records may be retained as required for accounting,

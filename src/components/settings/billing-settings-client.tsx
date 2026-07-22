@@ -8,6 +8,7 @@ import {
   CalendarClock,
   Check,
   Clock,
+  FileText,
   MessageSquare,
   Sparkles,
   XCircle,
@@ -26,7 +27,13 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatDateTime } from "@/lib/utils";
-import { PLAN_PRICES_USD, PLAN_LABELS, PLAN_SCAN_SCHEDULING } from "@/lib/plans";
+import {
+  PLAN_PRICES_USD,
+  PLAN_LABELS,
+  PLAN_SCAN_SCHEDULING,
+  PLAN_REPORT_GENERATION,
+  PLAN_SITE_LIMITS,
+} from "@/lib/plans";
 import type { PlanTier, SubscriptionStatus } from "@prisma/client";
 
 interface Entitlements {
@@ -38,6 +45,7 @@ interface Entitlements {
   websitesRemaining: number;
   canAddWebsite: boolean;
   canScheduleScans: boolean;
+  canGenerateReports: boolean;
   isTrial: boolean;
   isReadOnly: boolean;
   trialEndsAt: string | null;
@@ -79,6 +87,9 @@ export function BillingSettingsClient({
   const scanSchedulingCopy = entitlements.plan
     ? PLAN_SCAN_SCHEDULING[entitlements.plan]
     : "Manual scans only";
+  const reportGenerationCopy = entitlements.plan
+    ? PLAN_REPORT_GENERATION[entitlements.plan]
+    : PLAN_REPORT_GENERATION.STARTER;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -139,6 +150,16 @@ export function BillingSettingsClient({
             </div>
           </div>
 
+          <div className="rounded-xl border border-border/30 bg-muted/20 p-4">
+            <div className="flex items-start gap-2">
+              <FileText className="mt-0.5 size-4 shrink-0 text-primary" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Report generation</p>
+                <p className="text-sm text-muted-foreground">{reportGenerationCopy}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-3">
             <ButtonLink
               href="/dashboard/settings/billing/upgrade"
@@ -170,7 +191,7 @@ export function BillingSettingsClient({
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold tabular-nums">
-                {plan === "PRO" ? "15" : "50"}
+                {PLAN_SITE_LIMITS[plan]}
                 <span className="text-sm font-normal text-muted-foreground ml-1">websites</span>
               </p>
             </CardContent>

@@ -161,7 +161,7 @@ Use this file to track what is **done**, **partial**, or **not started**. Update
 | Subscription / plan models | ❌ | No `Subscription`, `Plan`, or `Invoice` tables |
 | Checkout / billing portal | ❌ | |
 | 14-day free trial | ❌ | Copy only on marketing + register |
-| Plan tiers (Starter $19 / Pro $49 / Agency $129) | ❌ | Marketing copy only |
+| Plan tiers (Starter $9 / Pro $19 / Agency $49) | ❌ | Marketing copy only |
 | Enforce website limits (3 / 15 / 50) | ❌ | |
 | Enforce scan history retention (30 / 90 / 365 days) | ❌ | |
 | Gate features by plan (daily scans, external crawls, etc.) | ❌ | |
@@ -308,18 +308,20 @@ Topbar “Profile Settings” → profile tab; “Account Settings” → billin
 
 #### Plans (match marketing pricing)
 
-| Plan | Price | Sites | Scheduled scans | Link crawl | History | Reports |
-|------|-------|-------|-----------------|------------|---------|---------|
-| **Trial** | Free 14 days | 15 (Pro access) | Daily | Internal + external | 90 days | Full PDF |
-| **Starter** | $19/mo | 3 | Manual only | Internal only | 30 days | PDF on demand |
-| **Pro** | $49/mo | 15 | Daily | Internal + external | 90 days | Auto PDF + comparison |
-| **Agency** | $129/mo | 50 | Hourly | Full depth | 1 year | All types |
+| Plan | Price | Sites | Uptime checks | Scheduled scans | Reports |
+|------|-------|-------|---------------|-----------------|---------|
+| **Trial** | Free 14 days | 3 (Starter access) | 15 min / hourly | Manual only | Dashboard only |
+| **Starter** | $9/mo | 3 | 15 min / hourly | Manual only | Dashboard only |
+| **Pro** | $19/mo | 15 | 5 min+ | Daily / weekly / monthly | PDF & CSV |
+| **Agency** | $49/mo | 50 | 1 min+ | Daily / weekly / monthly | PDF & CSV |
+
+Audit features (performance, accessibility, SEO, security, coverage) are the same across plans. History retention is not plan-gated. Report generation is Pro/Agency only.
 
 **Trial ended, no payment** → read-only: view data, no new scans until subscribe.
 
 #### User journey
 
-1. **Register** → `trialEndsAt` = now + 14 days, Pro entitlements, banner with days left.
+1. **Register** → `trialEndsAt` = now + 14 days, Starter entitlements, banner with days left.
 2. **During trial** → Settings → Billing shows countdown + “Choose a plan”.
 3. **3 days before end** → email + in-app banner.
 4. **Trial expired** → `status = EXPIRED`; scans blocked; UpgradeModal on gated actions.
@@ -553,7 +555,7 @@ Priority order for a shippable paid SaaS:
 | Claim on site | Actual today |
 |---------------|--------------|
 | 14-day free trial | Sign up works; no trial expiry or paywall |
-| Plans from $19/mo | No payment |
+| Plans from $9/mo | No payment |
 | Daily / weekly / monthly automated scans | Wired via Trigger cron; Pro/Agency plans only |
 | 30 / 90 / 365-day history | All scan history kept; no retention limits |
 | Agency onboarding | Contact form only |

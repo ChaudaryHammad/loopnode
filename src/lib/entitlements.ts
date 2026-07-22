@@ -14,6 +14,7 @@ export interface UserEntitlements {
   canAddWebsite: boolean;
   canScan: boolean;
   canScheduleScans: boolean;
+  canGenerateReports: boolean;
   canUseMonitoring: boolean;
   minUptimeIntervalSeconds: number;
   isTrial: boolean;
@@ -77,6 +78,8 @@ export async function getEntitlements(userId: string): Promise<UserEntitlements>
   const canScan = !isReadOnly;
   const canScheduleScans =
     !isReadOnly && (plan === "PRO" || plan === "AGENCY");
+  const canGenerateReports =
+    !isReadOnly && (plan === "PRO" || plan === "AGENCY");
   const canUseMonitoring = !isReadOnly;
   const minUptimeIntervalSeconds =
     plan === "AGENCY"
@@ -96,6 +99,7 @@ export async function getEntitlements(userId: string): Promise<UserEntitlements>
     canAddWebsite: !isReadOnly && websiteCount < websiteLimit,
     canScan,
     canScheduleScans,
+    canGenerateReports,
     canUseMonitoring,
     minUptimeIntervalSeconds,
     isTrial,

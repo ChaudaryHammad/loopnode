@@ -15,6 +15,25 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async headers() {
+    // Baseline headers for routes that skip the auth/CSP proxy (API, static).
+    // Document CSP with nonces is applied in src/proxy.ts — do not set CSP here.
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Permissions-Policy",
+            value:
+              "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+          },
+        ],
+      },
+    ];
+  },
   serverExternalPackages: [
     "puppeteer",
     "puppeteer-core",

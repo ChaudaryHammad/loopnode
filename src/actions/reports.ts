@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { resolveReportUrls } from "@/lib/cloudinary";
+import { getEntitlements } from "@/lib/entitlements";
 import {
   deleteReportForUser,
   generateReportForUser,
@@ -47,6 +48,14 @@ export async function generateReportAction(input: unknown) {
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized." };
+  }
+
+  const entitlements = await getEntitlements(session.user.id);
+  if (!entitlements.canGenerateReports) {
+    return {
+      success: false,
+      error: "Report generation requires a Pro or Agency plan. Upgrade in Billing settings.",
+    };
   }
 
   const parsed = generateReportSchema.safeParse(input);

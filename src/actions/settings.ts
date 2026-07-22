@@ -280,6 +280,7 @@ export async function getAccountSettingsAction() {
       isReadOnly: entitlements.isReadOnly,
       trialEndsAt: entitlements.trialEndsAt,
       canScheduleScans: entitlements.canScheduleScans,
+      canGenerateReports: entitlements.canGenerateReports,
       websitesRemaining: entitlements.websitesRemaining,
     },
   };

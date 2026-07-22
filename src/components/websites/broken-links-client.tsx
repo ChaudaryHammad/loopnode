@@ -72,6 +72,7 @@ interface BrokenLinksClientProps {
   sitemapApproxUrls?: number | null;
   /** When true, fetches sitemap estimate after mount instead of blocking the page. */
   deferSitemapEstimate?: boolean;
+  canGenerateReports?: boolean;
 }
 
 function coverageHint(approx: number | null | undefined, crawled: number): string | null {
@@ -205,6 +206,7 @@ export function BrokenLinksClient({
   initialResults = [],
   sitemapApproxUrls: initialSitemapApproxUrls = null,
   deferSitemapEstimate = false,
+  canGenerateReports = false,
 }: BrokenLinksClientProps) {
   const [sitemapApproxUrls, setSitemapApproxUrls] = useState<number | null | undefined>(
     deferSitemapEstimate ? undefined : initialSitemapApproxUrls
@@ -231,15 +233,30 @@ export function BrokenLinksClient({
     initialScan?.status === "RUNNING" ? initialScan.id : null
   );
   const [now, setNow] = useState(() => Date.now());
+  const [resultsLoading, setResultsLoading] = useState(
+    Boolean(
+      initialScan &&
+        (initialScan.status === "COMPLETED" ||
+          initialScan.phase === "cancelled" ||
+          initialScan.status === "FAILED") &&
+        initialResults.length === 0 &&
+        (initialScan.brokenCount ?? 0) > 0
+    )
+  );
   const isRunning =
     activeScan?.status === "RUNNING" || activeScan?.status === "PENDING";
   const isScanning = isRunning || isStarting;
   const showProgress = isScanning;
 
   const loadFullResults = useCallback(async (scanId: string) => {
-    const res = await getBrokenLinkResultsAction(scanId);
-    if (res.success && Array.isArray(res.data)) {
-      setLiveResults(dbResultsToSerialized(res.data));
+    setResultsLoading(true);
+    try {
+      const res = await getBrokenLinkResultsAction(scanId);
+      if (res.success && Array.isArray(res.data)) {
+        setLiveResults(dbResultsToSerialized(res.data));
+      }
+    } finally {
+      setResultsLoading(false);
     }
   }, []);
 
@@ -259,6 +276,13 @@ export function BrokenLinksClient({
         setStopRequested(false);
       }
       if (finished) {
+        // Prefer any rows already on the status payload so the list isn't empty
+        // while the full fetch is in flight.
+        if (Array.isArray(res.data.results) && res.data.results.length > 0) {
+          setLiveResults(dbResultsToSerialized(res.data.results));
+        } else if ((res.data.brokenCount ?? 0) > 0) {
+          setResultsLoading(true);
+        }
         await loadFullResults(scanId);
       } else if (Array.isArray(res.data.results) && res.data.results.length > 0) {
         setLiveResults(dbResultsToSerialized(res.data.results));
@@ -267,6 +291,19 @@ export function BrokenLinksClient({
     }
     return "FAILED";
   }, [loadFullResults]);
+
+  // Hydrate findings when SSR/status has a brokenCount but no rows yet.
+  useEffect(() => {
+    const scanId = initialScan?.id;
+    if (!scanId || scanId === "pending") return;
+    const finished =
+      initialScan.status === "COMPLETED" ||
+      initialScan.phase === "cancelled" ||
+      initialScan.status === "FAILED";
+    if (!finished) return;
+    if (initialResults.length > 0) return;
+    void loadFullResults(scanId);
+  }, [initialScan, initialResults.length, loadFullResults]);
 
   useEffect(() => {
     if (!deferSitemapEstimate || sitemapApproxUrls !== undefined) return;
@@ -429,6 +466,11 @@ export function BrokenLinksClient({
   };
 
   const ensurePdfReady = async (action: "view" | "download") => {
+    if (!canGenerateReports) {
+      throw new Error(
+        "Report generation requires a Pro or Agency plan. Upgrade in Billing settings."
+      );
+    }
     if (pdfBlobUrl && pdfFilename) return { blobUrl: pdfBlobUrl, filename: pdfFilename };
     if (!activeScan || activeScan.id === "pending") {
       throw new Error("Run a check first.");
@@ -501,13 +543,19 @@ export function BrokenLinksClient({
   const results = liveResults;
   const groupedResults = useMemo(() => serializedResultsToGrouped(results), [results]);
   const occurrenceCount = results.length;
-  const brokenCount = activeScan?.brokenCount ?? groupedResults.length;
+  const brokenCount =
+    groupedResults.length > 0
+      ? groupedResults.length
+      : (activeScan?.brokenCount ?? 0);
 
-  const canExportPdf =
+  const scanReadyForPdf =
     activeScan &&
     activeScan.id !== "pending" &&
     !showProgress &&
     (activeScan.status === "COMPLETED" || activeScan.phase === "cancelled");
+
+  const canExportPdf = Boolean(scanReadyForPdf && canGenerateReports);
+  const showReportUpgrade = Boolean(scanReadyForPdf && !canGenerateReports);
 
   const scanComplete =
     activeScan &&
@@ -575,6 +623,7 @@ export function BrokenLinksClient({
               showNewCheck={Boolean(scanComplete && !showConfig)}
               onNewCheck={() => setShowConfig(true)}
               canExportPdf={Boolean(canExportPdf)}
+              showReportUpgrade={showReportUpgrade}
               pdfLoadingAction={pdfLoadingAction}
               onViewPdf={() => void handleViewPdf()}
               onDownloadPdf={() => void handleDownloadPdf()}
@@ -586,7 +635,11 @@ export function BrokenLinksClient({
       {scanComplete && activeScan && !showProgress ? (
         <BrokenLinksMetricsGrid
           brokenCount={brokenCount}
-          occurrenceCount={occurrenceCount}
+          occurrenceCount={
+            resultsLoading && occurrenceCount === 0 && brokenCount > 0
+              ? brokenCount
+              : occurrenceCount
+          }
           linksChecked={activeScan.linksChecked}
           pagesCrawled={activeScan.pagesCrawled}
           crawlCoverage={crawlCoverage}
@@ -641,6 +694,8 @@ export function BrokenLinksClient({
           resultSearch={resultSearch}
           onSearchChange={setResultSearch}
           onSeverityChange={setSeverityFilter}
+          resultsLoading={resultsLoading}
+          expectedBrokenCount={activeScan?.brokenCount ?? 0}
         />
       ) : null}
     </div>

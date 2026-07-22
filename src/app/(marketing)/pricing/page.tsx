@@ -4,10 +4,9 @@ import { ArrowRight, Check } from "lucide-react";
 import { auth } from "@/lib/auth";
 import {
   PLAN_LABELS,
+  PLAN_MARKETING_FEATURES,
   PLAN_PRICES_USD,
-  PLAN_SCAN_SCHEDULING,
   PLAN_SITE_LIMITS,
-  PLAN_UPTIME_INTERVALS,
 } from "@/lib/plans";
 import { MarketingButton } from "@/components/marketing/primitives";
 import { cn } from "@/lib/utils";
@@ -45,42 +44,21 @@ export default async function PricingPage() {
     {
       tier: "STARTER" as const,
       description: "For solo developers monitoring a few sites.",
-      features: [
-        `Up to ${PLAN_SITE_LIMITS.STARTER} websites`,
-        PLAN_UPTIME_INTERVALS.STARTER,
-        PLAN_SCAN_SCHEDULING.STARTER,
-        "Performance, accessibility, SEO & security",
-        "Coverage scanner",
-        "30-day history",
-      ],
+      features: PLAN_MARKETING_FEATURES.STARTER,
       cta: isLoggedIn ? "Upgrade to Starter" : "Start free trial",
       popular: false,
     },
     {
       tier: "PRO" as const,
       description: "For teams that need automated monitoring.",
-      features: [
-        `Up to ${PLAN_SITE_LIMITS.PRO} websites`,
-        PLAN_UPTIME_INTERVALS.PRO,
-        PLAN_SCAN_SCHEDULING.PRO,
-        "Full audits + external link crawls",
-        "CSP grading & header checks",
-        "90-day score trends",
-      ],
+      features: PLAN_MARKETING_FEATURES.PRO,
       cta: isLoggedIn ? "Upgrade to Pro" : "Start free trial",
       popular: true,
     },
     {
       tier: "AGENCY" as const,
       description: "For agencies managing many client domains.",
-      features: [
-        `Up to ${PLAN_SITE_LIMITS.AGENCY} websites`,
-        PLAN_UPTIME_INTERVALS.AGENCY,
-        PLAN_SCAN_SCHEDULING.AGENCY,
-        "Unlimited coverage depth",
-        "1-year historical data",
-        "Priority support",
-      ],
+      features: PLAN_MARKETING_FEATURES.AGENCY,
       cta: isLoggedIn ? "Upgrade to Agency" : "Start free trial",
       popular: false,
     },
@@ -91,6 +69,11 @@ export default async function PricingPage() {
       question: "Which plans include automated scan scheduling?",
       answer:
         "Starter is manual only. Pro and Agency unlock daily, weekly, or monthly scheduling per website.",
+    },
+    {
+      question: "Which plans include report generation?",
+      answer:
+        "Starter includes dashboard audits. PDF and CSV report generation is available on Pro and Agency.",
     },
     {
       question: "Is there a free trial?",

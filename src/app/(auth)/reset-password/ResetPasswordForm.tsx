@@ -19,6 +19,7 @@ export default function ResetPasswordForm({ token }: { token?: string }) {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(resetPasswordSchema),
@@ -37,6 +38,9 @@ export default function ResetPasswordForm({ token }: { token?: string }) {
     startTransition(async () => {
       const response = await resetPasswordAction(token, data);
       if (response.success) {
+        reset({ password: "", confirmPassword: "" });
+        setShowPassword(false);
+        setShowConfirmPassword(false);
         toast.success(response.message || "Password updated successfully!");
       } else {
         toast.error(response.error || "Failed to update password.");

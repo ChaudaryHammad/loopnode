@@ -84,6 +84,7 @@ type SerializedReport = {
 interface ReportsClientProps {
   websites: { id: string; name: string; url: string }[];
   reports: SerializedReport[];
+  canGenerateReports?: boolean;
 }
 
 type ScanOption = {
@@ -230,7 +231,11 @@ function ReportActions({
   );
 }
 
-export function ReportsClient({ websites, reports: initialReports }: ReportsClientProps) {
+export function ReportsClient({
+  websites,
+  reports: initialReports,
+  canGenerateReports = false,
+}: ReportsClientProps) {
   const router = useRouter();
   const [reports, setReports] = useState(initialReports);
   const [search, setSearch] = useState("");
@@ -308,6 +313,10 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
     search.trim().length > 0 || websiteFilter !== "ALL" || typeFilter !== "ALL";
 
   const openGenerateDialog = () => {
+    if (!canGenerateReports) {
+      toast.error("Report generation requires Pro or Agency. Upgrade in Billing settings.");
+      return;
+    }
     setSelectedWebsiteId(websites[0]?.id ?? "");
     setSelectedType("FULL_AUDIT");
     setCustomTitle("");
@@ -317,6 +326,10 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
   };
 
   const handleGenerate = () => {
+    if (!canGenerateReports) {
+      toast.error("Report generation requires Pro or Agency. Upgrade in Billing settings.");
+      return;
+    }
     if (!selectedWebsiteId || !selectedScanId) {
       toast.error("Select a website and scan.");
       return;
@@ -439,11 +452,28 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
             <p className="text-sm text-muted-foreground">
               {reports.length} saved · {websites.length} website{websites.length === 1 ? "" : "s"}
             </p>
+            {!canGenerateReports ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                PDF & CSV generation is available on Pro and Agency.{" "}
+                <Link
+                  href="/dashboard/settings/billing/upgrade"
+                  className="underline underline-offset-2"
+                >
+                  Upgrade
+                </Link>
+              </p>
+            ) : null}
           </div>
-          <Button onClick={openGenerateDialog} disabled={websites.length === 0}>
-            <Plus />
-            New report
-          </Button>
+          {canGenerateReports ? (
+            <Button onClick={openGenerateDialog} disabled={websites.length === 0}>
+              <Plus />
+              New report
+            </Button>
+          ) : (
+            <ButtonLink href="/dashboard/settings/billing/upgrade" size="sm">
+              Upgrade to unlock
+            </ButtonLink>
+          )}
         </div>
 
         {/* Toolbar */}
@@ -532,13 +562,21 @@ export function ReportsClient({ websites, reports: initialReports }: ReportsClie
             <div>
               <p className="font-medium">No reports yet</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Generate a PDF from any completed scan.
+                {canGenerateReports
+                  ? "Generate a PDF from any completed scan."
+                  : "Upgrade to Pro or Agency to generate PDF and CSV reports."}
               </p>
             </div>
-            <Button onClick={openGenerateDialog} size="sm">
-              <Plus />
-              New report
-            </Button>
+            {canGenerateReports ? (
+              <Button onClick={openGenerateDialog} size="sm">
+                <Plus />
+                New report
+              </Button>
+            ) : (
+              <ButtonLink href="/dashboard/settings/billing/upgrade" size="sm">
+                Upgrade to unlock
+              </ButtonLink>
+            )}
           </div>
         ) : filteredReports.length === 0 ? (
           <div className="px-6 py-16 text-center">
