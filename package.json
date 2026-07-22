@@ -21,6 +21,8 @@
     "@react-three/fiber": "^9.6.1",
     "@shadergradient/react": "^2.4.20",
     "@sparticuz/chromium": "^149.0.0",
+    "@splinetool/react-spline": "^4.1.0",
+    "@splinetool/runtime": "^1.12.98",
     "@trigger.dev/sdk": "4.4.6",
     "axe-core": "^4.12.1",
     "bcryptjs": "^3.0.3",

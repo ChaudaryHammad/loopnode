@@ -34,7 +34,7 @@ export function NewsletterForm() {
   };
 
   return (
-    <div className="w-full max-w-sm">
+    <div className="w-full">
       <p className="mb-4 text-sm leading-relaxed text-[var(--ln-muted)]">
         Occasional notes on reliability, audits, and shipping calm software.
       </p>
