@@ -6,12 +6,11 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
-      {/* Glow effects */}
-      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-primary/20 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-96 h-96 rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
-      
-      <div className="relative z-10 w-full max-w-md bg-card border border-border/40 backdrop-blur-md p-8 rounded-2xl shadow-2xl transition-all duration-300 hover:border-border/80">
+    <div className="marketing auth-shell relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12 sm:px-6">
+      <div className="pointer-events-none absolute inset-0 ln-grid-bg opacity-70" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(ellipse_at_50%_0%,rgba(13,122,111,0.10),transparent_58%)]" />
+
+      <div className="relative z-10 w-full max-w-[420px] rounded-[var(--ln-radius-lg)] border border-[var(--ln-line)] bg-[var(--ln-surface)] p-8 shadow-[var(--ln-shadow)] sm:p-10">
         {children}
       </div>
     </div>

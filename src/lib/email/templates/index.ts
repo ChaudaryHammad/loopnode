@@ -5,23 +5,32 @@ import {
   emailMuted,
   emailCodeBlock,
   emailInfoBox,
+  emailGreeting,
+  emailStrong,
+  emailAlert,
+  emailHelp,
+  emailDivider,
   escapeHtml,
 } from "./layout";
 
 export function renderVerifyEmailEmail(params: { name: string; verifyUrl: string }) {
-  const greeting = params.name ? `Hi ${escapeHtml(params.name)},` : "Hi there,";
   const body = `
-    ${emailParagraph(`${greeting}`)}
-    ${emailParagraph("Thanks for signing up for <strong style=\"color:#f9fafb;\">LoopNode</strong>. Please verify your email address to activate your account and start monitoring your websites.")}
-    ${emailButton(params.verifyUrl, "Verify email address")}
-    ${emailMuted("This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.")}
+    ${emailGreeting(params.name)}
+    ${emailParagraph(
+      `Confirm your email to activate your Health Mesh account and start monitoring.`
+    )}
+    ${emailButton(params.verifyUrl, "Verify email")}
+    ${emailMuted("This link expires in 24 hours. If you didn’t create an account, you can ignore this email.")}
+    ${emailDivider()}
+    ${emailParagraph(`Or paste this link into your browser:`)}
     ${emailCodeBlock(params.verifyUrl)}
   `;
 
   return {
-    subject: "Verify your LoopNode email",
+    subject: "Verify your email",
     html: renderEmailLayout({
-      preheader: "Confirm your email to start using LoopNode",
+      preheader: "Confirm your email to start using Health Mesh",
+      eyebrow: "Account",
       title: "Verify your email",
       body,
     }),
@@ -30,18 +39,22 @@ export function renderVerifyEmailEmail(params: { name: string; verifyUrl: string
 
 export function renderPasswordResetEmail(params: { resetUrl: string }) {
   const body = `
-    ${emailParagraph("We received a request to reset the password for your LoopNode account.")}
-    ${emailParagraph("Click the button below to choose a new password. This link is valid for <strong style=\"color:#f9fafb;\">1 hour</strong>.")}
+    ${emailGreeting()}
+    ${emailParagraph("We received a request to reset your password.")}
+    ${emailParagraph(`This link expires in ${emailStrong("1 hour")}.`)}
     ${emailButton(params.resetUrl, "Reset password")}
-    ${emailMuted("If you didn't request a password reset, you can ignore this email — your password will stay the same.")}
+    ${emailMuted("If you didn’t request this, you can ignore this email. Your password won’t change.")}
+    ${emailDivider()}
+    ${emailParagraph(`Or paste this link into your browser:`)}
     ${emailCodeBlock(params.resetUrl)}
   `;
 
   return {
-    subject: "Reset your LoopNode password",
+    subject: "Reset your password",
     html: renderEmailLayout({
-      preheader: "Reset your LoopNode password",
-      title: "Password reset request",
+      preheader: "Choose a new password for your Health Mesh account",
+      eyebrow: "Security",
+      title: "Reset your password",
       body,
     }),
   };
@@ -49,19 +62,25 @@ export function renderPasswordResetEmail(params: { resetUrl: string }) {
 
 export function renderPasswordResetSuccessEmail(params: { loginUrl: string }) {
   const body = `
-    ${emailParagraph("Your LoopNode password was changed successfully.")}
-    ${emailParagraph("If you made this change, no further action is needed. You can sign in with your new password.")}
-    ${emailButton(params.loginUrl, "Sign in to LoopNode")}
-    ${emailMuted("If you did <strong>not</strong> change your password, contact support immediately — your account may be compromised.")}
+    ${emailGreeting()}
+    ${emailAlert("success", "Your password was updated successfully.", "Confirmed")}
+    ${emailParagraph("You can sign in with your new password now.")}
+    ${emailButton(params.loginUrl, "Sign in")}
+    ${emailAlert(
+      "danger",
+      "If you didn’t make this change, secure your account immediately and contact support.",
+      "Didn’t do this?"
+    )}
   `;
 
   return {
-    subject: "Your LoopNode password was changed",
+    subject: "Your password was changed",
     html: renderEmailLayout({
-      preheader: "Your password was updated successfully",
+      preheader: "Your Health Mesh password was updated",
+      eyebrow: "Security",
       title: "Password updated",
       body,
-      footerNote: "Security notification from LoopNode.",
+      footerNote: "Security notification from Health Mesh.",
     }),
   };
 }
@@ -73,39 +92,43 @@ export function renderContactSupportEmail(params: {
   message: string;
 }) {
   const body = `
-    ${emailParagraph("A new message was submitted through the LoopNode contact form.")}
-    ${emailInfoBox("Message details", [
+    ${emailParagraph("A new message arrived from the contact form.")}
+    ${emailInfoBox("Details", [
       { label: "Name", value: params.name },
       { label: "Email", value: params.email },
       { label: "Subject", value: params.subject },
       { label: "Message", value: params.message },
     ])}
-    ${emailMuted(`Reply directly to <a href="mailto:${escapeHtml(params.email)}" style="color:#a5b4fc;">${escapeHtml(params.email)}</a> to respond.`)}
+    ${emailMuted(
+      `Reply to <a href="mailto:${escapeHtml(params.email)}" style="color:${escapeHtml("#0a0c10")};text-decoration:underline;">${escapeHtml(params.email)}</a>`
+    )}
   `;
 
   return {
     subject: `[Contact] ${params.subject}`,
     html: renderEmailLayout({
-      preheader: `New contact form: ${params.subject}`,
-      title: "New contact form submission",
+      preheader: `New contact: ${params.subject}`,
+      eyebrow: "Inbox",
+      title: "New contact message",
       body,
-      footerNote: "LoopNode contact form notification.",
+      footerNote: "Internal Health Mesh notification.",
     }),
   };
 }
 
 export function renderContactConfirmationEmail(params: { name: string }) {
   const body = `
-    ${emailParagraph(`Hi ${escapeHtml(params.name)},`)}
-    ${emailParagraph("Thanks for reaching out! We've received your message and our team will get back to you as soon as possible — usually within 1–2 business days.")}
-    ${emailParagraph("In the meantime, you can explore LoopNode features or check our documentation for quick answers.")}
-    ${emailMuted("This is an automated confirmation. Please don't reply to this email.")}
+    ${emailGreeting(params.name)}
+    ${emailParagraph("Thanks for writing. We’ve received your message and will reply within 1–2 business days.")}
+    ${emailMuted("This is an automated confirmation — no need to reply.")}
+    ${emailHelp("In the meantime, you can explore Health Mesh features from the website.")}
   `;
 
   return {
-    subject: "We received your message — LoopNode",
+    subject: "We received your message",
     html: renderEmailLayout({
-      preheader: "Thanks for contacting LoopNode",
+      preheader: "Thanks for contacting Health Mesh",
+      eyebrow: "Support",
       title: "Message received",
       body,
     }),
@@ -116,37 +139,43 @@ export function renderNewsletterWelcomeEmail(params: {
   unsubscribeUrl: string;
 }) {
   const body = `
-    ${emailParagraph("Welcome to the <strong style=\"color:#f9fafb;\">LoopNode newsletter</strong>!")}
-    ${emailParagraph("You'll receive occasional updates on website health monitoring, product improvements, SEO tips, and security best practices.")}
-    ${emailParagraph("We're glad to have you on board.")}
-    ${emailMuted(`<a href="${params.unsubscribeUrl}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a> at any time if you no longer wish to receive these emails.`)}
+    ${emailGreeting()}
+    ${emailParagraph(
+      `You’re subscribed to Health Mesh updates — product news, reliability insights, and practical guidance.`
+    )}
+    ${emailParagraph("We’ll keep it useful and infrequent.")}
+    ${emailMuted(
+      `<a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#8b939e;text-decoration:underline;">Unsubscribe</a> anytime.`
+    )}
   `;
 
   return {
-    subject: "You're subscribed to LoopNode updates",
+    subject: "You’re subscribed to Health Mesh",
     html: renderEmailLayout({
-      preheader: "Welcome to the LoopNode newsletter",
-      title: "You're subscribed!",
+      preheader: "Welcome to Health Mesh updates",
+      eyebrow: "Newsletter",
+      title: "You’re in",
       body,
-      footerNote: "LoopNode newsletter. You can unsubscribe using the link above.",
+      footerNote: "Health Mesh newsletter. Unsubscribe anytime with the link above.",
     }),
   };
 }
 
 export function renderNewsletterUnsubscribeEmail() {
   const body = `
-    ${emailParagraph("You've been unsubscribed from the LoopNode newsletter.")}
-    ${emailParagraph("We're sorry to see you go. You won't receive any more marketing emails from us.")}
-    ${emailMuted("Changed your mind? You can resubscribe anytime from our website footer.")}
+    ${emailGreeting()}
+    ${emailParagraph("You’ve been unsubscribed. You won’t receive further newsletter emails from us.")}
+    ${emailMuted("Changed your mind? You can resubscribe from the website footer.")}
   `;
 
   return {
-    subject: "You've been unsubscribed — LoopNode",
+    subject: "You’ve been unsubscribed",
     html: renderEmailLayout({
-      preheader: "You've been unsubscribed from LoopNode emails",
+      preheader: "Newsletter subscription ended",
+      eyebrow: "Newsletter",
       title: "Unsubscribed",
       body,
-      footerNote: "LoopNode newsletter unsubscribe confirmation.",
+      footerNote: "Health Mesh newsletter confirmation.",
     }),
   };
 }

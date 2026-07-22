@@ -1,7 +1,8 @@
 import React from "react";
 import Link from "next/link";
 import { verifyEmailAction } from "@/actions/auth";
-import { CheckCircle2, XCircle, Activity } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { AuthBrandHeader } from "@/components/brand/auth-brand-header";
 
 type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -26,15 +27,7 @@ export default async function VerifyEmailPage({ searchParams }: PageProps) {
 
   return (
     <div className="w-full text-center">
-      {/* Header */}
-      <div className="flex flex-col items-center mb-6">
-        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 text-primary mb-4">
-          <Activity className="w-6 h-6" />
-        </div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Email Verification
-        </h2>
-      </div>
+      <AuthBrandHeader title="Email Verification" />
 
       <div className="py-4 px-2 animate-in fade-in zoom-in duration-300">
         <div className="flex justify-center mb-4">

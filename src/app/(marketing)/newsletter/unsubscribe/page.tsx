@@ -1,14 +1,13 @@
 import React from "react";
 import Link from "next/link";
 import { unsubscribeFromNewsletter } from "@/actions/newsletter";
-import { CheckCircle, XCircle } from "lucide-react";
 
 interface PageProps {
   searchParams: Promise<{ token?: string }>;
 }
 
 export const metadata = {
-  title: "Unsubscribe — LoopNode",
+  title: "Unsubscribe",
 };
 
 export default async function NewsletterUnsubscribePage({ searchParams }: PageProps) {
@@ -35,26 +34,18 @@ export default async function NewsletterUnsubscribePage({ searchParams }: PagePr
 
 function UnsubscribeResult({ success, message }: { success: boolean; message: string }) {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center px-4">
-      <div className="max-w-md w-full text-center space-y-6">
-        <div
-          className={`mx-auto w-16 h-16 rounded-2xl flex items-center justify-center border ${
-            success
-              ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
-              : "bg-rose-500/10 border-rose-500/25 text-rose-400"
-          }`}
-        >
-          {success ? <CheckCircle className="w-8 h-8" /> : <XCircle className="w-8 h-8" />}
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-foreground">
-            {success ? "Unsubscribed" : "Unable to unsubscribe"}
-          </h1>
-          <p className="text-sm text-muted-foreground leading-relaxed">{message}</p>
-        </div>
+    <div className="flex min-h-[60vh] items-center justify-center px-4 py-20">
+      <div className="w-full max-w-md text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ln-faint)]">
+          Newsletter
+        </p>
+        <h1 className="mt-4 font-display text-3xl font-medium text-[var(--ln-ink)]">
+          {success ? "Unsubscribed" : "Unable to unsubscribe"}
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-[var(--ln-muted)]">{message}</p>
         <Link
           href="/"
-          className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          className="mt-8 inline-flex h-10 items-center justify-center rounded-[var(--ln-radius-sm)] bg-[var(--ln-ink)] px-5 text-sm font-medium text-white hover:bg-[var(--ln-ink-soft)]"
         >
           Back to home
         </Link>

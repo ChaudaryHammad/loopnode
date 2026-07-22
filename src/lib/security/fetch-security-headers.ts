@@ -110,7 +110,7 @@ export async function fetchSecurityHeaderAudit(url: string): Promise<SecurityHea
       method: "GET",
       redirect: "follow",
       signal: AbortSignal.timeout(15000),
-      headers: { "User-Agent": "LoopNode/1.0 (+https://loopnode.dev)" },
+      headers: { "User-Agent": "HealthMesh/1.0 (+https://loopnode.dev)" },
     });
   } catch (err) {
     return {

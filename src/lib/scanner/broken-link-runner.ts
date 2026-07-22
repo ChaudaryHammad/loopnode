@@ -23,7 +23,7 @@ import { ScanCancelledError } from "./scan-errors";
 const FETCH_TIMEOUT_MS = 12000;
 const CRAWL_CONCURRENCY = 4;
 const CHECK_CONCURRENCY = 8;
-const USER_AGENT = "LoopNode-LinkChecker/1.0";
+const USER_AGENT = "HealthMesh-LinkChecker/1.0";
 
 type ProgressCallback = (progress: BrokenLinkProgress) => Promise<void>;
 type CancelCheck = () => Promise<boolean>;

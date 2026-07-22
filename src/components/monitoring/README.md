@@ -1,6 +1,6 @@
   # Website Monitoring
 
-  Short guide to how uptime monitoring works in Loopnode.
+  Short guide to how uptime monitoring works in Health Mesh.
 
   ## What it does
 

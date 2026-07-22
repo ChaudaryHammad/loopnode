@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, X, LogOut, Shield, ChevronDown } from "lucide-react";
+import { X, LogOut, Shield, ChevronDown } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
   isChildNavActive,
   isNavActive,
 } from "@/components/layout/dashboard-nav";
+import { HealthMeshLogo } from "@/components/brand/healthmesh-logo";
 
 interface MobileNavProps {
   isOpen: boolean;
@@ -49,11 +50,11 @@ export function MobileNav({ isOpen, onClose, isAdmin = false }: MobileNavProps) 
 
       <div className="fixed inset-y-0 left-0 w-72 bg-card border-r border-border/40 flex flex-col h-full shadow-2xl animate-in slide-in-from-left duration-300">
         <div className="flex items-center h-16 px-6 border-b border-border/40 justify-between">
-          <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary">
-              <Activity className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-sm tracking-tight">LoopNode</span>
+          <Link href="/dashboard" className="flex items-center">
+            <HealthMeshLogo
+              variant="inverse"
+              wordmarkClassName="text-sm text-foreground"
+            />
           </Link>
           <button
             onClick={onClose}

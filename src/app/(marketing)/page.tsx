@@ -1,12 +1,12 @@
 import React from "react";
 import { auth } from "@/lib/auth";
-import { HeroSection } from "@/components/marketing/hero-section";
-import { MarketingSections } from "@/components/marketing/marketing-sections";
+import { HomeHero } from "@/components/marketing/home-hero";
+import { HomeSections } from "@/components/marketing/home-sections";
 
 export const metadata = {
-  title: "LoopNode — Website health monitoring & audits",
+  title: "Health Mesh — Know before your users do",
   description:
-    "Monitor performance, accessibility, SEO, security, and coverage. Crawl unreachable pages and assets, track scores over time, and fix issues before your users notice.",
+    "Monitor downtime, accessibility, SSL, and production health. Health Mesh helps teams keep products reliable, accessible, and compliant.",
 };
 
 export default async function LandingPage() {
@@ -14,9 +14,9 @@ export default async function LandingPage() {
   const isLoggedIn = !!session?.user;
 
   return (
-    <div className="flex-1 flex flex-col items-center overflow-hidden">
-      <HeroSection isLoggedIn={isLoggedIn} />
-      <MarketingSections isLoggedIn={isLoggedIn} />
+    <div className="flex flex-1 flex-col">
+      <HomeHero isLoggedIn={isLoggedIn} />
+      <HomeSections isLoggedIn={isLoggedIn} />
     </div>
   );
 }

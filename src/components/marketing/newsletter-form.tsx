@@ -2,13 +2,13 @@
 
 import React, { useState, useTransition } from "react";
 import { subscribeToNewsletter } from "@/actions/newsletter";
-import { Loader2, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { ArrowRight, Loader2 } from "lucide-react";
 
 export function NewsletterForm() {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const [status, setStatus] = useState<{ success: boolean; message: string } | null>(
+    null
+  );
   const [isPending, startTransition] = useTransition();
 
   const handleSubscribe = (e: React.FormEvent) => {
@@ -19,42 +19,54 @@ export function NewsletterForm() {
     startTransition(async () => {
       const res = await subscribeToNewsletter(email);
       if (res.success) {
-        setStatus({ success: true, message: res.message || "Subscribed successfully!" });
+        setStatus({
+          success: true,
+          message: res.message || "You're subscribed.",
+        });
         setEmail("");
       } else {
-        setStatus({ success: false, message: res.error || "Subscription failed." });
+        setStatus({
+          success: false,
+          message: res.error || "Something went wrong.",
+        });
       }
     });
   };
 
   return (
     <div className="w-full max-w-sm">
-      <h4 className="text-sm font-semibold text-foreground mb-3">
-        Subscribe to our newsletter
-      </h4>
-      <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-        Get weekly tips on website optimization, SEO, and security audits directly to your inbox.
+      <p className="mb-4 text-sm leading-relaxed text-[var(--ln-muted)]">
+        Occasional notes on reliability, audits, and shipping calm software.
       </p>
 
       <form onSubmit={handleSubscribe} className="flex gap-2">
-        <Input
+        <input
           type="email"
           required
-          placeholder="sarahconnor@gmail.com"
+          placeholder="you@company.com"
           value={email}
           disabled={isPending}
           onChange={(e) => setEmail(e.target.value)}
-          className="flex-1 min-w-0"
+          className="h-10 min-w-0 flex-1 rounded-[var(--ln-radius-sm)] border border-[var(--ln-line-strong)] bg-[var(--ln-bg)] px-3 text-sm text-[var(--ln-ink)] outline-none transition-colors placeholder:text-[var(--ln-faint)] focus:border-[var(--ln-ink)]/30"
         />
-        <Button type="submit" disabled={isPending} size="icon" title="Subscribe">
-          {isPending ? <Loader2 className="animate-spin" /> : <Send />}
-        </Button>
+        <button
+          type="submit"
+          disabled={isPending}
+          title="Subscribe"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-[var(--ln-radius-sm)] bg-[var(--ln-ink)] text-white transition-colors hover:bg-[var(--ln-ink-soft)] disabled:opacity-50"
+        >
+          {isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <ArrowRight className="size-4" />
+          )}
+        </button>
       </form>
 
       {status && (
         <p
-          className={`text-xs mt-2.5 font-medium animate-in fade-in slide-in-from-top-1 duration-200 ${
-            status.success ? "text-green-500" : "text-destructive"
+          className={`mt-2.5 text-xs ${
+            status.success ? "text-[var(--ln-signal-ink)]" : "text-[var(--ln-alert)]"
           }`}
         >
           {status.message}

@@ -23,7 +23,7 @@ export const PAYMENT_METHOD_TEMPLATES: PaymentMethodTemplate[] = [
     defaultTagline: "Send payment in USD and save your transaction ID",
     defaultDetails: [
       { key: "Pay to", value: "" },
-      { key: "Note", value: "Include your LoopNode email" },
+      { key: "Note", value: "Include your Health Mesh email" },
     ],
   },
   {

@@ -1,17 +1,12 @@
 "use client";
 
-import React, { useTransition, useCallback } from "react";
+import React, { useCallback, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { submitContactForm } from "@/actions/contact";
 import { toast } from "@/lib/toast";
-import { Loader2, Mail, MessageSquare, Building2, Send } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { motion } from "framer-motion";
 import {
   GoogleReCaptchaProvider,
   useGoogleReCaptcha,
@@ -24,7 +19,9 @@ const contactValidation = z.object({
   message: z.string().min(10, "Message must be at least 10 characters."),
 });
 
-// ─── Inner form (must be inside the provider) ────────────────────────────────
+const fieldClass =
+  "h-11 w-full rounded-[var(--ln-radius-sm)] border border-[var(--ln-line-strong)] bg-[var(--ln-surface)] px-3 text-sm text-[var(--ln-ink)] outline-none transition-colors placeholder:text-[var(--ln-faint)] focus:border-[var(--ln-ink)]/30";
+
 function ContactForm() {
   const [isPending, startTransition] = useTransition();
   const { executeRecaptcha } = useGoogleReCaptcha();
@@ -53,10 +50,9 @@ function ContactForm() {
         }
 
         const recaptchaToken = await executeRecaptcha("contact_form");
-
         const res = await submitContactForm({ ...data, recaptchaToken });
         if (res.success) {
-          toast.success(res.message || "Message sent!");
+          toast.success(res.message || "Message sent.");
           reset();
         } else {
           toast.error(res.error || "Failed to send message.");
@@ -67,198 +63,147 @@ function ContactForm() {
   );
 
   return (
-    <div className="flex-1 flex flex-col relative overflow-hidden">
-      {/* Background ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/20 rounded-full blur-[140px] pointer-events-none -z-10" />
-
-      <div className="max-w-[88rem] mx-auto px-6 py-20 md:py-28 w-full">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6, type: "spring" }}
-          className="text-center max-w-2xl mx-auto mb-16 space-y-5"
-        >
-          <div className="inline-block bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest shadow-[0_0_20px_-5px_rgba(var(--primary-rgb,100,120,255),0.4)]">
-            Support &amp; Sales
-          </div>
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-[1.15]">
-            Get in touch <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400">
-              with our team
-            </span>
-          </h1>
-          <p className="text-base text-muted-foreground leading-relaxed mt-4">
-            Questions about LoopNode, custom enterprise requirements, or onboarding? Send us a
-            message — we typically reply within one business day.
+    <div className="flex-1">
+      <div className="ln-container py-20 md:py-28">
+        <div className="max-w-2xl">
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ln-muted)]">
+            Contact
           </p>
-        </motion.div>
+          <h1 className="mt-4 font-display text-4xl font-medium tracking-tight md:text-5xl">
+            Talk to the Health Mesh team.
+          </h1>
+          <p className="mt-5 text-base leading-relaxed text-[var(--ln-muted)]">
+            Product questions, agency needs, or onboarding help. We typically reply
+            within one business day.
+          </p>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch max-w-6xl mx-auto">
-          {/* Contact Information Cards */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.6, type: "spring", delay: 0.1 }}
-            className="lg:col-span-5 flex flex-col gap-6 h-full"
-          >
-            <div className="flex-1 bg-card/40 backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-white/20 hover:bg-card/60 transition-colors group">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Mail className="w-5 h-5" />
-              </div>
-              <h3 className="text-xl font-bold tracking-tight mb-2">Email Support</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                Our support engineering team responds to all inquiries within 24 hours. Use the form
-                to reach us directly.
+        <div className="mt-14 grid gap-12 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="space-y-8">
+            <div className="border-t border-[var(--ln-line)] pt-6">
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ln-faint)]">
+                Email
               </p>
-              <div className="text-sm font-semibold text-primary"><a href="loopenode@gmail.com">loopenode@gmail.com</a></div>
-            </div>
-
-            <div className="flex-1 bg-card/40 backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-white/20 hover:bg-card/60 transition-colors group">
-              <div className="w-12 h-12 rounded-xl bg-cyan-400/10 border border-cyan-400/20 text-cyan-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <h3 className="text-xl font-bold tracking-tight mb-2">Agency &amp; Enterprise</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Managing more than 50 websites? Need custom audit intervals, SAML SSO, or dedicated
-                onboarding? Mention your scale in the form and we'll schedule a discovery call.
+              <a
+                href="mailto:loopenode@gmail.com"
+                className="mt-3 inline-block text-sm font-medium text-[var(--ln-ink)] underline-offset-4 hover:underline"
+              >
+                loopenode@gmail.com
+              </a>
+              <p className="mt-2 text-sm text-[var(--ln-muted)]">
+                Support and general inquiries.
               </p>
             </div>
+            <div className="border-t border-[var(--ln-line)] pt-6">
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ln-faint)]">
+                Agency &amp; teams
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--ln-muted)]">
+                Managing many domains or need dedicated onboarding? Mention scale in
+                the form and we&apos;ll follow up.
+              </p>
+            </div>
+          </div>
 
-         
-          </motion.div>
-
-          {/* Form */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.6, type: "spring", delay: 0.2 }}
-            className="lg:col-span-7 h-full bg-card/60 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 md:p-12 shadow-2xl relative overflow-hidden flex flex-col justify-center"
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="rounded-[var(--ln-radius-lg)] border border-[var(--ln-line)] bg-[var(--ln-surface)] p-6 md:p-8"
           >
-            {/* Subtle inner glow */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none -z-10" />
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold tracking-tight mb-2">Send a message</h2>
-                <p className="text-sm text-muted-foreground">
-                  Fill out the form below and we'll get back to you shortly.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="space-y-2.5">
-                    <Label
-                      htmlFor="name"
-                      className="text-xs font-bold uppercase tracking-widest text-muted-foreground"
-                    >
-                      Your name
-                    </Label>
-                    <Input
-                      id="name"
-                      placeholder="Sarah Connor"
-                      disabled={isPending}
-                      aria-invalid={!!errors.name}
-                      {...register("name")}
-                      className="h-12 bg-black/40 border-white/10 focus-visible:ring-primary/50 focus-visible:border-primary rounded-xl"
-                    />
-                    {errors.name && (
-                      <p className="text-xs text-rose-400 font-medium">{errors.name.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <Label
-                      htmlFor="email"
-                      className="text-xs font-bold uppercase tracking-widest text-muted-foreground"
-                    >
-                      Email address
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@company.com"
-                      disabled={isPending}
-                      aria-invalid={!!errors.email}
-                      {...register("email")}
-                      className="h-12 bg-black/40 border-white/10 focus-visible:ring-primary/50 focus-visible:border-primary rounded-xl"
-                    />
-                    {errors.email && (
-                      <p className="text-xs text-rose-400 font-medium">{errors.email.message}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2.5">
-                  <Label
-                    htmlFor="subject"
-                    className="text-xs font-bold uppercase tracking-widest text-muted-foreground"
-                  >
-                    Subject
-                  </Label>
-                  <Input
-                    id="subject"
-                    placeholder="How can we help?"
-                    disabled={isPending}
-                    aria-invalid={!!errors.subject}
-                    {...register("subject")}
-                    className="h-12 bg-black/40 border-white/10 focus-visible:ring-primary/50 focus-visible:border-primary rounded-xl"
-                  />
-                  {errors.subject && (
-                    <p className="text-xs text-rose-400 font-medium">{errors.subject.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2.5">
-                  <Label
-                    htmlFor="message"
-                    className="text-xs font-bold uppercase tracking-widest text-muted-foreground"
-                  >
-                    Message
-                  </Label>
-                  <Textarea
-                    id="message"
-                    rows={6}
-                    placeholder="Tell us about your portfolio, team size, or what you're looking to solve..."
-                    disabled={isPending}
-                    aria-invalid={!!errors.message}
-                    {...register("message")}
-                    className="resize-none bg-black/40 border-white/10 focus-visible:ring-primary/50 focus-visible:border-primary rounded-xl py-3"
-                  />
-                  {errors.message && (
-                    <p className="text-xs text-rose-400 font-medium">{errors.message.message}</p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-xs font-medium text-[var(--ln-muted)]">
+                  Name
+                </label>
+                <input
+                  id="name"
+                  placeholder="Alex Rivera"
                   disabled={isPending}
-                  className="w-full h-14 rounded-xl text-sm font-bold uppercase tracking-widest shadow-[0_0_20px_-5px_rgba(var(--primary-rgb,100,120,255),0.4)] hover:shadow-[0_0_30px_-5px_rgba(var(--primary-rgb,100,120,255),0.6)] transition-all"
-                >
-                  {isPending ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Sending message...
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      Send request
-                      <Send className="w-4 h-4" />
-                    </div>
-                  )}
-                </Button>
-              </form>
-          </motion.div>
+                  aria-invalid={!!errors.name}
+                  className={fieldClass}
+                  {...register("name")}
+                />
+                {errors.name && (
+                  <p className="text-xs text-[var(--ln-alert)]">{errors.name.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="email" className="text-xs font-medium text-[var(--ln-muted)]">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="you@company.com"
+                  disabled={isPending}
+                  aria-invalid={!!errors.email}
+                  className={fieldClass}
+                  {...register("email")}
+                />
+                {errors.email && (
+                  <p className="text-xs text-[var(--ln-alert)]">{errors.email.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              <label htmlFor="subject" className="text-xs font-medium text-[var(--ln-muted)]">
+                Subject
+              </label>
+              <input
+                id="subject"
+                placeholder="How can we help?"
+                disabled={isPending}
+                aria-invalid={!!errors.subject}
+                className={fieldClass}
+                {...register("subject")}
+              />
+              {errors.subject && (
+                <p className="text-xs text-[var(--ln-alert)]">{errors.subject.message}</p>
+              )}
+            </div>
+
+            <div className="mt-5 space-y-2">
+              <label htmlFor="message" className="text-xs font-medium text-[var(--ln-muted)]">
+                Message
+              </label>
+              <textarea
+                id="message"
+                rows={6}
+                placeholder="Tell us what you're trying to monitor or improve."
+                disabled={isPending}
+                aria-invalid={!!errors.message}
+                className="w-full resize-none rounded-[var(--ln-radius-sm)] border border-[var(--ln-line-strong)] bg-[var(--ln-bg)] px-3 py-3 text-sm text-[var(--ln-ink)] outline-none transition-colors placeholder:text-[var(--ln-faint)] focus:border-[var(--ln-ink)]/30"
+                {...register("message")}
+              />
+              {errors.message && (
+                <p className="text-xs text-[var(--ln-alert)]">{errors.message.message}</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isPending}
+              className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[var(--ln-radius-sm)] bg-[var(--ln-ink)] text-sm font-medium text-white transition-colors hover:bg-[var(--ln-ink-soft)] disabled:opacity-50"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                <>
+                  Send message
+                  <ArrowRight className="size-4" />
+                </>
+              )}
+            </button>
+          </form>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Page: wraps the form in the reCAPTCHA provider ──────────────────────────
 export default function ContactPage() {
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!;
 

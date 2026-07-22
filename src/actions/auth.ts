@@ -119,7 +119,7 @@ export async function registerAction(values: any) {
       data: {
         userId: user.id,
         action: "USER_REGISTERED",
-        description: "Welcome aboard — your LoopNode account is ready",
+        description: "Welcome aboard — your Health Mesh account is ready",
       },
     });
 

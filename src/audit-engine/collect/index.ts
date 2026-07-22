@@ -8,7 +8,7 @@ const PROBE_TIMEOUT_MS = 8000;
 /** Bound HTML before Cheerio to protect Trigger memory on large pages. */
 const MAX_HTML_BYTES = 2_500_000;
 const USER_AGENT =
-  "Mozilla/5.0 (compatible; LoopNodeAudit/2.0; +https://loopnode.dev)";
+  "Mozilla/5.0 (compatible; HealthMeshAudit/2.0; +https://loopnode.dev)";
 
 function headersToRecord(headers: Headers): Record<string, string> {
   const out: Record<string, string> = {};

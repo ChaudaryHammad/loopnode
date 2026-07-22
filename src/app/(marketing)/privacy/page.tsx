@@ -1,53 +1,318 @@
 import React from "react";
+import Link from "next/link";
+import { LegalMailto, LegalPage } from "@/components/marketing/legal-page";
 
 export const metadata = {
   title: "Privacy Policy",
-  description: "Privacy Policy for LoopNode",
+  description:
+    "How Health Mesh collects, uses, stores, and shares personal information when you use our website monitoring service.",
 };
 
 export default function PrivacyPage() {
   return (
-    <div className="flex-1 max-w-4xl mx-auto px-6 py-20 md:py-28">
-      <div className="space-y-4 mb-12">
-        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight">Privacy Policy</h1>
-        <p className="text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</p>
-      </div>
-      
-      <div className="prose prose-invert prose-blue max-w-none space-y-6 text-muted-foreground">
-        <h2 className="text-xl font-bold text-foreground">1. Information We Collect</h2>
+    <LegalPage
+      title="Privacy Policy"
+      description="This Privacy Policy explains how Health Mesh collects, uses, discloses, and protects personal information when you visit our website, create an account, or use our monitoring and audit services."
+    >
+      <section>
+        <h2>1. Who we are</h2>
         <p>
-          We collect information you provide directly to us, such as when you create or modify your account, request on-demand services, contact customer support, or otherwise communicate with us. This information may include: name, email, phone number, postal address, profile picture, payment method, and other information you choose to provide.
+          Health Mesh (“Health Mesh,” “we,” “us,” or “our”) provides website monitoring and
+          audit tools, including uptime checks, SSL monitoring, performance and
+          accessibility audits, SEO signals, security header evaluation, coverage
+          scans, alerting, and related reporting features.
         </p>
         <p>
-          When you sign up or sign in, we automatically collect your IP address and derive an approximate location (such as country and city) from it. We use this information for analytics, fraud prevention, security monitoring, and to understand where our users are located. We do not collect precise GPS location from your device unless you explicitly grant permission in your browser.
+          For privacy questions or requests, contact us at <LegalMailto />. If you
+          prefer a general inquiry, you can also use our{" "}
+          <Link href="/contact">contact form</Link>.
         </p>
+      </section>
 
-        <h2 className="text-xl font-bold text-foreground">2. Use of Information</h2>
+      <section>
+        <h2>2. Scope</h2>
+        <p>This policy applies to:</p>
+        <ul>
+          <li>Our marketing website and documentation</li>
+          <li>Account registration, authentication, and dashboard use</li>
+          <li>Monitoring, scanning, alerting, reporting, and billing workflows</li>
+          <li>Newsletter subscriptions and support communications</li>
+        </ul>
         <p>
-          We may use the information we collect about you to:
+          It does not cover third-party websites you choose to monitor with Health Mesh,
+          or services that link to us but operate under their own policies.
         </p>
-        <ul className="list-disc pl-5 space-y-2">
-          <li>Provide, maintain, and improve our Services;</li>
-          <li>Send you technical notices, updates, security alerts and support and administrative messages;</li>
-          <li>Respond to your comments, questions and requests and provide customer service;</li>
-          <li>Communicate with you about products, services, offers, promotions, rewards, and events offered by LoopNode and others, and provide news and information we think will be of interest to you.</li>
+      </section>
+
+      <section>
+        <h2>3. Information we collect</h2>
+
+        <h3>3.1 Information you provide</h3>
+        <ul>
+          <li>
+            <strong>Account details:</strong> name, email address, password (stored
+            securely in hashed form), and profile settings
+          </li>
+          <li>
+            <strong>Website configuration:</strong> URLs, monitoring preferences,
+            scan schedules, notification settings, and related metadata you enter
+          </li>
+          <li>
+            <strong>Billing information:</strong> plan selection, payment method
+            references, transaction IDs, and upgrade request details you submit for
+            manual verification
+          </li>
+          <li>
+            <strong>Communications:</strong> messages sent through contact forms,
+            support email, or similar channels
+          </li>
+          <li>
+            <strong>Newsletter data:</strong> email address and subscription status
+            if you opt in
+          </li>
         </ul>
 
-        <h2 className="text-xl font-bold text-foreground">3. Sharing of Information</h2>
-        <p>
-          We may share the information we collect about you as described in this Statement or as described at the time of collection or sharing, including as follows:
-        </p>
-        <ul className="list-disc pl-5 space-y-2">
-          <li>With third party vendors, consultants and other service providers who need access to such information to carry out work on our behalf;</li>
-          <li>In response to a request for information by a competent authority if we believe disclosure is in accordance with, or is otherwise required by, any applicable law, regulation, or legal process;</li>
-          <li>With law enforcement officials, government authorities, or other third parties if we believe your actions are inconsistent with our User agreements, Terms of Service, or policies, or to protect the rights, property, or safety of LoopNode or others.</li>
+        <h3>3.2 Information collected automatically</h3>
+        <ul>
+          <li>
+            <strong>Usage data:</strong> pages viewed, feature interactions, referral
+            URLs, timestamps, and approximate session activity
+          </li>
+          <li>
+            <strong>Device and log data:</strong> IP address, browser type, operating
+            system, device identifiers where available, and diagnostic logs
+          </li>
+          <li>
+            <strong>Approximate location:</strong> derived from IP address (for
+            example, country or city) for security, fraud prevention, and analytics.
+            We do not collect precise GPS location unless you explicitly grant
+            browser permission for a specific feature
+          </li>
+          <li>
+            <strong>Cookies and similar technologies:</strong> as described in our{" "}
+            <Link href="/cookies">Cookie Policy</Link>
+          </li>
         </ul>
 
-        <h2 className="text-xl font-bold text-foreground">4. Contact Us</h2>
+        <h3>3.3 Information generated by the service</h3>
         <p>
-          If you have any questions about this Privacy Statement, please contact us at <a href="mailto:loopenode@gmail.com">loopenode@gmail.com</a>.
+          When you add a website, Health Mesh may generate and store monitoring results
+          such as uptime checks, latency measurements, SSL status, audit scores,
+          findings, crawl results, historical trends, alerts, and exported reports.
+          These results are tied to your account and the sites you configure.
         </p>
-      </div>
-    </div>
+
+        <h3>3.4 Information from third parties</h3>
+        <p>
+          We may receive limited information from service providers that help us
+          operate Health Mesh (for example, email delivery, hosting, bot protection such
+          as reCAPTCHA, or analytics). Where those providers process personal data on
+          our behalf, they do so under contractual obligations.
+        </p>
+      </section>
+
+      <section>
+        <h2>4. How we use information</h2>
+        <p>We use personal information to:</p>
+        <ul>
+          <li>Create and manage accounts, authenticate users, and provide the service</li>
+          <li>Run monitoring checks, audits, crawls, alerts, and reports you request</li>
+          <li>Process plan upgrades, verify payments, and manage subscriptions</li>
+          <li>Provide customer support and respond to inquiries</li>
+          <li>Send transactional messages (security alerts, billing notices, product updates related to your account)</li>
+          <li>Send marketing or newsletter emails only where permitted and with an unsubscribe option</li>
+          <li>Monitor reliability, prevent abuse, detect fraud, and secure our systems</li>
+          <li>Analyze aggregated usage to improve product quality and performance</li>
+          <li>Comply with legal obligations and enforce our Terms of Service</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>5. Legal bases (where applicable)</h2>
+        <p>
+          If you are located in a region that requires a legal basis for processing
+          (such as the EEA or UK), we typically rely on one or more of the following:
+        </p>
+        <ul>
+          <li>
+            <strong>Contract:</strong> to provide Health Mesh and related account features
+          </li>
+          <li>
+            <strong>Legitimate interests:</strong> to secure, improve, and operate the
+            service in ways that do not override your rights
+          </li>
+          <li>
+            <strong>Consent:</strong> for certain cookies, marketing emails, or other
+            optional processing where required
+          </li>
+          <li>
+            <strong>Legal obligation:</strong> where we must retain or disclose
+            information to comply with law
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>6. How we share information</h2>
+        <p>We do not sell your personal information. We may share information with:</p>
+        <ul>
+          <li>
+            <strong>Service providers:</strong> hosting, databases, email delivery,
+            security, analytics, and similar vendors who process data for us
+          </li>
+          <li>
+            <strong>Payment verification partners:</strong> only as needed to confirm
+            upgrade payments you initiate
+          </li>
+          <li>
+            <strong>Professional advisors:</strong> lawyers, accountants, or auditors
+            under confidentiality obligations when reasonably necessary
+          </li>
+          <li>
+            <strong>Authorities:</strong> when required by law, legal process, or to
+            protect the rights, safety, and security of Health Mesh, our users, or the
+            public
+          </li>
+          <li>
+            <strong>Business transfers:</strong> in connection with a merger,
+            acquisition, financing, or sale of assets, subject to appropriate
+            confidentiality protections
+          </li>
+        </ul>
+        <p>
+          If you create a shared report link or otherwise intentionally expose report
+          content, that information may become accessible to anyone with the link.
+        </p>
+      </section>
+
+      <section>
+        <h2>7. Monitoring of third-party websites</h2>
+        <p>
+          Health Mesh is designed to monitor websites and endpoints you configure. You
+          are responsible for ensuring you have the right to monitor those properties.
+          Scan results may include publicly available page content, headers, status
+          codes, certificates, and technical findings necessary to provide the
+          service.
+        </p>
+        <p>
+          We process this operational data to deliver monitoring and reporting
+          features to your account. We do not use your monitored site data to sell
+          advertising.
+        </p>
+      </section>
+
+      <section>
+        <h2>8. Data retention</h2>
+        <p>
+          We retain personal information for as long as needed to provide the service
+          and for legitimate business or legal purposes. Retention periods vary by
+          data type:
+        </p>
+        <ul>
+          <li>Account data is kept while your account remains active</li>
+          <li>
+            Monitoring history and audit results are retained according to your plan
+            limits and our operational needs
+          </li>
+          <li>
+            Billing and transaction records may be retained as required for accounting,
+            dispute resolution, and compliance
+          </li>
+          <li>
+            Support correspondence is retained as needed to resolve issues and improve
+            support quality
+          </li>
+        </ul>
+        <p>
+          When information is no longer required, we delete or anonymize it, unless
+          longer retention is required by law.
+        </p>
+      </section>
+
+      <section>
+        <h2>9. Security</h2>
+        <p>
+          We use administrative, technical, and organizational measures designed to
+          protect personal information, including encrypted transport (HTTPS), access
+          controls, hashed passwords, and infrastructure safeguards. No method of
+          transmission or storage is completely secure, and we cannot guarantee
+          absolute security.
+        </p>
+        <p>
+          You are responsible for maintaining the confidentiality of your account
+          credentials and for activity under your account.
+        </p>
+      </section>
+
+      <section>
+        <h2>10. International transfers</h2>
+        <p>
+          Health Mesh may process and store information in countries other than where you
+          live. Where required, we use appropriate safeguards for cross-border
+          transfers. By using the service, you understand that your information may be
+          transferred to and processed in these locations.
+        </p>
+      </section>
+
+      <section>
+        <h2>11. Your rights and choices</h2>
+        <p>
+          Depending on your location, you may have rights to access, correct, delete,
+          or export personal information; object to or restrict certain processing; or
+          withdraw consent where processing is based on consent.
+        </p>
+        <p>You can also:</p>
+        <ul>
+          <li>Update account profile details in your dashboard settings</li>
+          <li>Manage notification preferences for alerts and product emails</li>
+          <li>Unsubscribe from marketing or newsletter emails using the link in those emails</li>
+          <li>Control cookies through our banner and your browser settings</li>
+          <li>Request account deletion by contacting <LegalMailto /></li>
+        </ul>
+        <p>
+          We may need to verify your identity before fulfilling a request. Some
+          requests may be limited where we must retain information for legal,
+          security, or legitimate business reasons.
+        </p>
+      </section>
+
+      <section>
+        <h2>12. Children’s privacy</h2>
+        <p>
+          Health Mesh is not directed to children under 16, and we do not knowingly
+          collect personal information from children. If you believe a child has
+          provided us personal information, contact us and we will take appropriate
+          steps to delete it.
+        </p>
+      </section>
+
+      <section>
+        <h2>13. Third-party links</h2>
+        <p>
+          Our website or product may contain links to third-party sites. We are not
+          responsible for the privacy practices of those sites. Review their policies
+          before providing personal information.
+        </p>
+      </section>
+
+      <section>
+        <h2>14. Changes to this policy</h2>
+        <p>
+          We may update this Privacy Policy from time to time. When we do, we will
+          revise the “Last updated” date above. Material changes may also be
+          communicated through the website, dashboard, or email. Continued use of
+          Health Mesh after an update means you acknowledge the revised policy.
+        </p>
+      </section>
+
+      <section>
+        <h2>15. Contact</h2>
+        <p>
+          If you have questions about this Privacy Policy or want to exercise a
+          privacy right, email <LegalMailto /> or use the{" "}
+          <Link href="/contact">contact page</Link>.
+        </p>
+      </section>
+    </LegalPage>
   );
 }

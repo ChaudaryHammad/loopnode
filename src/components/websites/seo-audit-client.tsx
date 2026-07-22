@@ -38,7 +38,7 @@ export function SeoAuditClient({
       {children}
       <AuditSection
         title="SEO findings"
-        description="Lighthouse SEO audits plus LoopNode crawler checks from your latest scan"
+        description="Lighthouse SEO audits plus Health Mesh crawler checks from your latest scan"
       >
         <LighthouseFindingsList issues={issues} showMetricFilters={false} />
       </AuditSection>

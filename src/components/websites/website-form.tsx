@@ -208,7 +208,7 @@ export function WebsiteForm({
                 <p className="text-sm font-medium text-foreground">Audit schedule</p>
                 <p className="text-xs text-muted-foreground">
                   {canScheduleScans
-                    ? "Choose how often LoopNode should run automated audits for this site."
+                    ? "Choose how often Health Mesh should run automated audits for this site."
                     : "Automated scans require Pro or Agency. Manual audits are always available."}
                 </p>
               </div>

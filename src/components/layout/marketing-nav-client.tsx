@@ -1,17 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Menu, X, ArrowRight } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X, ArrowRight } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { HealthMeshLogo } from "@/components/brand/healthmesh-logo";
 
 interface MarketingNavClientProps {
   isLoggedIn: boolean;
 }
 
 const navLinks = [
-  { href: "/features", label: "Features" },
+  { href: "/features", label: "Product" },
   { href: "/pricing", label: "Pricing" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
@@ -19,54 +21,68 @@ const navLinks = [
 
 export function MarketingNavClient({ isLoggedIn }: MarketingNavClientProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
 
-  // Close on route change
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
 
-  // Lock scroll when open
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <>
-      <header className={`sticky top-0 z-50 w-full select-none transition-colors duration-300 ${isOpen ? "bg-background border-b-transparent" : "bg-background/80 backdrop-blur-md border-b border-white/10"}`}>
-        <div className="max-w-[88rem] mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          {/* Logo — always visible */}
-          <Link href="/" onClick={() => setIsOpen(false)} className="flex items-center gap-3 shrink-0 relative z-50">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary">
-              <Activity className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-sm tracking-tight text-foreground">
-              LoopNode
-            </span>
+      <header
+        className={cn(
+          "sticky top-0 z-50 w-full transition-all duration-300",
+          scrolled || isOpen
+            ? "border-b border-[var(--ln-line)] bg-[var(--ln-bg)]/90 backdrop-blur-xl"
+            : "border-b border-transparent bg-transparent"
+        )}
+      >
+        <div className="ln-container flex h-16 items-center justify-between gap-4">
+          <Link
+            href="/"
+            onClick={() => setIsOpen(false)}
+            className="relative z-50 flex items-center"
+          >
+            <HealthMeshLogo variant="ink" />
           </Link>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
+          <nav className="hidden items-center gap-1 md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-3 py-1.5 rounded-lg transition-colors hover:text-foreground hover:bg-white/5 ${
-                  pathname === link.href ? "text-foreground" : "text-muted-foreground"
-                }`}
+                className={cn(
+                  "rounded-[var(--ln-radius-sm)] px-3 py-1.5 text-sm transition-colors",
+                  pathname === link.href || pathname.startsWith(`${link.href}/`)
+                    ? "text-[var(--ln-ink)]"
+                    : "text-[var(--ln-muted)] hover:text-[var(--ln-ink)]"
+                )}
               >
                 {link.label}
               </Link>
             ))}
           </nav>
 
-          {/* Desktop CTAs */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
             {isLoggedIn ? (
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--ln-radius-sm)] bg-[var(--ln-ink)] px-3.5 text-sm font-medium text-white transition-colors hover:bg-[var(--ln-ink-soft)]"
               >
                 Dashboard
               </Link>
@@ -74,58 +90,58 @@ export function MarketingNavClient({ isLoggedIn }: MarketingNavClientProps) {
               <>
                 <Link
                   href="/login"
-                  className="px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-white/5"
+                  className="px-3 py-1.5 text-sm text-[var(--ln-muted)] transition-colors hover:text-[var(--ln-ink)]"
                 >
-                  Sign In
+                  Sign in
                 </Link>
                 <Link
                   href="/register"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-[var(--ln-radius-sm)] bg-[var(--ln-ink)] px-3.5 text-sm font-medium text-white transition-colors hover:bg-[var(--ln-ink-soft)]"
                 >
-                  Get Started
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  Start trial
+                  <ArrowRight className="size-3.5" />
                 </Link>
               </>
             )}
           </div>
 
-          {/* Mobile: Hamburger / Close Button */}
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors relative z-50"
+            className="relative z-50 rounded-[var(--ln-radius-sm)] p-2 text-[var(--ln-muted)] transition-colors hover:bg-black/5 hover:text-[var(--ln-ink)] md:hidden"
             aria-label="Toggle menu"
           >
-            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {isOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
         </div>
       </header>
 
-      {/* Mobile Dropdown Overlay */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 top-16 z-40 md:hidden bg-background flex flex-col border-t border-white/5"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 top-16 z-40 bg-[var(--ln-bg)] md:hidden"
           >
-            {/* Overlay Body: Nav Links + CTAs */}
-            <div className="flex-1 flex flex-col pt-4 px-6 overflow-y-auto">
-              <nav className="flex flex-col mb-8">
+            <div className="ln-container flex h-full flex-col pt-4">
+              <nav className="flex flex-col">
                 {navLinks.map((link, i) => (
                   <motion.div
                     key={link.href}
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05, type: "spring", stiffness: 300 }}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
                   >
                     <Link
                       href={link.href}
                       onClick={() => setIsOpen(false)}
-                      className={`flex items-center text-base font-semibold py-4 border-b border-white/5 transition-colors hover:text-primary ${
-                        pathname === link.href ? "text-primary" : "text-foreground"
-                      }`}
+                      className={cn(
+                        "block border-b border-[var(--ln-line)] py-4 text-lg font-medium",
+                        pathname === link.href
+                          ? "text-[var(--ln-ink)]"
+                          : "text-[var(--ln-muted)]"
+                      )}
                     >
                       {link.label}
                     </Link>
@@ -133,41 +149,36 @@ export function MarketingNavClient({ isLoggedIn }: MarketingNavClientProps) {
                 ))}
               </nav>
 
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="flex flex-col gap-3 pb-8"
-              >
+              <div className="mt-8 flex flex-col gap-3 pb-10">
                 {isLoggedIn ? (
                   <Link
                     href="/dashboard"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center justify-center gap-2 h-12 bg-primary text-primary-foreground font-semibold text-sm rounded-xl hover:bg-primary/90 transition-colors"
+                    className="flex h-12 items-center justify-center gap-2 rounded-[var(--ln-radius-sm)] bg-[var(--ln-ink)] text-sm font-medium text-white"
                   >
-                    Go to Dashboard
-                    <ArrowRight className="w-4 h-4" />
+                    Go to dashboard
+                    <ArrowRight className="size-4" />
                   </Link>
                 ) : (
                   <>
                     <Link
                       href="/register"
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center justify-center gap-2 h-12 bg-primary text-primary-foreground font-semibold text-sm rounded-xl hover:bg-primary/90 transition-colors"
+                      className="flex h-12 items-center justify-center gap-2 rounded-[var(--ln-radius-sm)] bg-[var(--ln-ink)] text-sm font-medium text-white"
                     >
-                      Get Started Free
-                      <ArrowRight className="w-4 h-4" />
+                      Start free trial
+                      <ArrowRight className="size-4" />
                     </Link>
                     <Link
                       href="/login"
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center justify-center h-12 border border-white/10 text-foreground font-semibold text-sm rounded-xl hover:bg-white/5 transition-colors"
+                      className="flex h-12 items-center justify-center rounded-[var(--ln-radius-sm)] border border-[var(--ln-line-strong)] text-sm font-medium text-[var(--ln-ink)]"
                     >
-                      Sign In
+                      Sign in
                     </Link>
                   </>
                 )}
-              </motion.div>
+              </div>
             </div>
           </motion.div>
         )}

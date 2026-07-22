@@ -1,24 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { CadenceSplash } from "@/components/brand/cadence-loader";
 
 export function DashboardOverviewLoader() {
-  return (
-    <div className="space-y-8" aria-busy="true">
-      <div className="border-b border-border/20 pb-6 space-y-2">
-        <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-4 w-96 max-w-full" />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-2xl" />
-        ))}
-      </div>
-      <Skeleton className="h-48 rounded-2xl" />
-      <div className="grid gap-8 lg:grid-cols-2">
-        <Skeleton className="h-72 rounded-2xl" />
-        <Skeleton className="h-72 rounded-2xl" />
-      </div>
-    </div>
-  );
+  return <CadenceSplash label="Loading dashboard" className="min-h-[50vh]" />;
 }
 
 export function DashboardStatsLoader() {
@@ -44,27 +28,7 @@ export function DashboardListsLoader() {
 }
 
 export function DataTablePageLoader() {
-  return (
-    <div className="space-y-6" aria-busy="true">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-72 max-w-full" />
-        </div>
-        <Skeleton className="h-9 w-32 rounded-lg" />
-      </div>
-      <div className="flex gap-2">
-        <Skeleton className="h-9 flex-1 max-w-md rounded-lg" />
-        <Skeleton className="h-9 w-20 rounded-lg" />
-        <Skeleton className="h-9 w-20 rounded-lg" />
-      </div>
-      <div className="space-y-3">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 rounded-xl" />
-        ))}
-      </div>
-    </div>
-  );
+  return <CadenceSplash label="Loading" className="min-h-[40vh]" />;
 }
 
 export function SettingsPageLoader() {
@@ -169,21 +133,7 @@ export function AdminTablePageLoader() {
 }
 
 export function AuthCardLoader() {
-  return (
-    <div className="space-y-6" aria-busy="true">
-      <div className="space-y-2 text-center">
-        <Skeleton className="mx-auto h-8 w-40" />
-        <Skeleton className="mx-auto h-4 w-56" />
-      </div>
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-full rounded-lg" />
-        <Skeleton className="h-10 w-full rounded-lg" />
-        <Skeleton className="h-10 w-full rounded-lg" />
-      </div>
-      <Skeleton className="h-10 w-full rounded-lg" />
-      <Skeleton className="mx-auto h-3 w-48" />
-    </div>
-  );
+  return <CadenceSplash label="Loading" className="min-h-[16rem]" />;
 }
 
 export function ShareReportLoader() {

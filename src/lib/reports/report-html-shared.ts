@@ -1,4 +1,6 @@
-export const LOOPNODE_BRAND = "LoopNode";
+export const HEALTHMESH_BRAND = "Health Mesh";
+/** @deprecated Use HEALTHMESH_BRAND */
+export const LOOPNODE_BRAND = HEALTHMESH_BRAND;
 
 export function escapeHtml(value: string) {
   return value

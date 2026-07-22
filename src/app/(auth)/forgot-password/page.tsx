@@ -7,7 +7,8 @@ import Link from "next/link";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
 import { forgotPasswordAction } from "@/actions/auth";
 import { toast } from "@/lib/toast";
-import { Activity, Loader2 } from "lucide-react";
+import { AuthBrandHeader } from "@/components/brand/auth-brand-header";
+import { CadenceLoader } from "@/components/brand/cadence-loader";
 
 export default function ForgotPasswordPage() {
   const [isPending, startTransition] = useTransition();
@@ -15,6 +16,7 @@ export default function ForgotPasswordPage() {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(forgotPasswordSchema),
@@ -28,6 +30,7 @@ export default function ForgotPasswordPage() {
       const response = await forgotPasswordAction(data);
       if (response.success) {
         toast.success(response.message || "Reset link sent! Check your inbox.");
+        reset();
       } else {
         toast.error(response.error || "Failed to submit request.");
       }
@@ -36,17 +39,10 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="w-full">
-      <div className="flex flex-col items-center text-center mb-8">
-        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 text-primary mb-4 animate-pulse">
-          <Activity className="w-6 h-6" />
-        </div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Reset Password
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          We&apos;ll send you a secure link to recover your account
-        </p>
-      </div>
+      <AuthBrandHeader
+        title="Reset Password"
+        subtitle="We'll send you a secure link to recover your account"
+      />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div>
@@ -70,11 +66,11 @@ export default function ForgotPasswordPage() {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full flex items-center justify-center px-4 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm shadow-lg shadow-primary/20 hover:bg-primary/95 active:scale-[0.99] transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+          className="w-full flex items-center justify-center px-4 py-3 rounded-[var(--ln-radius-sm)] bg-[var(--ln-ink)] text-white font-semibold text-sm hover:bg-[var(--ln-ink-soft)] active:translate-y-px transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
         >
           {isPending ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <CadenceLoader size="sm" className="mr-2 text-white" />
               Sending link...
             </>
           ) : (
@@ -87,7 +83,7 @@ export default function ForgotPasswordPage() {
         Remember your password?{" "}
         <Link
           href="/login"
-          className="font-semibold text-primary hover:text-primary/80 transition-colors"
+          className="font-semibold text-[var(--ln-ink)] hover:text-[var(--ln-ink-soft)] transition-colors"
         >
           Sign In
         </Link>

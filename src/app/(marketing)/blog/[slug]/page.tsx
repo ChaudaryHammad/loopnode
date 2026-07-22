@@ -1,12 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Calendar, Clock, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { blogPosts, getBlogPost } from "@/lib/marketing/blog-posts";
 import { BlogArticle } from "@/components/marketing/blog-article";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { MarketingButton } from "@/components/marketing/primitives";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -19,9 +17,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
   const post = getBlogPost(slug);
-
   if (!post) return { title: "Post Not Found" };
-
   return {
     title: post.title,
     description: post.description,
@@ -31,51 +27,48 @@ export async function generateMetadata({ params }: PageProps) {
 export default async function BlogPostPage({ params }: PageProps) {
   const { slug } = await params;
   const post = getBlogPost(slug);
-
-  if (!post) {
-    notFound();
-  }
+  if (!post) notFound();
 
   return (
-    <div className="flex-1 max-w-3xl mx-auto px-6 py-12 md:py-20">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="mb-8 -ml-2 text-muted-foreground"
-        render={<Link href="/blog" />}
-        nativeButton={false}
-      >
-        <ArrowLeft />
-        Back to Blog
-      </Button>
+    <div className="flex-1">
+      <div className="ln-container max-w-3xl py-16 md:py-24">
+        <Link
+          href="/blog"
+          className="inline-flex items-center gap-2 text-sm text-[var(--ln-muted)] transition-colors hover:text-[var(--ln-ink)]"
+        >
+          <ArrowLeft className="size-4" />
+          Blog
+        </Link>
 
-      <article className="space-y-8">
-        <div className="space-y-4">
-          <Badge variant="outline" className="bg-primary/10 border-primary/20 text-primary uppercase tracking-wider text-[10px]">
+        <article className="mt-10">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ln-muted)]">
             {post.category}
-          </Badge>
-
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
+          </p>
+          <h1 className="mt-4 font-display text-3xl font-medium leading-tight tracking-tight md:text-5xl">
             {post.title}
           </h1>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">By {post.author}</span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              {post.date}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              {post.readTime}
-            </span>
+          <div className="mt-5 flex flex-wrap gap-4 font-mono text-xs text-[var(--ln-faint)]">
+            <span>{post.author}</span>
+            <span>{post.date}</span>
+            <span>{post.readTime}</span>
           </div>
 
-          <Separator />
-        </div>
+          <div className="mt-10 border-t border-[var(--ln-line)] pt-10">
+            <BlogArticle content={post.content} />
+          </div>
+        </article>
 
-        <BlogArticle content={post.content} />
-      </article>
+        <div className="mt-16 rounded-[var(--ln-radius-lg)] bg-[var(--ln-panel)] px-8 py-10 text-center">
+          <p className="font-display text-2xl font-medium text-white">
+            Put these checks on autopilot.
+          </p>
+          <div className="mt-6 flex justify-center">
+            <MarketingButton href="/register" variant="panel">
+              Start free trial
+            </MarketingButton>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

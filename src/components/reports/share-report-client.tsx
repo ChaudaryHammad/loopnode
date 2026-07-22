@@ -36,7 +36,7 @@ export function ShareReportClient({
             <div className="min-w-0 space-y-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
                 <FileText className="size-3.5" />
-                LoopNode
+                Health Mesh
                 <span>·</span>
                 Shared report
               </div>
@@ -92,7 +92,7 @@ export function ShareReportClient({
         <p className="text-center text-xs text-muted-foreground">
           Powered by{" "}
           <Link href="/" className="underline-offset-4 hover:text-foreground hover:underline">
-            LoopNode
+            Health Mesh
           </Link>
         </p>
       </div>

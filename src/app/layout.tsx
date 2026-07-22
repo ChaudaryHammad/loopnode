@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Sora } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AppToaster } from "@/components/ui/app-toaster";
 import "./globals.css";
@@ -14,13 +14,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const sora = Sora({
+  variable: "--font-sora",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
   title: {
-    default: "LoopNode — Website health monitoring & audits",
-    template: "%s | LoopNode",
+    default: "Health Mesh — Know before your users do",
+    template: "%s | Health Mesh",
   },
   description:
-    "Monitor performance, accessibility, SEO, and security with real Lighthouse and axe-core audits. Run coverage scans for unreachable URLs and track scores over time.",
+    "Monitor downtime, accessibility, SSL, and production health. Keep products reliable, accessible, and compliant.",
+  icons: {
+    icon: "/healthmesh-mark.svg",
+  },
 };
 
 export default function RootLayout({
@@ -38,7 +47,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} ${sora.variable} antialiased min-h-screen bg-background text-foreground`}
         suppressHydrationWarning
       >
         <ThemeProvider defaultTheme="dark">

@@ -1,60 +1,40 @@
 import React from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  Check,
-  CreditCard,
-  Sparkles,
-  Wallet,
-} from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { auth } from "@/lib/auth";
 import {
   PLAN_LABELS,
   PLAN_PRICES_USD,
   PLAN_SCAN_SCHEDULING,
   PLAN_SITE_LIMITS,
+  PLAN_UPTIME_INTERVALS,
 } from "@/lib/plans";
-import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button-link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { MarketingFaq } from "@/components/marketing/marketing-faq";
+import { MarketingButton } from "@/components/marketing/primitives";
+import { cn } from "@/lib/utils";
 
 export const metadata = {
   title: "Pricing",
   description:
-    "LoopNode pricing — 14-day free trial, then upgrade from your dashboard with bank transfer, mobile wallet, or other payment options.",
+    "Health Mesh pricing — 14-day free trial, then upgrade from your dashboard with bank transfer, mobile wallet, or other payment options.",
 };
 
 const UPGRADE_STEPS = [
   {
-    title: "Start your free trial",
-    body: "Create an account — no payment needed. You get 14 days of Starter access.",
+    title: "Start free",
+    body: "Create an account. 14 days of Starter access, no card required.",
   },
   {
-    title: "Choose a plan in Billing",
-    body: "Go to Settings → Billing → Upgrade plan and pick Starter, Pro, or Agency.",
+    title: "Choose a plan",
+    body: "Open Settings → Billing → Upgrade and pick Starter, Pro, or Agency.",
   },
   {
-    title: "Complete payment",
-    body: "Send the monthly amount using the payment option shown in your dashboard (bank, wallet, etc.).",
-  },
-  {
-    title: "Submit for verification",
-    body: "Enter your transaction ID. We verify payment and activate your plan within 1–2 business days.",
+    title: "Pay & verify",
+    body: "Complete payment, submit your transaction ID, and we activate within 1–2 business days.",
   },
 ] as const;
 
 export default async function PricingPage() {
   const session = await auth();
-
   const isLoggedIn = !!session?.user;
   const upgradeHref = isLoggedIn
     ? "/dashboard/settings/billing/upgrade"
@@ -64,50 +44,44 @@ export default async function PricingPage() {
   const plans = [
     {
       tier: "STARTER" as const,
-      description: "For freelancers and solo developers monitoring a handful of sites.",
+      description: "For solo developers monitoring a few sites.",
       features: [
         `Up to ${PLAN_SITE_LIMITS.STARTER} websites`,
+        PLAN_UPTIME_INTERVALS.STARTER,
         PLAN_SCAN_SCHEDULING.STARTER,
-        "No automated scheduling on Starter",
         "Performance, accessibility, SEO & security",
-        "Coverage scanner (internal)",
-        "30-day scan history",
-        "Email support",
+        "Coverage scanner",
+        "30-day history",
       ],
       cta: isLoggedIn ? "Upgrade to Starter" : "Start free trial",
-      href: upgradeHref,
       popular: false,
     },
     {
       tier: "PRO" as const,
-      description: "For growing businesses that need automated monitoring and deeper crawls.",
+      description: "For teams that need automated monitoring.",
       features: [
         `Up to ${PLAN_SITE_LIMITS.PRO} websites`,
+        PLAN_UPTIME_INTERVALS.PRO,
         PLAN_SCAN_SCHEDULING.PRO,
-        "Full performance & accessibility audits",
-        "Internal + external link crawls",
-        "CSP grading & live header checks",
+        "Full audits + external link crawls",
+        "CSP grading & header checks",
         "90-day score trends",
-        "Priority email support",
       ],
       cta: isLoggedIn ? "Upgrade to Pro" : "Start free trial",
-      href: upgradeHref,
       popular: true,
     },
     {
       tier: "AGENCY" as const,
-      description: "For agencies and teams managing many client domains.",
+      description: "For agencies managing many client domains.",
       features: [
         `Up to ${PLAN_SITE_LIMITS.AGENCY} websites`,
+        PLAN_UPTIME_INTERVALS.AGENCY,
         PLAN_SCAN_SCHEDULING.AGENCY,
-        "Unlimited coverage crawl depth",
-        "All Pro audit features",
+        "Unlimited coverage depth",
         "1-year historical data",
-        "Dedicated onboarding",
         "Priority support",
       ],
       cta: isLoggedIn ? "Upgrade to Agency" : "Start free trial",
-      href: upgradeHref,
       popular: false,
     },
   ];
@@ -116,170 +90,171 @@ export default async function PricingPage() {
     {
       question: "Which plans include automated scan scheduling?",
       answer:
-        "Starter includes manual scans only — you run audits when you need them. Pro and Agency unlock automated scheduling with daily, weekly, or monthly frequency per website.",
+        "Starter is manual only. Pro and Agency unlock daily, weekly, or monthly scheduling per website.",
     },
     {
       question: "Is there a free trial?",
-      answer:
-        `Yes. Every new account gets a 14-day free trial on the Starter plan (up to ${PLAN_SITE_LIMITS.STARTER} websites). No payment or card is required to sign up.`,
+      answer: `Yes. Every new account gets 14 days on Starter (up to ${PLAN_SITE_LIMITS.STARTER} websites). No card required.`,
     },
     {
       question: "How do I pay after the trial?",
       answer: isLoggedIn
-        ? "Open Settings → Billing → Upgrade plan. Choose your plan, pay using the instructions shown, then submit your transaction ID for verification."
-        : "After you register, go to Settings → Billing → Upgrade plan in your dashboard. Choose a plan, complete payment using the methods shown there, and submit your transaction reference.",
+        ? "Open Settings → Billing → Upgrade plan. Choose a plan, pay using the instructions shown, then submit your transaction ID."
+        : "After you register, go to Settings → Billing → Upgrade plan. Choose a plan, complete payment, and submit your reference.",
     },
     {
       question: "What payment methods do you accept?",
       answer:
-        "Payment options are shown in your dashboard when you upgrade — bank transfer, mobile wallets, and similar methods. We verify each payment manually before activating your plan.",
-    },
-    {
-      question: "How long does activation take?",
-      answer:
-        "Once you submit your payment reference, our team verifies it and activates your plan. Most upgrades are approved within 1–2 business days. You'll get an in-app notification and email.",
-    },
-    {
-      question: "Can I change or cancel my plan?",
-      answer:
-        "Yes. Manage your subscription from Settings → Billing. Plans are monthly with no long-term contract. Contact support if you need help downgrading or cancelling.",
+        "Bank transfer, mobile wallets, and similar methods shown in your dashboard. Payments are verified manually before activation.",
     },
   ];
 
   return (
-    <div className="flex-1 w-full max-w-[88rem] mx-auto px-6 sm:px-8 lg:px-12 py-12 md:py-24">
-      <div className="text-center max-w-3xl mx-auto mb-6 space-y-4">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
-          Simple, honest pricing
-        </h1>
-        <p className="text-base text-muted-foreground leading-relaxed max-w-xl mx-auto">
-          Start free for 14 days. When you&apos;re ready, upgrade from your dashboard — pay by
-          transfer or wallet, submit your reference, and we&apos;ll activate your plan.
-        </p>
-      </div>
-
-      <p className="text-center text-sm text-primary font-medium mb-10">
-        14-day free trial · Pay after you&apos;re ready · No card required to sign up
-      </p>
-
-      {isLoggedIn && (
-        <div className="max-w-2xl mx-auto mb-12">
-          <Card className="rounded-2xl border-primary/25 bg-primary/5">
-            <CardContent className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3 text-left">
-                <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary shrink-0">
-                  <Wallet className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-semibold">Ready to upgrade?</p>
-                  <p className="text-sm text-muted-foreground">
-                    Payment instructions are in your dashboard billing settings.
-                  </p>
-                </div>
-              </div>
-              <ButtonLink href={upgradeHref} className="gap-2 shrink-0">
-                Upgrade now
-                <ArrowRight className="w-4 h-4" />
-              </ButtonLink>
-            </CardContent>
-          </Card>
+    <div className="flex-1">
+      <div className="ln-container py-20 md:py-28">
+        <div className="max-w-2xl">
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ln-muted)]">
+            Pricing
+          </p>
+          <h1 className="mt-4 font-display text-4xl font-medium tracking-tight text-[var(--ln-ink)] md:text-5xl">
+            Simple plans. Honest process.
+          </h1>
+          <p className="mt-5 text-base leading-relaxed text-[var(--ln-muted)]">
+            Start free for 14 days. Upgrade from your dashboard when you&apos;re
+            ready — no card required to sign up.
+          </p>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch mb-20 max-w-6xl mx-auto">
-        {plans.map((plan) => (
-          <Card
-            key={plan.tier}
-            className={`relative flex flex-col h-full rounded-3xl ${
-              plan.popular
-                ? "border-primary shadow-xl shadow-primary/10 ring-1 ring-primary"
-                : "border-border/40"
-            }`}
-          >
-            {plan.popular && (
-              <Badge className="absolute -top-3.5 left-1/2 -translate-x-1/2 uppercase tracking-wider shadow-md">
-                <Sparkles className="w-3 h-3" />
-                Most popular
-              </Badge>
-            )}
+        {isLoggedIn && (
+          <div className="mt-10 flex flex-col items-start justify-between gap-4 rounded-[var(--ln-radius)] border border-[var(--ln-signal)]/20 bg-[var(--ln-signal-soft)]/50 px-5 py-4 sm:flex-row sm:items-center">
+            <p className="text-sm text-[var(--ln-ink-soft)]">
+              Payment instructions live in your billing settings.
+            </p>
+            <MarketingButton href={upgradeHref} className="h-10">
+              Upgrade now
+              <ArrowRight className="size-4" />
+            </MarketingButton>
+          </div>
+        )}
 
-            <CardHeader className="space-y-6 flex-1">
-              <div>
-                <CardTitle className="text-lg">{PLAN_LABELS[plan.tier]}</CardTitle>
-                <CardDescription className="mt-2 leading-relaxed min-h-12">
-                  {plan.description}
-                </CardDescription>
+        <div className="mt-14 grid gap-px overflow-hidden rounded-[var(--ln-radius-lg)] border border-[var(--ln-line)] bg-[var(--ln-line)] md:grid-cols-3">
+          {plans.map((plan) => (
+            <div
+              key={plan.tier}
+              className={cn(
+                "flex h-full flex-col bg-[var(--ln-surface)] p-7 md:p-8",
+                plan.popular && "bg-[var(--ln-panel)] text-white md:scale-[1.01]"
+              )}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p
+                  className={cn(
+                    "font-mono text-[11px] uppercase tracking-[0.16em]",
+                    plan.popular ? "text-[var(--ln-panel-faint)]" : "text-[var(--ln-muted)]"
+                  )}
+                >
+                  {PLAN_LABELS[plan.tier]}
+                </p>
+                {plan.popular && (
+                  <span className="rounded-full bg-white/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-[#9fe0d6]">
+                    Popular
+                  </span>
+                )}
               </div>
 
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-foreground">
-                  ${PLAN_PRICES_USD[plan.tier]}
+              <p
+                className={cn(
+                  "mt-5 font-display text-4xl font-medium",
+                  plan.popular ? "text-white" : "text-[var(--ln-ink)]"
+                )}
+              >
+                ${PLAN_PRICES_USD[plan.tier]}
+                <span
+                  className={cn(
+                    "ml-1 text-base font-normal",
+                    plan.popular ? "text-[var(--ln-panel-faint)]" : "text-[var(--ln-faint)]"
+                  )}
+                >
+                  /mo
                 </span>
-                <span className="text-sm text-muted-foreground">/ month</span>
-              </div>
+              </p>
 
-              <Separator />
-              <ul className="space-y-3">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                    <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    <span>{f}</span>
+              <p
+                className={cn(
+                  "mt-3 text-sm leading-relaxed",
+                  plan.popular ? "text-[var(--ln-panel-muted)]" : "text-[var(--ln-muted)]"
+                )}
+              >
+                {plan.description}
+              </p>
+
+              <ul className="mt-8 flex-1 space-y-3">
+                {plan.features.map((feature) => (
+                  <li
+                    key={feature}
+                    className={cn(
+                      "flex items-start gap-2.5 text-sm",
+                      plan.popular ? "text-[var(--ln-panel-muted)]" : "text-[var(--ln-muted)]"
+                    )}
+                  >
+                    <Check
+                      className={cn(
+                        "mt-0.5 size-4 shrink-0",
+                        plan.popular ? "text-[#7dd3c7]" : "text-[var(--ln-signal)]"
+                      )}
+                    />
+                    <span>{feature}</span>
                   </li>
                 ))}
               </ul>
-            </CardHeader>
 
-            <CardFooter className="border-t-0 bg-transparent pt-0 pb-8">
-              <ButtonLink
-                href={plan.href}
-                variant={plan.popular ? "default" : "secondary"}
-                size="lg"
-                className={`w-full ${plan.popular ? "shadow-lg shadow-primary/10" : ""}`}
+              <MarketingButton
+                href={upgradeHref}
+                variant={plan.popular ? "panel" : "secondary"}
+                className="mt-8 w-full"
               >
                 {plan.cta}
-              </ButtonLink>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+              </MarketingButton>
+            </div>
+          ))}
+        </div>
 
-      <section className="max-w-4xl mx-auto mb-20">
-        <div className="text-center mb-10 space-y-2">
-          <CreditCard className="w-8 h-8 text-primary mx-auto mb-2" />
-          <h2 className="text-2xl font-bold tracking-tight">How upgrading works</h2>
-          <p className="text-sm text-muted-foreground">
+        <section className="mt-24">
+          <h2 className="font-display text-2xl font-medium md:text-3xl">
+            How upgrading works
+          </h2>
+          <p className="mt-3 max-w-xl text-sm text-[var(--ln-muted)]">
             No checkout on this page — everything happens in your{" "}
-            <Link href={billingHref} className="text-primary hover:underline">
+            <Link href={billingHref} className="underline underline-offset-2">
               billing settings
             </Link>
             .
           </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {UPGRADE_STEPS.map((step, idx) => (
-            <Card key={step.title} className="border-border/30 rounded-2xl">
-              <CardHeader className="pb-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                  Step {idx + 1}
+          <div className="mt-10 grid gap-8 md:grid-cols-3">
+            {UPGRADE_STEPS.map((step, idx) => (
+              <div key={step.title} className="border-t border-[var(--ln-line)] pt-6">
+                <p className="font-mono text-xs text-[var(--ln-faint)]">0{idx + 1}</p>
+                <h3 className="mt-3 font-display text-xl font-medium">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--ln-muted)]">
+                  {step.body}
                 </p>
-                <CardTitle className="text-base">{step.title}</CardTitle>
-                <CardDescription className="leading-relaxed">{step.body}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      </section>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      <section className="mx-auto max-w-[88rem] border-t border-border/20 px-6 pt-16 pb-8">
-        <MarketingFaq
-          title="Frequently asked questions"
-          collapsible={false}
-          items={faqs.map((faq) => ({
-            question: faq.question,
-            answer: faq.answer,
-          }))}
-        />
-      </section>
+        <section className="mt-24 border-t border-[var(--ln-line)] pt-16">
+          <h2 className="font-display text-2xl font-medium md:text-3xl">FAQ</h2>
+          <div className="mt-8 divide-y divide-[var(--ln-line)] border-y border-[var(--ln-line)]">
+            {faqs.map((faq) => (
+              <div key={faq.question} className="grid gap-3 py-6 md:grid-cols-[0.9fr_1.1fr]">
+                <p className="text-sm font-medium text-[var(--ln-ink)]">{faq.question}</p>
+                <p className="text-sm leading-relaxed text-[var(--ln-muted)]">{faq.answer}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

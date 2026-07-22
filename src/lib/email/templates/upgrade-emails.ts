@@ -3,29 +3,30 @@ import {
   emailButton,
   emailParagraph,
   emailMuted,
+  emailGreeting,
+  emailStrong,
+  emailAlert,
+  emailHelp,
   escapeHtml,
 } from "./layout";
-
-function greeting(name: string) {
-  return name ? `Hi ${escapeHtml(name)},` : "Hi there,";
-}
 
 export function renderUpgradeSubmittedEmail(params: {
   name: string;
   billingUrl: string;
 }) {
   const body = `
-    ${emailParagraph(greeting(params.name))}
-    ${emailParagraph("We've received your plan upgrade request. Our team will verify your payment and activate your new plan shortly.")}
-    ${emailParagraph("You'll receive another notification once your request is approved or if we need more information.")}
+    ${emailGreeting(params.name)}
+    ${emailParagraph("We’ve received your upgrade request and will verify payment shortly.")}
+    ${emailParagraph("You’ll get another email when it’s approved — or if we need anything else.")}
     ${emailButton(params.billingUrl, "View billing")}
-    ${emailMuted("Typical review time is 1–2 business days.")}
+    ${emailMuted("Typical review time: 1–2 business days.")}
   `;
   return {
-    subject: "We received your upgrade request",
+    subject: "Upgrade request received",
     html: renderEmailLayout({
-      preheader: "Your upgrade request is being reviewed",
-      title: "Upgrade request received",
+      preheader: "We’re reviewing your plan upgrade",
+      eyebrow: "Billing",
+      title: "Request received",
       body,
     }),
   };
@@ -37,15 +38,19 @@ export function renderUpgradeApprovedEmail(params: {
   billingUrl: string;
 }) {
   const body = `
-    ${emailParagraph(greeting(params.name))}
-    ${emailParagraph(`Great news — your upgrade to <strong style="color:#f9fafb;">${escapeHtml(params.planLabel)}</strong> is active.`)}
-    ${emailParagraph("Your new website limits and features are available now.")}
+    ${emailGreeting(params.name)}
+    ${emailAlert(
+      "success",
+      `Your ${escapeHtml(params.planLabel)} plan is active. New limits and features are available now.`,
+      "Approved"
+    )}
     ${emailButton(params.billingUrl, "Go to billing")}
   `;
   return {
-    subject: `Your ${params.planLabel} upgrade is active`,
+    subject: `${params.planLabel} is active`,
     html: renderEmailLayout({
-      preheader: "Your plan upgrade was approved",
+      preheader: "Your Health Mesh upgrade is live",
+      eyebrow: "Billing",
       title: "Upgrade approved",
       body,
     }),
@@ -58,17 +63,18 @@ export function renderUpgradeRejectedEmail(params: {
   billingUrl: string;
 }) {
   const body = `
-    ${emailParagraph(greeting(params.name))}
-    ${emailParagraph("We couldn't approve your upgrade request at this time.")}
-    ${emailParagraph(`<strong style="color:#f9fafb;">Reason:</strong> ${escapeHtml(params.reason)}`)}
-    ${emailParagraph("You can submit a new request with the correct payment reference or contact support for help.")}
-    ${emailButton(params.billingUrl, "Billing & support")}
+    ${emailGreeting(params.name)}
+    ${emailAlert("warning", escapeHtml(params.reason), "Couldn’t approve")}
+    ${emailParagraph("You can submit a new request with the correct payment reference, or contact support.")}
+    ${emailButton(params.billingUrl, "Open billing")}
+    ${emailHelp()}
   `;
   return {
     subject: "Update on your upgrade request",
     html: renderEmailLayout({
       preheader: "Your upgrade request needs attention",
-      title: "Upgrade request declined",
+      eyebrow: "Billing",
+      title: "Upgrade not approved",
       body,
     }),
   };
@@ -80,14 +86,17 @@ export function renderLimitsIncreasedEmail(params: {
   billingUrl: string;
 }) {
   const body = `
-    ${emailParagraph(greeting(params.name))}
-    ${emailParagraph(`Your website limit has been increased. You can now connect up to <strong style="color:#f9fafb;">${params.websiteLimit}</strong> websites.`)}
-    ${emailButton(params.billingUrl, "View billing")}
+    ${emailGreeting(params.name)}
+    ${emailParagraph(
+      `Your website limit is now ${emailStrong(String(params.websiteLimit))}. You can connect additional sites anytime.`
+    )}
+    ${emailButton(params.billingUrl, "View account")}
   `;
   return {
-    subject: "Your website limit was updated",
+    subject: "Website limit updated",
     html: renderEmailLayout({
-      preheader: "Your account limits were updated",
+      preheader: "Your account limits were increased",
+      eyebrow: "Account",
       title: "Limits increased",
       body,
     }),
@@ -104,18 +113,19 @@ export function renderAccountUpdatedEmail(params: {
   const detail = params.message
     ? emailParagraph(escapeHtml(params.message))
     : emailParagraph(
-        `Your account is now on <strong style="color:#f9fafb;">${escapeHtml(params.planLabel)}</strong> with a limit of <strong style="color:#f9fafb;">${params.websiteLimit}</strong> websites.`
+        `Your account is now on ${emailStrong(escapeHtml(params.planLabel))} with a limit of ${emailStrong(String(params.websiteLimit))} websites.`
       );
 
   const body = `
-    ${emailParagraph(greeting(params.name))}
+    ${emailGreeting(params.name)}
     ${detail}
     ${emailButton(params.billingUrl, "View account")}
   `;
   return {
-    subject: "Your account was updated",
+    subject: "Account updated",
     html: renderEmailLayout({
-      preheader: "Your LoopNode account settings changed",
+      preheader: "Your Health Mesh account settings changed",
+      eyebrow: "Account",
       title: "Account updated",
       body,
     }),

@@ -1,4 +1,4 @@
-const USER_AGENT = "LoopNode-Coverage/2.0 (+https://loopnode.dev)";
+const USER_AGENT = "HealthMesh-Coverage/2.0 (+https://loopnode.dev)";
 
 export async function fetchPageHtml(
   pageUrl: string,

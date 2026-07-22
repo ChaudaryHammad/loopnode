@@ -17,7 +17,7 @@ export const blogPosts: BlogPost[] = [
       "A practical guide to LCP, INP, and CLS — what they measure, why Google cares, and the fixes that actually move your Lighthouse scores.",
     date: "June 15, 2026",
     readTime: "8 min read",
-    author: "LoopNode Team",
+    author: "Health Mesh Team",
     category: "Performance",
     content: [
       {
@@ -77,11 +77,11 @@ export const blogPosts: BlogPost[] = [
       },
       {
         type: "h2",
-        text: "How LoopNode helps",
+        text: "How Health Mesh helps",
       },
       {
         type: "p",
-        text: "LoopNode runs real Lighthouse audits against your live URLs and stores LCP, INP, CLS, FCP, and TBT on every scan. You see trends over time, drill into performance findings, and prioritize fixes by severity — without manually running Chrome DevTools on every deploy.",
+        text: "Health Mesh runs real Lighthouse audits against your live URLs and stores LCP, INP, CLS, FCP, and TBT on every scan. You see trends over time, drill into performance findings, and prioritize fixes by severity — without manually running Chrome DevTools on every deploy.",
       },
     ],
   },
@@ -92,7 +92,7 @@ export const blogPosts: BlogPost[] = [
       "Accessibility is not a one-time audit. Here is a repeatable checklist for keyboard navigation, contrast, forms, and screen reader compatibility.",
     date: "June 10, 2026",
     readTime: "9 min read",
-    author: "LoopNode Team",
+    author: "Health Mesh Team",
     category: "Accessibility",
     content: [
       {
@@ -154,7 +154,7 @@ export const blogPosts: BlogPost[] = [
       },
       {
         type: "p",
-        text: "LoopNode injects axe-core into a real browser session during each accessibility audit. It checks WCAG 2 A/AA rules and best practices, then groups violations by severity with selectors so your team knows exactly which elements to fix.",
+        text: "Health Mesh injects axe-core into a real browser session during each accessibility audit. It checks WCAG 2 A/AA rules and best practices, then groups violations by severity with selectors so your team knows exactly which elements to fix.",
       },
     ],
   },
@@ -165,7 +165,7 @@ export const blogPosts: BlogPost[] = [
       "Security headers are your first line of defense against XSS, clickjacking, and downgrade attacks. Here is what each header does and how to configure them.",
     date: "May 28, 2026",
     readTime: "10 min read",
-    author: "LoopNode Team",
+    author: "Health Mesh Team",
     category: "Security",
     content: [
       {
@@ -219,11 +219,11 @@ export const blogPosts: BlogPost[] = [
       },
       {
         type: "h2",
-        text: "How LoopNode grades your CSP",
+        text: "How Health Mesh grades your CSP",
       },
       {
         type: "p",
-        text: "LoopNode fetches live response headers on every security audit, parses your CSP directives, assigns a letter grade (A–F), and surfaces specific weaknesses like unsafe-inline or missing object-src. You also get tiered recommendations — from quick wins to advanced hardening — so you can improve policy incrementally without breaking production.",
+        text: "Health Mesh fetches live response headers on every security audit, parses your CSP directives, assigns a letter grade (A–F), and surfaces specific weaknesses like unsafe-inline or missing object-src. You also get tiered recommendations — from quick wins to advanced hardening — so you can improve policy incrementally without breaking production.",
       },
     ],
   },

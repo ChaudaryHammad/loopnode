@@ -1,8 +1,11 @@
 import {
+  emailAlert,
   emailButton,
+  emailGreeting,
   emailInfoBox,
   emailMuted,
   emailParagraph,
+  emailStrong,
   escapeHtml,
   renderEmailLayout,
 } from "@/lib/email/templates/layout";
@@ -17,23 +20,26 @@ export function renderUptimeDownEmail(params: {
   dashboardUrl: string;
 }) {
   const body = `
-    ${emailParagraph(`Hi ${escapeHtml(params.name || "there")},`)}
-    ${emailParagraph(
-      `Your monitor for <strong style="color:#f9fafb;">${escapeHtml(params.websiteName)}</strong> detected an outage.`
+    ${emailGreeting(params.name)}
+    ${emailAlert(
+      "danger",
+      `${escapeHtml(params.websiteName)} looks unreachable.`,
+      "Downtime"
     )}
-    ${emailInfoBox("Incident details", [
+    ${emailInfoBox("Incident", [
       { label: "URL", value: params.url },
       { label: "Status", value: params.httpStatus },
       { label: "Error", value: params.error },
       { label: "Detected", value: params.checkedAt },
     ])}
     ${emailButton(params.dashboardUrl, "Open monitor")}
-    ${emailMuted("You'll receive another email when the site recovers (if recovery alerts are enabled).")}
+    ${emailMuted("We’ll email you again when the site recovers, if recovery alerts are enabled.")}
   `;
   return {
-    subject: `[Down] ${params.websiteName} is unreachable`,
+    subject: `[Down] ${params.websiteName}`,
     html: renderEmailLayout({
       preheader: `${params.websiteName} appears to be down`,
+      eyebrow: "Monitoring",
       title: "Website down",
       body,
     }),
@@ -49,11 +55,13 @@ export function renderUptimeRecoveredEmail(params: {
   dashboardUrl: string;
 }) {
   const body = `
-    ${emailParagraph(`Hi ${escapeHtml(params.name || "there")},`)}
-    ${emailParagraph(
-      `<strong style="color:#f9fafb;">${escapeHtml(params.websiteName)}</strong> is back up.`
+    ${emailGreeting(params.name)}
+    ${emailAlert(
+      "success",
+      `${escapeHtml(params.websiteName)} is responding again.`,
+      "Recovered"
     )}
-    ${emailInfoBox("Recovery details", [
+    ${emailInfoBox("Recovery", [
       { label: "URL", value: params.url },
       { label: "Downtime", value: params.downtime },
       { label: "Latency", value: params.latencyMs },
@@ -61,9 +69,10 @@ export function renderUptimeRecoveredEmail(params: {
     ${emailButton(params.dashboardUrl, "View monitor")}
   `;
   return {
-    subject: `[Recovered] ${params.websiteName} is back up`,
+    subject: `[Recovered] ${params.websiteName}`,
     html: renderEmailLayout({
-      preheader: `${params.websiteName} recovered`,
+      preheader: `${params.websiteName} is back up`,
+      eyebrow: "Monitoring",
       title: "Website recovered",
       body,
     }),
@@ -78,24 +87,29 @@ export function renderUptimeSslExpiringEmail(params: {
   expiresAt: string;
   dashboardUrl: string;
 }) {
+  const days =
+    params.daysRemaining === 1 ? "1 day" : `${params.daysRemaining} days`;
   const body = `
-    ${emailParagraph(`Hi ${escapeHtml(params.name || "there")},`)}
-    ${emailParagraph(
-      `The SSL certificate for <strong style="color:#f9fafb;">${escapeHtml(params.websiteName)}</strong> expires in <strong style="color:#fbbf24;">${params.daysRemaining} day${params.daysRemaining === 1 ? "" : "s"}</strong>.`
+    ${emailGreeting(params.name)}
+    ${emailAlert(
+      "warning",
+      `SSL for ${emailStrong(escapeHtml(params.websiteName))} expires in ${emailStrong(days)}.`,
+      "SSL"
     )}
     ${emailInfoBox("Certificate", [
       { label: "URL", value: params.url },
       { label: "Expires", value: params.expiresAt },
-      { label: "Days left", value: String(params.daysRemaining) },
+      { label: "Remaining", value: days },
     ])}
     ${emailButton(params.dashboardUrl, "Open monitor")}
-    ${emailMuted("Renew the certificate before it expires to avoid browser warnings and downtime.")}
+    ${emailMuted("Renew before expiry to avoid browser warnings and traffic loss.")}
   `;
   return {
-    subject: `[SSL] ${params.websiteName} certificate expires in ${params.daysRemaining}d`,
+    subject: `[SSL] ${params.websiteName} expires in ${params.daysRemaining}d`,
     html: renderEmailLayout({
       preheader: `SSL expires in ${params.daysRemaining} days`,
-      title: "SSL certificate expiring",
+      eyebrow: "Security",
+      title: "Certificate expiring",
       body,
     }),
   };
@@ -110,11 +124,13 @@ export function renderUptimeSlowEmail(params: {
   dashboardUrl: string;
 }) {
   const body = `
-    ${emailParagraph(`Hi ${escapeHtml(params.name || "there")},`)}
-    ${emailParagraph(
-      `<strong style="color:#f9fafb;">${escapeHtml(params.websiteName)}</strong> responded slower than your threshold.`
+    ${emailGreeting(params.name)}
+    ${emailAlert(
+      "warning",
+      `${escapeHtml(params.websiteName)} responded slower than your threshold.`,
+      "Performance"
     )}
-    ${emailInfoBox("Performance", [
+    ${emailInfoBox("Response", [
       { label: "URL", value: params.url },
       { label: "Latency", value: `${params.latencyMs} ms` },
       { label: "Threshold", value: `${params.thresholdMs} ms` },
@@ -122,10 +138,11 @@ export function renderUptimeSlowEmail(params: {
     ${emailButton(params.dashboardUrl, "Open monitor")}
   `;
   return {
-    subject: `[Slow] ${params.websiteName} response ${params.latencyMs}ms`,
+    subject: `[Slow] ${params.websiteName} · ${params.latencyMs}ms`,
     html: renderEmailLayout({
       preheader: `Slow response: ${params.latencyMs}ms`,
-      title: "Slow response alert",
+      eyebrow: "Performance",
+      title: "Slow response",
       body,
     }),
   };

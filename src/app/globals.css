@@ -3,7 +3,7 @@
 @plugin "tailwindcss-animate";
 
 @theme {
-  --font-mono: var(--font-roboto-mono);
+  --font-mono: var(--font-geist-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
@@ -106,6 +106,246 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ─── LoopNode marketing design system ───────────────────────────────────── */
+.marketing {
+  --ln-bg: #f2f3f5;
+  --ln-bg-deep: #e8eaee;
+  --ln-surface: #ffffff;
+  --ln-ink: #0a0c10;
+  --ln-ink-soft: #1a1f29;
+  --ln-muted: #5c6570;
+  --ln-faint: #8b939e;
+  --ln-line: rgba(10, 12, 16, 0.08);
+  --ln-line-strong: rgba(10, 12, 16, 0.14);
+  --ln-signal: #0d7a6f;
+  --ln-signal-ink: #085a52;
+  --ln-signal-soft: #dff3f0;
+  --ln-alert: #b42318;
+  --ln-alert-soft: #fceceb;
+  --ln-warn: #b54708;
+  --ln-warn-soft: #fef0c7;
+  --ln-panel: #0b1220;
+  --ln-panel-elevated: #121a2b;
+  --ln-panel-line: rgba(255, 255, 255, 0.08);
+  --ln-panel-muted: rgba(255, 255, 255, 0.55);
+  --ln-panel-faint: rgba(255, 255, 255, 0.28);
+  --ln-radius-sm: 6px;
+  --ln-radius: 10px;
+  --ln-radius-lg: 16px;
+  --ln-shadow: 0 1px 1px rgba(10, 12, 16, 0.03), 0 12px 40px rgba(10, 12, 16, 0.06);
+  --ln-shadow-sm: 0 1px 2px rgba(10, 12, 16, 0.04);
+
+  background: var(--ln-bg);
+  color: var(--ln-ink);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-sora), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.035em;
+}
+
+.marketing .font-display {
+  font-family: var(--font-sora), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.035em;
+}
+
+.marketing .font-mono {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  letter-spacing: -0.01em;
+}
+
+.marketing .ln-container {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .marketing .ln-container {
+    padding-inline: 2rem;
+  }
+}
+
+.marketing .ln-hairline {
+  border-color: var(--ln-line);
+}
+
+.marketing .ln-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(10, 12, 16, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(10, 12, 16, 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 75%);
+}
+
+/* Hero mesh — Grainient-style grainy soft blend, Health Mesh palette */
+.marketing .ln-hero-mesh {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-color: #eef1f4;
+  background-image:
+    radial-gradient(ellipse 90% 70% at 12% 8%, rgba(13, 122, 111, 0.28), transparent 58%),
+    radial-gradient(ellipse 70% 55% at 88% 12%, rgba(120, 168, 196, 0.38), transparent 55%),
+    radial-gradient(ellipse 65% 50% at 72% 78%, rgba(190, 210, 198, 0.55), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 18% 72%, rgba(232, 214, 196, 0.45), transparent 58%),
+    radial-gradient(ellipse 50% 40% at 48% 42%, rgba(255, 255, 255, 0.72), transparent 65%),
+    linear-gradient(180deg, #f4f6f8 0%, #eef1f4 45%, #f2f3f5 100%);
+}
+
+.marketing .ln-hero-mesh::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.42;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+.marketing .ln-hero-mesh::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 55%,
+    rgba(242, 243, 245, 0.55) 78%,
+    var(--ln-bg) 100%
+  );
+}
+
+/* Auth shell — marketing design system; primary buttons match homepage ink/white */
+.auth-shell {
+  --background: var(--ln-bg);
+  --foreground: var(--ln-ink);
+  --color-foreground: var(--ln-ink);
+  --card: var(--ln-surface);
+  --card-foreground: var(--ln-ink);
+  --color-card-foreground: var(--ln-ink);
+  --primary: #0a0c10;
+  --primary-foreground: #ffffff;
+  --color-primary: #0a0c10;
+  --color-primary-foreground: #ffffff;
+  --secondary: #e8eaee;
+  --secondary-foreground: #0a0c10;
+  --color-secondary: #e8eaee;
+  --color-secondary-foreground: #0a0c10;
+  --muted: #e8eaee;
+  --muted-foreground: #5c6570;
+  --color-muted: #e8eaee;
+  --color-muted-foreground: #5c6570;
+  --accent: #e8eaee;
+  --accent-foreground: #0a0c10;
+  --color-accent-foreground: #0a0c10;
+  --border: rgba(10, 12, 16, 0.12);
+  --input: rgba(10, 12, 16, 0.12);
+  --color-border: rgba(10, 12, 16, 0.12);
+  --color-input: rgba(10, 12, 16, 0.12);
+  --ring: #0a0c10;
+  --color-ring: #0a0c10;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --color-destructive: #b42318;
+}
+
+.auth-shell label {
+  color: var(--ln-ink-soft);
+}
+
+.auth-shell input {
+  background: var(--ln-bg);
+  border-color: var(--ln-line-strong);
+  color: var(--ln-ink);
+}
+
+.auth-shell input::placeholder {
+  color: var(--ln-faint);
+}
+
+.auth-shell input:focus-visible {
+  border-color: var(--ln-signal);
+  box-shadow: 0 0 0 3px rgba(13, 122, 111, 0.15);
+}
+
+@keyframes ln-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes ln-scan {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ln-bar {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scaleY(0.45);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.ln-animate-pulse-dot {
+  animation: ln-pulse 2s ease-in-out infinite;
+}
+
+.ln-animate-scan {
+  animation: ln-scan 3.2s ease-in-out infinite;
+}
+
+/* Health Mesh Cadence — Fade cascade loader (brand motion L04) */
+@keyframes cadence-fade {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.cadence-fade-bar {
+  display: block;
+  border-radius: 1px;
+  animation: cadence-fade 1.2s ease-in-out infinite;
+}
+
+.cadence-fade-bar:nth-child(1) {
+  animation-delay: 0s;
+}
+.cadence-fade-bar:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.cadence-fade-bar:nth-child(3) {
+  animation-delay: 0.24s;
+}
+.cadence-fade-bar:nth-child(4) {
+  animation-delay: 0.36s;
+}
+.cadence-fade-bar:nth-child(5) {
+  animation-delay: 0.48s;
 }
 
 @layer base {

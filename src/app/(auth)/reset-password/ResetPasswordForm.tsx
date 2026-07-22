@@ -7,7 +7,9 @@ import Link from "next/link";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { resetPasswordAction } from "@/actions/auth";
 import { toast } from "@/lib/toast";
-import { Activity, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { AuthBrandHeader } from "@/components/brand/auth-brand-header";
+import { CadenceLoader } from "@/components/brand/cadence-loader";
 
 export default function ResetPasswordForm({ token }: { token?: string }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -61,17 +63,10 @@ export default function ResetPasswordForm({ token }: { token?: string }) {
 
   return (
     <div className="w-full">
-      <div className="flex flex-col items-center text-center mb-8">
-        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 text-primary mb-4 animate-pulse">
-          <Activity className="w-6 h-6" />
-        </div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          New Password
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Please enter your secure new password below
-        </p>
-      </div>
+      <AuthBrandHeader
+        title="New Password"
+        subtitle="Please enter your secure new password below"
+      />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
@@ -93,9 +88,14 @@ export default function ResetPasswordForm({ token }: { token?: string }) {
               tabIndex={-1}
               disabled={isPending}
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors outline-none"
+              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-[var(--ln-faint)] hover:text-[var(--ln-ink)] disabled:opacity-50"
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPassword ? (
+                <EyeOff className="size-4" strokeWidth={1.75} />
+              ) : (
+                <Eye className="size-4" strokeWidth={1.75} />
+              )}
             </button>
           </div>
           {errors.password && (
@@ -122,9 +122,14 @@ export default function ResetPasswordForm({ token }: { token?: string }) {
               tabIndex={-1}
               disabled={isPending}
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors outline-none"
+              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-[var(--ln-faint)] hover:text-[var(--ln-ink)] disabled:opacity-50"
+              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
             >
-              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showConfirmPassword ? (
+                <EyeOff className="size-4" strokeWidth={1.75} />
+              ) : (
+                <Eye className="size-4" strokeWidth={1.75} />
+              )}
             </button>
           </div>
           {errors.confirmPassword && (
@@ -135,11 +140,11 @@ export default function ResetPasswordForm({ token }: { token?: string }) {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full flex items-center justify-center px-4 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm shadow-lg shadow-primary/20 hover:bg-primary/95 active:scale-[0.99] transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+          className="w-full flex items-center justify-center px-4 py-3 rounded-[var(--ln-radius-sm)] bg-[var(--ln-ink)] text-white font-semibold text-sm hover:bg-[var(--ln-ink-soft)] active:translate-y-px transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
         >
           {isPending ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <CadenceLoader size="sm" className="mr-2 text-white" />
               Updating password...
             </>
           ) : (
@@ -151,7 +156,7 @@ export default function ResetPasswordForm({ token }: { token?: string }) {
       <p className="text-center text-sm text-muted-foreground mt-8">
         <Link
           href="/login"
-          className="font-semibold text-primary hover:text-primary/80 transition-colors"
+          className="font-semibold text-[var(--ln-ink)] hover:text-[var(--ln-ink-soft)] transition-colors"
         >
           Back to sign in
         </Link>

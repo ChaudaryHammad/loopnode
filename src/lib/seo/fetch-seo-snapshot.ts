@@ -30,7 +30,7 @@ export async function fetchSeoSnapshot(pageUrl: string): Promise<SeoSnapshot> {
   try {
     const res = await fetch(pageUrl, {
       signal: AbortSignal.timeout(15000),
-      headers: { "User-Agent": "LoopNode/1.0 (+https://loopnode.dev)" },
+      headers: { "User-Agent": "HealthMesh/1.0 (+https://loopnode.dev)" },
     });
     if (!res.ok) {
       return {

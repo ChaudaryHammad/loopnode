@@ -17,7 +17,7 @@ interface RecentActivityProps {
 function formatActivityLabel(action: string, description: string | null): string {
   switch (action) {
     case "USER_REGISTERED":
-      return "Welcome aboard — your LoopNode account is ready";
+      return "Welcome aboard — your Health Mesh account is ready";
     case "EMAIL_VERIFIED":
       return "You're all set — email verified successfully";
     case "PASSWORD_RESET":
@@ -35,8 +35,8 @@ function formatActivityLabel(action: string, description: string | null): string
   // Soften leftover system-style "… for email@…" strings from older logs
   if (description) {
     return description
-      .replace(/^User account created for\s+\S+/i, "Welcome aboard — your LoopNode account is ready")
-      .replace(/^Account created$/i, "Welcome aboard — your LoopNode account is ready")
+      .replace(/^User account created for\s+\S+/i, "Welcome aboard — your Health Mesh account is ready")
+      .replace(/^Account created$/i, "Welcome aboard — your Health Mesh account is ready")
       .replace(/^Email verified for\s+\S+/i, "You're all set — email verified successfully")
       .replace(/^Email verified$/i, "You're all set — email verified successfully")
       .replace(/^Password reset completed for\s+\S+/i, "Your password was updated successfully")

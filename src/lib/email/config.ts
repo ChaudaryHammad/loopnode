@@ -6,7 +6,7 @@ export function getAppUrl(): string {
 
 export function formatFromAddress(from: string): string {
   if (from.includes("<") && from.includes(">")) return from;
-  return `LoopNode <${from}>`;
+  return `Health Mesh <${from}>`;
 }
 
 export function getEmailFrom(): string {

@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -18,6 +17,7 @@ import {
   isChildNavActive,
   isNavActive,
 } from "@/components/layout/dashboard-nav";
+import { HealthMeshLogo, HealthMeshMark } from "@/components/brand/healthmesh-logo";
 
 export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -45,14 +45,15 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
       }`}
     >
       <div className="flex items-center h-16 px-6 border-b border-border/40 justify-between">
-        <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden select-none">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary shrink-0">
-            <Activity className="w-4 h-4" />
-          </div>
-          {!collapsed && (
-            <span className="font-bold text-sm tracking-tight bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
-              LoopNode
-            </span>
+        <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden select-none">
+          {collapsed ? (
+            <HealthMeshMark variant="inverse" className="size-8" />
+          ) : (
+            <HealthMeshLogo
+              variant="inverse"
+              markClassName="size-7"
+              wordmarkClassName="text-sm text-foreground"
+            />
           )}
         </Link>
         <button
