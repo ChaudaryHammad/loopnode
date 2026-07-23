@@ -7,6 +7,9 @@ import { ArrowRight } from "lucide-react";
 import { LiveMonitorCanvas } from "@/components/marketing/live-monitor-canvas";
 import { MarketingButton } from "@/components/marketing/primitives";
 
+const HERO_SUPPORT =
+  "Continuous checks for uptime, Core Web Vitals, accessibility, SEO, security headers, and broken links — so production stays reliable.";
+
 const HeroShaderBg = dynamic(
   () =>
     import("@/components/marketing/hero-shader-bg").then((m) => m.HeroShaderBg),
@@ -26,23 +29,23 @@ export function HomeHero({ isLoggedIn }: { isLoggedIn: boolean }) {
       <div className="absolute inset-0 ln-grid-bg opacity-25" />
 
       <div className="relative ln-container pt-16 pb-12 md:pt-24 md:pb-16">
-        <motion.p
+        <motion.h1
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="font-display text-5xl font-semibold tracking-tight text-[var(--ln-ink)] sm:text-6xl md:text-7xl lg:text-[5.5rem]"
         >
           Health Mesh
-        </motion.p>
+        </motion.h1>
 
-        <motion.h1
+        <motion.p
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
           className="mt-6 max-w-3xl font-display text-3xl font-medium leading-[1.1] text-[var(--ln-ink-soft)] sm:text-4xl md:text-5xl"
         >
-          Website health monitoring — know before your users do.
-        </motion.h1>
+          Website health monitoring software — know before your users do.
+        </motion.p>
 
         <motion.p
           initial={{ opacity: 0, y: 16 }}
@@ -50,8 +53,7 @@ export function HomeHero({ isLoggedIn }: { isLoggedIn: boolean }) {
           transition={{ duration: 0.7, delay: 0.16, ease: [0.22, 1, 0.36, 1] }}
           className="mt-5 max-w-xl text-base leading-relaxed text-[var(--ln-muted)] md:text-lg"
         >
-          Continuous checks for uptime, Core Web Vitals, accessibility, SEO,
-          security headers, and broken links — so production stays reliable.
+          {HERO_SUPPORT}
         </motion.p>
 
         <motion.div

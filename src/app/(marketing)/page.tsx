@@ -7,12 +7,13 @@ import { JsonLd } from "@/components/marketing/json-ld";
 import { breadcrumbJsonLd } from "@/lib/marketing/json-ld";
 
 export const metadata = marketingMetadata({
-  title: "Website Health Monitoring Software — Uptime, Performance & SEO",
+  title: "Health Mesh — Website Health Monitoring Software",
   absoluteTitle: true,
   description:
-    "Health Mesh monitors website uptime, Core Web Vitals, accessibility, SEO, security headers, and broken links in one dashboard. Catch production issues before your users do.",
+    "Health Mesh is website monitoring and audit software for uptime, Core Web Vitals, accessibility, SEO, security headers, and broken links. Sign in with email or Google to manage your sites.",
   path: "/",
   keywords: [
+    "Health Mesh",
     "website health monitoring",
     "website monitoring software",
     "uptime monitoring",

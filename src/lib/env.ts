@@ -13,6 +13,15 @@ const envSchema = z
 
     AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
     AUTH_URL: z.string().url("AUTH_URL must be a valid URL").optional(),
+    // Empty strings from .env.example are treated as unset
+    AUTH_GOOGLE_ID: z
+      .string()
+      .optional()
+      .transform((v) => (v && v.trim().length > 0 ? v.trim() : undefined)),
+    AUTH_GOOGLE_SECRET: z
+      .string()
+      .optional()
+      .transform((v) => (v && v.trim().length > 0 ? v.trim() : undefined)),
 
     EMAIL_FROM: z.string().min(1, "EMAIL_FROM is required"),
     SMTP_HOST: z.string().min(1, "SMTP_HOST is required"),
@@ -61,6 +70,8 @@ const getEnvData = () => {
       DIRECT_URL: process.env.DIRECT_URL,
       AUTH_SECRET: process.env.AUTH_SECRET,
       AUTH_URL: process.env.AUTH_URL,
+      AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
+      AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
       EMAIL_FROM: process.env.EMAIL_FROM,
       SMTP_HOST: process.env.SMTP_HOST,
       SMTP_PORT: process.env.SMTP_PORT,

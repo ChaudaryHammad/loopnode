@@ -23,6 +23,7 @@ export default async function SettingsProfilePage() {
       user={{
         name: user.name,
         email: user.email,
+        hasPassword: user.hasPassword,
       }}
     />
   );

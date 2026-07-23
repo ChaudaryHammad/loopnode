@@ -37,7 +37,7 @@ export function buildContentSecurityPolicy(options: {
       .filter(Boolean)
       .join(" "),
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' blob: data: ${CLOUDINARY_HOST}`,
+    `img-src 'self' blob: data: ${CLOUDINARY_HOST} https://*.googleusercontent.com`,
     "font-src 'self' data:",
     [
       "connect-src",

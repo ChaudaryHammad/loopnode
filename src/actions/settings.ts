@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 import {
   changePasswordSchema,
   deleteAccountSchema,
+  setPasswordSchema,
   updateProfileSchema,
 } from "@/lib/validations/settings";
 
@@ -59,33 +60,58 @@ export async function changePasswordAction(values: unknown) {
     return { success: false, error: "Unauthorized." };
   }
 
-  const parsed = changePasswordSchema.safeParse(values);
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
-  }
-
-  const { currentPassword, newPassword } = parsed.data;
-
   try {
     const user = await prisma.user.findFirst({
       where: { id: session.user.id, deletedAt: null },
       select: { id: true, hashedPassword: true },
     });
 
-    if (!user?.hashedPassword) {
+    if (!user) {
+      return { success: false, error: "Account not found." };
+    }
+
+    if (user.hashedPassword) {
+      const parsed = changePasswordSchema.safeParse(values);
+      if (!parsed.success) {
+        return {
+          success: false,
+          error: parsed.error.issues[0]?.message ?? "Invalid input.",
+        };
+      }
+
+      const { currentPassword, newPassword } = parsed.data;
+      const matches = await bcrypt.compare(currentPassword, user.hashedPassword);
+      if (!matches) {
+        return { success: false, error: "Current password is incorrect." };
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { hashedPassword },
+      });
+
+      await prisma.activityLog.create({
+        data: {
+          userId: user.id,
+          action: "PASSWORD_CHANGED",
+          description: "Password changed from account settings",
+        },
+      });
+
+      return { success: true, message: "Password updated successfully." };
+    }
+
+    // OAuth-only: allow setting an initial password without a current one.
+    const parsed = setPasswordSchema.safeParse(values);
+    if (!parsed.success) {
       return {
         success: false,
-        error: "Password login is not set up for this account.",
+        error: parsed.error.issues[0]?.message ?? "Invalid input.",
       };
     }
 
-    const matches = await bcrypt.compare(currentPassword, user.hashedPassword);
-    if (!matches) {
-      return { success: false, error: "Current password is incorrect." };
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-
+    const hashedPassword = await bcrypt.hash(parsed.data.newPassword, 12);
     await prisma.user.update({
       where: { id: user.id },
       data: { hashedPassword },
@@ -95,11 +121,12 @@ export async function changePasswordAction(values: unknown) {
       data: {
         userId: user.id,
         action: "PASSWORD_CHANGED",
-        description: "Password changed from account settings",
+        description: "Password set for email sign-in",
       },
     });
 
-    return { success: true, message: "Password updated successfully." };
+    revalidateProfilePaths();
+    return { success: true, message: "Password set successfully." };
   } catch (error) {
     console.error("Change password error:", error);
     return { success: false, error: "Failed to change password." };
@@ -252,6 +279,7 @@ export async function getAccountSettingsAction() {
         role: true,
         createdAt: true,
         image: true,
+        hashedPassword: true,
       },
     }),
     getEntitlements(session.user.id),
@@ -271,6 +299,7 @@ export async function getAccountSettingsAction() {
       role: user.role,
       createdAt: user.createdAt,
       image: user.image,
+      hasPassword: Boolean(user.hashedPassword),
       websiteCount: entitlements.websiteCount,
       websiteLimit: entitlements.websiteLimit,
       plan: entitlements.plan,

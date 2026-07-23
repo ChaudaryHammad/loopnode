@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRound, Loader2, Trash2, UserRound } from "lucide-react";
 import {
   changePasswordSchema,
   deleteAccountSchema,
+  setPasswordSchema,
   updateProfileSchema,
 } from "@/lib/validations/settings";
 import {
@@ -30,6 +31,7 @@ interface ProfileSettingsFormProps {
   user: {
     name: string | null;
     email: string;
+    hasPassword: boolean;
   };
 }
 
@@ -44,7 +46,9 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
   });
 
   const passwordForm = useForm({
-    resolver: zodResolver(changePasswordSchema),
+    resolver: zodResolver(
+      user.hasPassword ? changePasswordSchema : setPasswordSchema
+    ),
     defaultValues: {
       currentPassword: "",
       newPassword: "",
@@ -149,24 +153,32 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
               </div>
               <div className="space-y-1">
                 <CardTitle>Password</CardTitle>
-                <CardDescription>Update your login credentials</CardDescription>
+                <CardDescription>
+                  {user.hasPassword
+                    ? "Update your login credentials"
+                    : "Add a password to also sign in with email"}
+                </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={onPasswordSubmit} className="space-y-4">
+              {user.hasPassword && (
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Current password</Label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    autoComplete="current-password"
+                    disabled={isPasswordPending}
+                    {...passwordForm.register("currentPassword")}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current password</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  autoComplete="current-password"
-                  disabled={isPasswordPending}
-                  {...passwordForm.register("currentPassword")}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New password</Label>
+                <Label htmlFor="newPassword">
+                  {user.hasPassword ? "New password" : "Password"}
+                </Label>
                 <Input
                   id="newPassword"
                   type="password"
@@ -176,7 +188,7 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm new password</Label>
+                <Label htmlFor="confirmPassword">Confirm password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -188,7 +200,7 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
 
               <Button type="submit" disabled={isPasswordPending}>
                 {isPasswordPending && <Loader2 className="animate-spin" />}
-                Update password
+                {user.hasPassword ? "Update password" : "Set password"}
               </Button>
             </form>
           </CardContent>

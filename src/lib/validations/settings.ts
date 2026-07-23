@@ -15,6 +15,18 @@ export const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
+/** For OAuth-only accounts that never set a password. */
+export const setPasswordSchema = z
+  .object({
+    currentPassword: z.string().optional(),
+    newPassword: z.string().min(6, "New password must be at least 6 characters"),
+    confirmPassword: z.string().min(6, "Confirm your new password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
 export const deleteAccountSchema = z.object({
   confirmEmail: z.string().email("Enter your email to confirm"),
 });

@@ -108,8 +108,11 @@ export default function PrivacyPage() {
         <p>
           We may receive limited information from service providers that help us
           operate Health Mesh (for example, email delivery, hosting, bot protection such
-          as reCAPTCHA, or analytics). Where those providers process personal data on
-          our behalf, they do so under contractual obligations.
+          as reCAPTCHA, analytics, or Google Sign-In when you choose to authenticate with
+          Google). From Google we receive your name, email address, email verification
+          status, and profile image as needed to create or link your account. Where those
+          providers process personal data on our behalf, they do so under contractual
+          obligations.
         </p>
       </section>
 

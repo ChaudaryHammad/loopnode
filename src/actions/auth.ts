@@ -21,8 +21,22 @@ import {
 } from "@/lib/email/templates";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { captureSignupLocation } from "@/lib/user-location";
+import { getSafeRedirectPath } from "@/lib/auth-redirect";
+import { isGoogleAuthEnabled } from "@/lib/google-auth";
 
-export async function loginAction(values: any) {
+export async function googleSignInAction(redirectTo?: string) {
+  if (!isGoogleAuthEnabled()) {
+    return {
+      success: false as const,
+      error: "Google sign-in is not configured. Please use email and password.",
+    };
+  }
+
+  const target = getSafeRedirectPath(redirectTo);
+  await signIn("google", { redirectTo: target });
+}
+
+export async function loginAction(values: unknown) {
   const parsed = loginSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: "Invalid form input." };
@@ -58,7 +72,7 @@ export async function loginAction(values: any) {
   }
 }
 
-export async function registerAction(values: any) {
+export async function registerAction(values: unknown) {
   const parsed = registerSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: "Invalid form input." };
@@ -161,7 +175,7 @@ export async function logoutAction() {
   await signOut({ redirectTo: "/login" });
 }
 
-export async function forgotPasswordAction(values: any) {
+export async function forgotPasswordAction(values: unknown) {
   const parsed = forgotPasswordSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: "Invalid email address." };
@@ -215,7 +229,7 @@ export async function forgotPasswordAction(values: any) {
   }
 }
 
-export async function resetPasswordAction(token: string, values: any) {
+export async function resetPasswordAction(token: string, values: unknown) {
   const parsed = resetPasswordSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, error: "Invalid form input." };

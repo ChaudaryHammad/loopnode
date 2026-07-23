@@ -71,6 +71,8 @@ export function HomeSections({ isLoggedIn }: { isLoggedIn: boolean }) {
               Every product should work for everyone.
             </h2>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-[var(--ln-muted)] md:text-lg">
+              Health Mesh is website monitoring software — uptime, Core Web Vitals,
+              accessibility, SEO, security headers, and broken links in one place.
               Reliability is more than uptime. It is whether people can actually use
               what you ship — including people with disabilities. Health Mesh helps teams
               keep products open, accessible, and compliant, so the web speaks to more
